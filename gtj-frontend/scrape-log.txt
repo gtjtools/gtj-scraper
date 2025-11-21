@@ -1,0 +1,1249 @@
+Found 155 companies starting with 'A'
+Starting scrape of companies starting with A...
+
+============================================================
+
+[1/155] Scraping: A-1 Air Carriers
+  ✓ Success
+  Name: A-1 Air Carriers
+  Certifications: 5 found
+  Bases: 0
+  Contact: erendon@a1aircarriers.com?subject=Enquiry via the Business Air News Handbook web site
+  Waiting 2000ms before next request...
+
+[2/155] Scraping: A-OK Jets
+  ✓ Success
+  Name: A-OK Jets
+  Certifications: 4 found
+  Bases: 0
+  Contact: charter@aokjets.com?subject=Enquiry via the Business Air News Handbook web site
+  Waiting 2000ms before next request...
+
+[3/155] Scraping: A&P Helicopters
+  ✓ Success
+  Name: A&P Helicopters
+  Certifications: 4 found
+  Bases: 0
+  Contact: craig@aphelicopters.com?subject=Enquiry via the Business Air News Handbook web site
+  Waiting 2000ms before next request...
+
+[4/155] Scraping: AA Sacramento Air Charter
+  ✓ Success
+  Name: AA Sacramento Air Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[5/155] Scraping: AAMRO Aviation
+  ✓ Success
+  Name: AAMRO Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[6/155] Scraping: AB Jets
+  ✓ Success
+  Name: AB Jets
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[7/155] Scraping: Aberdeen Flying Service
+  ✓ Success
+  Name: Aberdeen Flying Service
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[8/155] Scraping: Above The Hub Flight Services
+  ✓ Success
+  Name: Above The Hub Flight Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[9/155] Scraping: Acadian Air Med
+  ✓ Success
+  Name: Acadian Air Med
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[10/155] Scraping: Acadian Seaplanes
+  ✓ Success
+  Name: Acadian Seaplanes
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[11/155] Scraping: Accent Airways
+  ✓ Success
+  Name: Accent Airways
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[12/155] Scraping: AccessAir Charters and Management
+  ✓ Success
+  Name: AccessAir Charters and Management
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[13/155] Scraping: Ace Transport Service
+  ✓ Success
+  Name: Ace Transport Service
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[14/155] Scraping: ACI Jet
+  ✓ Success
+  Name: ACI Jet
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[15/155] Scraping: Action Air Express
+  ✓ Success
+  Name: Action Air Express
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[16/155] Scraping: Action Airlines
+  ✓ Success
+  Name: Action Airlines
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[17/155] Scraping: Adirondack Flying Service
+  ✓ Success
+  Name: Adirondack Flying Service
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[18/155] Scraping: Advanced Air Charters
+  ✓ Success
+  Name: Advanced Air Charters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[19/155] Scraping: Aerial Patrol
+  ✓ Success
+  Name: Aerial Patrol
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[20/155] Scraping: Aero Air
+  ✓ Success
+  Name: Aero Air
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[21/155] Scraping: Aero Air Charter
+  ✓ Success
+  Name: Aero Air Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[22/155] Scraping: Aero Center Atlanta
+  ✓ Success
+  Name: Aero Center Atlanta
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[23/155] Scraping: Aero Charter
+  ✓ Success
+  Name: Aero Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[24/155] Scraping: Aero Charter New England
+  ✓ Success
+  Name: Aero Charter New England
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[25/155] Scraping: Aero Dynamic Jets
+  ✓ Success
+  Name: Aero Dynamic Jets
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[26/155] Scraping: Aero Dynamics
+  ✓ Success
+  Name: Aero Dynamics
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[27/155] Scraping: Aero Med Express
+  ✓ Success
+  Name: Aero Med Express
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[28/155] Scraping: Aero Tech
+  ✓ Success
+  Name: Aero Tech
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[29/155] Scraping: Aero-Tech Services
+  ✓ Success
+  Name: Aero-Tech Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[30/155] Scraping: AeroCare Medical Transport System
+  ✓ Success
+  Name: AeroCare Medical Transport System
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[31/155] Scraping: Aeronautical Services of Greenwood
+  ✓ Success
+  Name: Aeronautical Services of Greenwood
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[32/155] Scraping: Aery Aviation
+  ✓ Success
+  Name: Aery Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[33/155] Scraping: Air 1st Aviation Companies of Oklahoma
+  ✓ Success
+  Name: Air 1st Aviation Companies of Oklahoma
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[34/155] Scraping: AIR 2
+  ✓ Success
+  Name: AIR 2
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[35/155] Scraping: Air 7
+  ✓ Success
+  Name: Air 7
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[36/155] Scraping: Air Ambulance Worldwide
+  ✓ Success
+  Name: Air Ambulance Worldwide
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[37/155] Scraping: Air Business
+  ✓ Success
+  Name: Air Business
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[38/155] Scraping: Air Cahana
+  ✓ Success
+  Name: Air Cahana
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[39/155] Scraping: Air Care
+  ✓ Success
+  Name: Air Care
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[40/155] Scraping: Air Cargo Carriers
+  ✓ Success
+  Name: Air Cargo Carriers
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[41/155] Scraping: Air Carriage
+  ✓ Success
+  Name: Air Carriage
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[42/155] Scraping: Air Center Helicopters
+  ✓ Success
+  Name: Air Center Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[43/155] Scraping: Air Charter Express
+  ✓ Success
+  Name: Air Charter Express
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[44/155] Scraping: Air Charter Miami
+  ✓ Success
+  Name: Air Charter Miami
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[45/155] Scraping: Air Charters
+  ✓ Success
+  Name: Air Charters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[46/155] Scraping: Air Charters of Excellence
+  ✓ Success
+  Name: Air Charters of Excellence
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[47/155] Scraping: Air Direct
+  ✓ Success
+  Name: Air Direct
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[48/155] Scraping: Air Excursions
+  ✓ Success
+  Name: Air Excursions
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[49/155] Scraping: Air Exec
+  ✓ Success
+  Name: Air Exec
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[50/155] Scraping: Air Flamenco
+  ✓ Success
+  Name: Air Flamenco
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[51/155] Scraping: Air Flight
+  ✓ Success
+  Name: Air Flight
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[52/155] Scraping: Air Flite
+  ✓ Success
+  Name: Air Flite
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[53/155] Scraping: Air Fuga
+  ✓ Success
+  Name: Air Fuga
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[54/155] Scraping: Air Key West
+  ✓ Success
+  Name: Air Key West
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[55/155] Scraping: Air Margarita
+  ✓ Success
+  Name: Air Margarita
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[56/155] Scraping: Air Maui Helicopter Tours
+  ✓ Success
+  Name: Air Maui Helicopter Tours
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[57/155] Scraping: Air Methods
+  ✓ Success
+  Name: Air Methods
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[58/155] Scraping: Air Metro Helicopters
+  ✓ Success
+  Name: Air Metro Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[59/155] Scraping: Air New England
+  ✓ Success
+  Name: Air New England
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[60/155] Scraping: Air Paradise
+  ✓ Success
+  Name: Air Paradise
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[61/155] Scraping: Air Reldan
+  ✓ Success
+  Name: Air Reldan
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[62/155] Scraping: Air Resources Helicopters
+  ✓ Success
+  Name: Air Resources Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[63/155] Scraping: Air SF Flight Services
+  ✓ Success
+  Name: Air SF Flight Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[64/155] Scraping: Air Shasta Rotor & Wing
+  ✓ Success
+  Name: Air Shasta Rotor & Wing
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[65/155] Scraping: Air Stat Private Air Charter
+  ✓ Success
+  Name: Air Stat Private Air Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[66/155] Scraping: Air Travel Management
+  ✓ Success
+  Name: Air Travel Management
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[67/155] Scraping: Air Trek
+  ✓ Success
+  Name: Air Trek
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[68/155] Scraping: Air Unlimited
+  ✓ Success
+  Name: Air Unlimited
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[69/155] Scraping: Air Wisconsin
+  ✓ Success
+  Name: Air Wisconsin
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[70/155] Scraping: Air Z Flying Service
+  ✓ Success
+  Name: Air Z Flying Service
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[71/155] Scraping: Aira Aviation
+  ✓ Success
+  Name: Aira Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[72/155] Scraping: Airborne Aviation Hawaii
+  ✓ Success
+  Name: Airborne Aviation Hawaii
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[73/155] Scraping: Airborne Flying Services
+  ✓ Success
+  Name: Airborne Flying Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[74/155] Scraping: Aircam National Helicopter Services
+  ✓ Success
+  Name: Aircam National Helicopter Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[75/155] Scraping: AirCharters Worldwide
+  ✓ Success
+  Name: AirCharters Worldwide
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[76/155] Scraping: Aircoastal Helicopters
+  ✓ Success
+  Name: Aircoastal Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[77/155] Scraping: Aircraft Evaluation & Management
+  ✓ Success
+  Name: Aircraft Evaluation & Management
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[78/155] Scraping: Aircraft Management Group
+  ✓ Success
+  Name: Aircraft Management Group
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[79/155] Scraping: Aircraft Services Group
+  ✓ Success
+  Name: Aircraft Services Group
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[80/155] Scraping: Aircraft Transport Service
+  ✓ Success
+  Name: Aircraft Transport Service
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[81/155] Scraping: AirGate Aviation
+  ✓ Success
+  Name: AirGate Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[82/155] Scraping: AirMed International
+  ✓ Success
+  Name: AirMed International
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[83/155] Scraping: AirNet II
+  ✓ Success
+  Name: AirNet II
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[84/155] Scraping: AirOne Helicopters
+  ✓ Success
+  Name: AirOne Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[85/155] Scraping: Airpac Airlines
+  ✓ Success
+  Name: Airpac Airlines
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[86/155] Scraping: Airquest Aviation
+  ✓ Success
+  Name: Airquest Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[87/155] Scraping: AirResource Charter
+  ✓ Success
+  Name: AirResource Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[88/155] Scraping: Airway Charter Services
+Error scraping operator details from https://www.businessairnews.com/hb_charterpage.html?recnum=152709: Request failed with status code 500
+  ✗ Error: Request failed with status code 500
+
+[89/155] Scraping: Airwest Helicopters
+  ✓ Success
+  Name: Airwest Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[90/155] Scraping: Airwest Helicopters
+  ✓ Success
+  Name: Airwest Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[91/155] Scraping: Airwolf Helicopters
+  ✓ Success
+  Name: Airwolf Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[92/155] Scraping: Aitheras Aviation Group
+  ✓ Success
+  Name: Aitheras Aviation Group
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[93/155] Scraping: Akamai Air
+  ✓ Success
+  Name: Akamai Air
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[94/155] Scraping: Alamo Helicopter Tours San Antonio
+  ✓ Success
+  Name: Alamo Helicopter Tours San Antonio
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[95/155] Scraping: Alaska Air Transit
+  ✓ Success
+  Name: Alaska Air Transit
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[96/155] Scraping: Alaska Central Express (ACE)
+  ✓ Success
+  Name: Alaska Central Express (ACE)
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[97/155] Scraping: Alaska Seaplanes
+  ✓ Success
+  Name: Alaska Seaplanes
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[98/155] Scraping: Alaska West Air
+  ✓ Success
+  Name: Alaska West Air
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[99/155] Scraping: Albatross Air
+  ✓ Success
+  Name: Albatross Air
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[100/155] Scraping: Alerion Aviation
+  ✓ Success
+  Name: Alerion Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[101/155] Scraping: Alexandria Aviation
+  ✓ Success
+  Name: Alexandria Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[102/155] Scraping: Ali’i Kauai Air Tours & Charters
+  ✓ Success
+  Name: Ali’i Kauai Air Tours & Charters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[103/155] Scraping: All-Star Executive Aviation
+  ✓ Success
+  Name: All-Star Executive Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[104/155] Scraping: Alliant Aviation
+  ✓ Success
+  Name: Alliant Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[105/155] Scraping: Aloft Aviation Services
+  ✓ Success
+  Name: Aloft Aviation Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[106/155] Scraping: Alpha Aviation
+  ✓ Success
+  Name: Alpha Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[107/155] Scraping: Alpha Three Aviation
+  ✓ Success
+  Name: Alpha Three Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[108/155] Scraping: Alpine Air Alaska
+  ✓ Success
+  Name: Alpine Air Alaska
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[109/155] Scraping: Alpine Air Express
+  ✓ Success
+  Name: Alpine Air Express
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[110/155] Scraping: Altius Aviation
+  ✓ Success
+  Name: Altius Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[111/155] Scraping: AM Air Service
+  ✓ Success
+  Name: AM Air Service
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[112/155] Scraping: Ambrosini Helicopters
+  ✓ Success
+  Name: Ambrosini Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[113/155] Scraping: American Air Charter
+  ✓ Success
+  Name: American Air Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[114/155] Scraping: American Jet Charter
+  ✓ Success
+  Name: American Jet Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[115/155] Scraping: American Jet International
+  ✓ Success
+  Name: American Jet International
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[116/155] Scraping: American Winds
+  ✓ Success
+  Name: American Winds
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[117/155] Scraping: Amerijet International
+  ✓ Success
+  Name: Amerijet International
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[118/155] Scraping: Ameristar Jet Charter
+  ✓ Success
+  Name: Ameristar Jet Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[119/155] Scraping: Ameritex Airways
+  ✓ Success
+  Name: Ameritex Airways
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[120/155] Scraping: Analar Corporation
+  ✓ Success
+  Name: Analar Corporation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[121/155] Scraping: Anchorage Aero
+  ✓ Success
+  Name: Anchorage Aero
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[122/155] Scraping: Anthem Commercial Air Services
+  ✓ Success
+  Name: Anthem Commercial Air Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[123/155] Scraping: Apex Aero
+  ✓ Success
+  Name: Apex Aero
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[124/155] Scraping: Apex Air Tours
+  ✓ Success
+  Name: Apex Air Tours
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[125/155] Scraping: Apex Heli Oregon
+  ✓ Success
+  Name: Apex Heli Oregon
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[126/155] Scraping: Apollo Medflight
+  ✓ Success
+  Name: Apollo Medflight
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[127/155] Scraping: ARH Aviation
+  ✓ Success
+  Name: ARH Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[128/155] Scraping: Aris Helicopters
+  ✓ Success
+  Name: Aris Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[129/155] Scraping: ARNE Aviation
+  ✓ Success
+  Name: ARNE Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[130/155] Scraping: Aspen Air Charter
+  ✓ Success
+  Name: Aspen Air Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[131/155] Scraping: Aspen Helicopters
+  ✓ Success
+  Name: Aspen Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[132/155] Scraping: ATD Flight Systems
+  ✓ Success
+  Name: ATD Flight Systems
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[133/155] Scraping: Atlanta Air Charter
+  ✓ Success
+  Name: Atlanta Air Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[134/155] Scraping: Atlantic Air Charter
+  ✓ Success
+  Name: Atlantic Air Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[135/155] Scraping: Atlantic Aviation GPI (Glacier Jet Center)
+  ✓ Success
+  Name: Atlantic Aviation GPI (Glacier Jet Center)
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[136/155] Scraping: Atomic Helicopters
+  ✓ Success
+  Name: Atomic Helicopters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[137/155] Scraping: Augusta Aviation
+  ✓ Success
+  Name: Augusta Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[138/155] Scraping: Aurora Aviation
+  ✓ Success
+  Name: Aurora Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[139/155] Scraping: Aurora Aviation Services
+  ✓ Success
+  Name: Aurora Aviation Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[140/155] Scraping: Av8-Orr Helicopter Services
+  ✓ Success
+  Name: Av8-Orr Helicopter Services
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[141/155] Scraping: Avalair Aircraft Management
+  ✓ Success
+  Name: Avalair Aircraft Management
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[142/155] Scraping: Avalon Air
+  ✓ Success
+  Name: Avalon Air
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[143/155] Scraping: Aviation Advisor
+  ✓ Success
+  Name: Aviation Advisor
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[144/155] Scraping: Aviation Charter
+  ✓ Success
+  Name: Aviation Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[145/155] Scraping: Aviation Charters
+  ✓ Success
+  Name: Aviation Charters
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[146/155] Scraping: Aviation First
+  ✓ Success
+  Name: Aviation First
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[147/155] Scraping: Aviation Resource Management
+  ✓ Success
+  Name: Aviation Resource Management
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[148/155] Scraping: Aviation Services Elite
+  ✓ Success
+  Name: Aviation Services Elite
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[149/155] Scraping: Aviation Specialties Unlimited
+  ✓ Success
+  Name: Aviation Specialties Unlimited
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[150/155] Scraping: Avion Jet Charter
+  ✓ Success
+  Name: Avion Jet Charter
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[151/155] Scraping: Axcess Air
+  ✓ Success
+  Name: Axcess Air
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[152/155] Scraping: Axiom Aviation Group
+  ✓ Success
+  Name: Axiom Aviation Group
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[153/155] Scraping: Axis Jet
+  ✓ Success
+  Name: Axis Jet
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[154/155] Scraping: Azimuth Aviation
+  ✓ Success
+  Name: Azimuth Aviation
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+  Waiting 2000ms before next request...
+
+[155/155] Scraping: Aztec Worldwide Airlines
+  ✓ Success
+  Name: Aztec Worldwide Airlines
+  Certifications: 2 found
+  Bases: 0
+  Contact: N/A
+
+============================================================
+
+Scraping complete!
+Results saved to: /Users/jonassison/Downloads/TrustJet/weyobe/trustjet-parse-pilot/scraped-data-A.json
+
+Summary:
+  Total companies: 155
+  Successful: 154
+  Failed: 1

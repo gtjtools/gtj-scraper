@@ -1,0 +1,383 @@
+{
+    "Results": [
+        {
+            "Fields": [
+                {
+                    "FieldName": "NtsbNo",
+                    "ExportName": "NtsbNo",
+                    "Values": [
+                        "ENG24LA012"
+                    ]
+                },
+                {
+                    "FieldName": "CompletionStatus",
+                    "ExportName": null,
+                    "Values": [
+                        "In work"
+                    ]
+                },
+                {
+                    "FieldName": "EventType",
+                    "ExportName": "EventType",
+                    "Values": [
+                        "Incident"
+                    ]
+                },
+                {
+                    "FieldName": "Mkey",
+                    "ExportName": "Mkey",
+                    "Values": [
+                        "193912"
+                    ]
+                },
+                {
+                    "FieldName": "IsStudy",
+                    "ExportName": null,
+                    "Values": [
+                        "false"
+                    ]
+                },
+                {
+                    "FieldName": "EventDate",
+                    "ExportName": "EventDate",
+                    "Values": [
+                        "2024-03-01T11:00:00Z"
+                    ]
+                },
+                {
+                    "FieldName": "City",
+                    "ExportName": "City",
+                    "Values": [
+                        "Missoula"
+                    ]
+                },
+                {
+                    "FieldName": "State",
+                    "ExportName": "State",
+                    "Values": [
+                        "Montana"
+                    ]
+                },
+                {
+                    "FieldName": "Country",
+                    "ExportName": "Country",
+                    "Values": [
+                        "United States"
+                    ]
+                },
+                {
+                    "FieldName": "ReportNo",
+                    "ExportName": "ReportNo",
+                    "Values": []
+                },
+                {
+                    "FieldName": "N#",
+                    "ExportName": null,
+                    "Values": [
+                        "N474NA",
+                        "N296EA"
+                    ]
+                },
+                {
+                    "FieldName": "VehicleMake",
+                    "ExportName": null,
+                    "Values": [
+                        "BRITISH AEROSPACE",
+                        "McDonnell Douglas"
+                    ]
+                },
+                {
+                    "FieldName": "VehicleModel",
+                    "ExportName": null,
+                    "Values": [
+                        "BAE 146 SERIES 200A",
+                        "DC-9-87"
+                    ]
+                },
+                {
+                    "FieldName": "HighestInjuryLevel",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "InjuryOngroundCount",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "InjuryOnboardCount",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "HasSafetyRec",
+                    "ExportName": "HasSafetyRec",
+                    "Values": [
+                        "false"
+                    ]
+                },
+                {
+                    "FieldName": "Mode",
+                    "ExportName": "Mode",
+                    "Values": [
+                        "Aviation"
+                    ]
+                },
+                {
+                    "FieldName": "ReportNumber",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "ReportType",
+                    "ExportName": "ReportType",
+                    "Values": [
+                        "DirectorBrief"
+                    ]
+                },
+                {
+                    "FieldName": "DocketPublishDate",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "OriginalPublishedDate",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "ReportDate",
+                    "ExportName": null,
+                    "Values": [
+                        "2024-04-17T22:17:09.818Z"
+                    ]
+                },
+                {
+                    "FieldName": "MostRecentReportType",
+                    "ExportName": null,
+                    "Values": [
+                        "Prelim"
+                    ]
+                },
+                {
+                    "FieldName": "EV_ID",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "RepGenFlag",
+                    "ExportName": null,
+                    "Values": []
+                }
+            ],
+            "EntryId": "68ff15ba7f1e0b120b7d52d5"
+        },
+        {
+            "Fields": [
+                {
+                    "FieldName": "NtsbNo",
+                    "ExportName": "NtsbNo",
+                    "Values": [
+                        "ANC12IA024"
+                    ]
+                },
+                {
+                    "FieldName": "CompletionStatus",
+                    "ExportName": null,
+                    "Values": [
+                        "Completed"
+                    ]
+                },
+                {
+                    "FieldName": "EventType",
+                    "ExportName": "EventType",
+                    "Values": [
+                        "Incident"
+                    ]
+                },
+                {
+                    "FieldName": "Mkey",
+                    "ExportName": "Mkey",
+                    "Values": [
+                        "83048"
+                    ]
+                },
+                {
+                    "FieldName": "IsStudy",
+                    "ExportName": null,
+                    "Values": [
+                        "false"
+                    ]
+                },
+                {
+                    "FieldName": "EventDate",
+                    "ExportName": "EventDate",
+                    "Values": [
+                        "2012-03-05T22:54:00Z"
+                    ]
+                },
+                {
+                    "FieldName": "City",
+                    "ExportName": "City",
+                    "Values": [
+                        "Anchorage"
+                    ]
+                },
+                {
+                    "FieldName": "State",
+                    "ExportName": "State",
+                    "Values": [
+                        "Alaska"
+                    ]
+                },
+                {
+                    "FieldName": "Country",
+                    "ExportName": "Country",
+                    "Values": [
+                        "United States"
+                    ]
+                },
+                {
+                    "FieldName": "ReportNo",
+                    "ExportName": "ReportNo",
+                    "Values": []
+                },
+                {
+                    "FieldName": "N#",
+                    "ExportName": null,
+                    "Values": [
+                        "N544LM"
+                    ]
+                },
+                {
+                    "FieldName": "VehicleMake",
+                    "ExportName": null,
+                    "Values": [
+                        "BOMBARDIER LEARJET CORP."
+                    ]
+                },
+                {
+                    "FieldName": "VehicleModel",
+                    "ExportName": null,
+                    "Values": [
+                        "35A"
+                    ]
+                },
+                {
+                    "FieldName": "HighestInjuryLevel",
+                    "ExportName": null,
+                    "Values": [
+                        "None"
+                    ]
+                },
+                {
+                    "FieldName": "InjuryOngroundCount",
+                    "ExportName": null,
+                    "Values": [
+                        "0"
+                    ]
+                },
+                {
+                    "FieldName": "InjuryOnboardCount",
+                    "ExportName": null,
+                    "Values": [
+                        "0"
+                    ]
+                },
+                {
+                    "FieldName": "HasSafetyRec",
+                    "ExportName": "HasSafetyRec",
+                    "Values": [
+                        "false"
+                    ]
+                },
+                {
+                    "FieldName": "Mode",
+                    "ExportName": "Mode",
+                    "Values": [
+                        "Aviation"
+                    ]
+                },
+                {
+                    "FieldName": "ReportNumber",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "ReportType",
+                    "ExportName": "ReportType",
+                    "Values": [
+                        "DirectorBrief"
+                    ]
+                },
+                {
+                    "FieldName": "DocketPublishDate",
+                    "ExportName": null,
+                    "Values": [
+                        "2013-11-25T18:33:00Z"
+                    ]
+                },
+                {
+                    "FieldName": "OriginalPublishedDate",
+                    "ExportName": null,
+                    "Values": [
+                        "2014-01-30T05:00:00Z"
+                    ]
+                },
+                {
+                    "FieldName": "ReportDate",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "MostRecentReportType",
+                    "ExportName": null,
+                    "Values": [
+                        "Final"
+                    ]
+                },
+                {
+                    "FieldName": "EV_ID",
+                    "ExportName": null,
+                    "Values": []
+                },
+                {
+                    "FieldName": "RepGenFlag",
+                    "ExportName": null,
+                    "Values": []
+                }
+            ],
+            "EntryId": "68ff15a67f1e0b120b7d0669"
+        }
+    ],
+    "Columns": [
+        "NtsbNo",
+        "CompletionStatus",
+        "EventType",
+        "Mkey",
+        "IsStudy",
+        "EventDate",
+        "City",
+        "State",
+        "Country",
+        "ReportNo",
+        "N#",
+        "VehicleMake",
+        "VehicleModel",
+        "HighestInjuryLevel",
+        "InjuryOngroundCount",
+        "InjuryOnboardCount",
+        "HasSafetyRec",
+        "Mode",
+        "ReportNumber",
+        "ReportType",
+        "DocketPublishDate",
+        "OriginalPublishedDate",
+        "ReportDate",
+        "MostRecentReportType",
+        "EV_ID",
+        "RepGenFlag"
+    ],
+    "ResultListCount": 2,
+    "MaxResultCountReached": false
+}

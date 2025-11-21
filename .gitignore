@@ -1,0 +1,24 @@
+.DS_Store
+
+# Virtual environment
+venv/
+
+# Environment variables
+.env
+
+# Bin
+bin/
+
+# Lib
+lib/
+
+# Python cache
+__pycache__/
+*.pyc
+
+pyvenv.cfg
+.claude
+
+# Temporary files
+data/temp/
+

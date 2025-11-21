@@ -1,0 +1,24 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches: [ dev ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy to DigitalOcean
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DO_HOST }}
+        username: ${{ secrets.DO_USERNAME }}
+        key: ${{ secrets.DO_SSH_KEY }}
+        script: |
+          cd /home/gtj-admin/gtj-main/gtj-backend
+          git pull origin dev
+          source venv/bin/activate
+          pip install -r requirements.txt
+          pytests -s
+          sudo systemctl restart gunicorn

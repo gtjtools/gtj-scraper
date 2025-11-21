@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustJet Parse Pilot - FAA Part 135 Operators</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>TrustJet Parse Pilot</h1>
+            <p class="subtitle">FAA Part 135 & Charter Operator Lookup</p>
+        </header>
+
+        <!-- Mode Selector Tabs -->
+        <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="part135">Part 135 Operators</button>
+            <button class="mode-tab" data-mode="charter">Charter Lookup</button>
+            <button class="mode-tab" data-mode="tail">Tail Number Search</button>
+        </div>
+
+        <!-- Part 135 Section -->
+        <div id="part135Section" class="section active">
+            <div class="controls">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search Part 135 operators...">
+                    <button id="searchBtn">Search</button>
+                    <button id="clearBtn">Clear</button>
+                </div>
+                <div class="stats">
+                    <span id="totalRecords">Loading...</span>
+                </div>
+            </div>
+
+            <div id="loading" class="loading">Loading data...</div>
+            <div id="error" class="error" style="display: none;"></div>
+
+            <div class="table-container">
+                <table id="dataTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Charter Lookup Section -->
+        <div id="charterSection" class="section">
+            <div class="charter-search-container">
+                <h2>Charter Operators Directory</h2>
+                <p class="charter-subtitle">Browse and search business aviation charter operators - Sorted by Certification Score</p>
+
+                <div class="charter-filters">
+                    <div class="charter-search-box">
+                        <input type="text" id="charterSearchInput" placeholder="Search by company name or location...">
+                    </div>
+
+                    <div class="filter-controls">
+                        <label>Certification Filter:</label>
+                        <select id="certFilter">
+                            <option value="">All Operators</option>
+                            <option value="argus-platinum">ARGUS Platinum</option>
+                            <option value="argus-gold">ARGUS Gold</option>
+                            <option value="argus">Any ARGUS</option>
+                            <option value="wyvern">Wyvern Certified</option>
+                            <option value="is-bao">IS-BAO</option>
+                        </select>
+
+                        <label style="margin-left: 15px;">Min Score:</label>
+                        <input type="number" id="minScoreFilter" placeholder="0" min="0" max="500" style="width: 80px;">
+
+                        <button id="applyFiltersBtn" style="margin-left: 10px;">Apply Filters</button>
+                        <button id="clearFiltersBtn">Clear</button>
+                    </div>
+                </div>
+
+                <div id="charterLoading" class="loading" style="display: none;">Loading...</div>
+                <div id="charterError" class="error" style="display: none;"></div>
+
+                <div id="charterStats" class="stats" style="margin: 20px 0;"></div>
+
+                <div id="charterList" class="charter-list"></div>
+                <div id="charterResults"></div>
+            </div>
+        </div>
+
+        <!-- Tail Number Search Section -->
+        <div id="tailSection" class="section">
+            <div class="charter-search-container">
+                <h2>Tail Number Search</h2>
+                <p class="charter-subtitle">Search by aircraft registration number (N-Number) to find operator and certification info</p>
+
+                <div class="tail-search-box">
+                    <input type="text" id="tailSearchInput" placeholder="Enter tail number (e.g., N12345)">
+                    <button id="tailSearchBtn">Search</button>
+                    <button id="tailClearBtn">Clear</button>
+                </div>
+
+                <div id="tailLoading" class="loading" style="display: none;">Searching...</div>
+                <div id="tailError" class="error" style="display: none;"></div>
+
+                <div id="tailResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operator Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
