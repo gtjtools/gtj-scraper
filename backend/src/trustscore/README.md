@@ -379,7 +379,7 @@ The calculator includes robust error handling:
 Run the example:
 
 ```bash
-cd /home/marc/projects/weyobe/gotrustjet/gtj-backend
+cd /home/marc/projects/weyobe/gotrustjet/backend
 python -m src.trustscore.example_usage
 ```
 

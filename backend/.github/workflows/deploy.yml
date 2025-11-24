@@ -16,7 +16,7 @@ jobs:
         username: ${{ secrets.DO_USERNAME }}
         key: ${{ secrets.DO_SSH_KEY }}
         script: |
-          cd /home/gtj-admin/gtj-main/gtj-backend
+          cd /home/gtj-admin/gtj-main/backend
           git pull origin dev
           source venv/bin/activate
           pip install -r requirements.txt
