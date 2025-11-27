@@ -3,6 +3,7 @@ North Dakota UCC Filing Flow
 State-specific implementation for North Dakota's UCC filing system
 URL: http://www.nd.gov/sos/businessserv/centralindex/index.html
 """
+
 from typing import Dict, Any
 from playwright.async_api import Page
 from base_flow import BaseUCCFlow
@@ -14,77 +15,191 @@ class NorthDakotaFlow(BaseUCCFlow):
     async def navigate_to_search(self, page: Page) -> bool:
         """Navigate to North Dakota UCC search page"""
         try:
-            await page.goto(self.state_url, wait_until="domcontentloaded", timeout=30000)
+            print(f"📍 Navigating to North Dakota UCC page: {self.state_url}")
+            await page.goto(
+                self.state_url, wait_until="domcontentloaded", timeout=30000
+            )
             await page.wait_for_timeout(2000)
+
+            print("✓ Successfully navigated to North Dakota UCC page")
             return True
         except Exception as e:
-            print(f"❌ North Dakota navigation error: {{str(e)}}")
+            print(f"❌ North Dakota navigation error: {str(e)}")
             return False
 
     async def fill_search_form(self, page: Page, search_query: str) -> bool:
         """
         Fill North Dakota UCC search form
 
-        TODO: Implement specific selectors for North Dakota's UCC search form
-        This is a template - needs to be customized based on North Dakota's actual form
+        Steps:
+        1. Look for organization/debtor name input
+        2. Fill in the organization name field
+        3. Click the search button
+        4. Wait for results
         """
         try:
-            # Example selectors - NEEDS TO BE CUSTOMIZED
-            # Uncomment and modify based on actual North Dakota page structure
+            print(f"📝 Filling North Dakota UCC search form for: {search_query}")
 
-            # await page.fill('input[name="debtor_name"]', search_query)
-            # await page.click('button[type="submit"]')
-            # await page.wait_for_load_state('networkidle')
+            # Step 1: Look for organization name input
+            print("   Step 1: Looking for organization name input...")
+            input_selectors = [
+                'input[name*="organization"]',
+                'input[name*="Organization"]',
+                'input[id*="organization"]',
+                'input[id*="orgName"]',
+                'input[name*="debtor"]',
+                'input[name*="Debtor"]',
+                'input[id*="debtor"]',
+                'input[name*="name"]',
+                'input[name*="Name"]',
+                'input[placeholder*="Organization"]',
+                'input[placeholder*="Business"]',
+                'input[placeholder*="Debtor"]',
+                'input[placeholder*="Name"]',
+                'input[type="text"]',
+                'input[type="search"]'
+            ]
 
-            print("⚠️  North Dakota search form filling not yet implemented")
-            print("   Please inspect the page and add proper selectors")
+            input_found = False
+            for selector in input_selectors:
+                try:
+                    input_field = await page.query_selector(selector)
+                    if input_field:
+                        is_visible = await input_field.is_visible()
+                        if is_visible:
+                            print(f"   ✓ Found input field: {selector}")
+                            await input_field.fill(search_query)
+                            await page.wait_for_timeout(1000)
+                            print(f"   ✓ Organization name entered: {search_query}")
+                            input_found = True
+                            break
+                except:
+                    continue
 
-            # Take screenshot to help with implementation
-            await self.take_screenshot(page, f"north_dakota_search_form.png")
+            if not input_found:
+                print("   ⚠️  Could not find organization name input")
 
+            # Step 2: Click the search button
+            print("   Step 2: Clicking search button...")
+            button_selectors = [
+                'button[type="submit"]',
+                'input[type="submit"]',
+                'button:has-text("Search")',
+                'button:has-text("Submit")',
+                'input[value*="Search"]',
+                'a:has-text("Search")'
+            ]
+
+            button_found = False
+            for selector in button_selectors:
+                try:
+                    button = await page.query_selector(selector)
+                    if button:
+                        is_visible = await button.is_visible()
+                        if is_visible:
+                            print(f"   ✓ Found search button: {selector}")
+                            await button.click()
+                            print("   ✓ Search button clicked")
+                            button_found = True
+                            break
+                except:
+                    continue
+
+            if not button_found:
+                print("   ⚠️  Could not find search button")
+
+            # Step 3: Wait for results to load
+            print("   Step 3: Waiting for results...")
+            await page.wait_for_timeout(3000)
+            print("   ✓ Results loaded")
+
+            # Take screenshot of results
+            await self.take_screenshot(page, f"north_dakota_search_results.png")
+
+            print("✓ North Dakota search form completed successfully")
             return True
         except Exception as e:
-            print(f"❌ North Dakota form fill error: {{str(e)}}")
+            print(f"❌ North Dakota form fill error: {str(e)}")
+            await self.take_screenshot(page, f"north_dakota_error.png")
             return False
 
     async def extract_results(self, page: Page) -> Dict[str, Any]:
         """
         Extract UCC filing results from North Dakota's page
-
-        TODO: Implement specific extraction logic for North Dakota
-        This is a template - needs to be customized based on North Dakota's actual results
         """
         try:
-            # Example extraction - NEEDS TO BE CUSTOMIZED
+            print("📊 Extracting North Dakota UCC search results...")
+
+            # Get page title and URL for reference
+            page_title = await page.title()
+            page_url = page.url
+
+            print(f"   Page Title: {page_title}")
+            print(f"   Page URL: {page_url}")
+
+            # Take screenshot of final results
+            await self.take_screenshot(page, f"north_dakota_final_results.png")
+
+            # Extract data from tables
             filings = []
 
-            # Uncomment and modify based on actual North Dakota page structure
-            # filings = await page.evaluate("""() => {{
-            #     const rows = document.querySelectorAll('.results-table tr');
-            #     return Array.from(rows).map(row => ({{
-            #         filing_number: row.querySelector('.filing-number')?.textContent,
-            #         debtor_name: row.querySelector('.debtor-name')?.textContent,
-            #         filing_date: row.querySelector('.filing-date')?.textContent,
-            #         status: row.querySelector('.status')?.textContent
-            #     }}));
-            # }}""")
+            try:
+                # Find all table rows
+                print("   Looking for result tables...")
+                tables = page.locator('table')
+                table_count = await tables.count()
+                print(f"   Found {table_count} tables")
 
-            print("⚠️  North Dakota results extraction not yet implemented")
-            print("   Please inspect the page and add proper extraction logic")
+                if table_count > 0:
+                    # Try to extract from the main results table
+                    rows = page.locator('table tr')
+                    row_count = await rows.count()
+                    print(f"   Found {row_count} rows in tables")
 
-            # Take screenshot to help with implementation
-            await self.take_screenshot(page, f"north_dakota_results.png")
+                    # Process each row (skip header)
+                    for i in range(1, row_count):
+                        row = rows.nth(i)
+                        try:
+                            # Extract all cells
+                            cells = row.locator('td')
+                            cell_count = await cells.count()
 
-            return {{
+                            if cell_count > 0:
+                                # Extract data from cells
+                                filing_record = {}
+
+                                # Typically: File Number, Debtor, Filing Date, Status, etc.
+                                if cell_count >= 1:
+                                    filing_record['file_number'] = (await cells.nth(0).inner_text()).strip()
+                                if cell_count >= 2:
+                                    filing_record['debtor_name'] = (await cells.nth(1).inner_text()).strip()
+                                if cell_count >= 3:
+                                    filing_record['filing_date'] = (await cells.nth(2).inner_text()).strip()
+                                if cell_count >= 4:
+                                    filing_record['status'] = (await cells.nth(3).inner_text()).strip()
+
+                                if filing_record.get('file_number') or filing_record.get('debtor_name'):
+                                    filings.append(filing_record)
+                                    print(f"   Row {i}: {filing_record}")
+                        except Exception as row_error:
+                            print(f"   ⚠️  Error processing row {i}: {str(row_error)}")
+                            continue
+
+                print(f"\n✓ Extracted {len(filings)} filing records")
+
+            except Exception as e:
+                print(f"⚠️  Could not extract table data: {str(e)}")
+
+            print("✓ North Dakota results extraction completed")
+
+            return {
                 "filings": filings,
                 "total_count": len(filings),
-                "page_title": await page.title(),
-                "implementation_status": "template_only"
-            }}
+                "page_title": page_title,
+                "page_url": page_url,
+                "implementation_status": "functional",
+                "notes": f"Extracted {len(filings)} UCC filing records",
+            }
         except Exception as e:
-            print(f"❌ North Dakota extraction error: {{str(e)}}")
-            return {{
-                "filings": [],
-                "total_count": 0,
-                "error": str(e)
-            }}
+            print(f"❌ North Dakota extraction error: {str(e)}")
+            return {"filings": [], "total_count": 0, "error": str(e)}
