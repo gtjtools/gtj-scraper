@@ -477,8 +477,20 @@ class UCCVerificationService:
                             seen.add(s)
                             unique_states.append(s)
                     states_to_process = unique_states
+
+                    # Always add faa_state to the processing queue if provided
+                    if faa_state:
+                        # Get full state name from abbreviation
+                        state_info = self._get_state_info(faa_state, state_options)
+                        if state_info:
+                            faa_state_full_name = state_info["name"]
+                            # Only add if not already in the list
+                            if faa_state_full_name not in states_to_process:
+                                states_to_process.append(faa_state_full_name)
+                                print(f"📍 Adding FAA state to queue: {faa_state_full_name} ({faa_state})")
+
                     print(
-                        f"📍 Processing states from NTSB results: {states_to_process}"
+                        f"📍 Processing states: {states_to_process}"
                     )
 
                 for idx, state_name in enumerate(states_to_process):
@@ -546,73 +558,6 @@ class UCCVerificationService:
                 print(f"\n{'=' * 60}")
                 print(f"✓ Processed {len(visited_states)} states successfully")
                 print(f"{'=' * 60}\n")
-
-                # Check if any UCC filings were found
-                total_filings_found = 0
-                for state_result in visited_states:
-                    if state_result.get("flow_used") and state_result.get("flow_result"):
-                        flow_result = state_result["flow_result"]
-                        filings = flow_result.get("filings", [])
-                        normalized_filings = flow_result.get("normalized_filings", [])
-                        total_filings_found += len(filings) + len(normalized_filings)
-
-                # If no filings found and faa_state is provided, search that state
-                if total_filings_found == 0 and faa_state:
-                    print(f"\n{'=' * 60}")
-                    print(f"⚠️  No UCC filings found in NTSB-based states")
-                    print(f"📍 Using FAA state as fallback: {faa_state}")
-                    print(f"{'=' * 60}\n")
-
-                    # Get state info for FAA state (converts abbreviation to full name)
-                    state_info = self._get_state_info(faa_state, state_options)
-
-                    if state_info and state_info.get("url"):
-                        full_state_name = state_info["name"]
-                        ucc_url = state_info["url"]
-                        print(f"   State: {full_state_name} ({faa_state})")
-
-                        try:
-                            # Process FAA state with retry logic using FULL state name
-                            state_result = await self._retry_with_backoff(
-                                lambda: self._process_single_state(
-                                    page, full_state_name, ucc_url, operator_name, session_id
-                                ),
-                                max_retries=5,
-                                initial_delay=1.0,
-                                context=f"FAA State verification for {faa_state}",
-                            )
-
-                            # Add to visited states
-                            visited_states.append(state_result)
-
-                            # Extract page info for summary
-                            if state_result.get("flow_used"):
-                                all_page_info.append(state_result["page_info"])
-                            else:
-                                all_page_info.append(
-                                    {
-                                        "state": full_state_name,
-                                        **state_result.get("page_info", {}),
-                                    }
-                                )
-
-                            print(f"✓ FAA state search completed")
-
-                        except Exception as e:
-                            print(
-                                f"❌ Error processing FAA state {full_state_name} after all retries: {str(e)}"
-                            )
-                            visited_states.append(
-                                {
-                                    "state": full_state_name,
-                                    "url": ucc_url,
-                                    "error": str(e),
-                                    "status": "failed_after_retries",
-                                    "source": "faa_state_fallback"
-                                }
-                            )
-                    else:
-                        print(f"⚠️  No UCC URL found for FAA state: {faa_state}")
 
                 await browser.close()
                 print("✓ Browser session closed")
@@ -753,8 +698,20 @@ class UCCVerificationService:
                             seen.add(s)
                             unique_states.append(s)
                     states_to_process = unique_states
+
+                    # Always add faa_state to the processing queue if provided
+                    if faa_state:
+                        # Get full state name from abbreviation
+                        state_info = self._get_state_info(faa_state, state_options)
+                        if state_info:
+                            faa_state_full_name = state_info["name"]
+                            # Only add if not already in the list
+                            if faa_state_full_name not in states_to_process:
+                                states_to_process.append(faa_state_full_name)
+                                print(f"📍 Adding FAA state to queue: {faa_state_full_name} ({faa_state})")
+
                     print(
-                        f"📍 Processing states from NTSB results: {states_to_process}"
+                        f"📍 Processing states: {states_to_process}"
                     )
 
                 for idx, state_name in enumerate(states_to_process):
@@ -822,73 +779,6 @@ class UCCVerificationService:
                 print(f"\n{'=' * 60}")
                 print(f"✓ Processed {len(visited_states)} states successfully")
                 print(f"{'=' * 60}\n")
-
-                # Check if any UCC filings were found
-                total_filings_found = 0
-                for state_result in visited_states:
-                    if state_result.get("flow_used") and state_result.get("flow_result"):
-                        flow_result = state_result["flow_result"]
-                        filings = flow_result.get("filings", [])
-                        normalized_filings = flow_result.get("normalized_filings", [])
-                        total_filings_found += len(filings) + len(normalized_filings)
-
-                # If no filings found and faa_state is provided, search that state
-                if total_filings_found == 0 and faa_state:
-                    print(f"\n{'=' * 60}")
-                    print(f"⚠️  No UCC filings found in NTSB-based states")
-                    print(f"📍 Using FAA state as fallback: {faa_state}")
-                    print(f"{'=' * 60}\n")
-
-                    # Get state info for FAA state (converts abbreviation to full name)
-                    state_info = self._get_state_info(faa_state, state_options)
-
-                    if state_info and state_info.get("url"):
-                        full_state_name = state_info["name"]
-                        ucc_url = state_info["url"]
-                        print(f"   State: {full_state_name} ({faa_state})")
-
-                        try:
-                            # Process FAA state with retry logic using FULL state name
-                            state_result = await self._retry_with_backoff(
-                                lambda: self._process_single_state(
-                                    page, full_state_name, ucc_url, operator_name, session_id
-                                ),
-                                max_retries=5,
-                                initial_delay=1.0,
-                                context=f"FAA State verification for {faa_state}",
-                            )
-
-                            # Add to visited states
-                            visited_states.append(state_result)
-
-                            # Extract page info for summary
-                            if state_result.get("flow_used"):
-                                all_page_info.append(state_result["page_info"])
-                            else:
-                                all_page_info.append(
-                                    {
-                                        "state": full_state_name,
-                                        **state_result.get("page_info", {}),
-                                    }
-                                )
-
-                            print(f"✓ FAA state search completed")
-
-                        except Exception as e:
-                            print(
-                                f"❌ Error processing FAA state {full_state_name} after all retries: {str(e)}"
-                            )
-                            visited_states.append(
-                                {
-                                    "state": full_state_name,
-                                    "url": ucc_url,
-                                    "error": str(e),
-                                    "status": "failed_after_retries",
-                                    "source": "faa_state_fallback"
-                                }
-                            )
-                    else:
-                        print(f"⚠️  No UCC URL found for FAA state: {faa_state}")
 
                 await browser.close()
                 print("✓ Browser session closed")
