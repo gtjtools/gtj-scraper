@@ -2,6 +2,7 @@
 TrustScore Calculator Service with LLM Integration
 Calculates TrustScore = 0.5 × FleetScore + 0.5 × TailScore
 """
+
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional, Tuple
@@ -11,6 +12,7 @@ from dataclasses import dataclass
 @dataclass
 class FleetScoreData:
     """Data required for FleetScore calculation"""
+
     operator_name: str
     operator_age_years: float
     ntsb_incidents: List[Dict[str, Any]]
@@ -24,6 +26,7 @@ class FleetScoreData:
 @dataclass
 class TailScoreData:
     """Data required for TailScore calculation"""
+
     aircraft_age_years: float
     operator_name: str
     registered_owner: str
@@ -34,6 +37,7 @@ class TailScoreData:
 @dataclass
 class LLMRiskScore:
     """LLM-generated risk score result"""
+
     score: int  # 0-40
     reasoning: Optional[str] = None
 
@@ -68,7 +72,7 @@ class TrustScoreCalculator:
         (8, 12, -4),
         (12, 16, -6),
         (16, 20, -8),
-        (20, float('inf'), -10),
+        (20, float("inf"), -10),
     ]
 
     # Injury level deductions
@@ -89,9 +93,7 @@ class TrustScoreCalculator:
         self.llm_client = llm_client
 
     async def calculate_trust_score(
-        self,
-        fleet_data: FleetScoreData,
-        tail_data: TailScoreData
+        self, fleet_data: FleetScoreData, tail_data: TailScoreData
     ) -> Dict[str, Any]:
         """
         Calculate the complete TrustScore
@@ -118,8 +120,7 @@ class TrustScoreCalculator:
         }
 
     async def calculate_fleet_score(
-        self,
-        data: FleetScoreData
+        self, data: FleetScoreData
     ) -> Tuple[float, Dict[str, Any]]:
         """
         Calculate FleetScore (out of 100)
@@ -135,65 +136,74 @@ class TrustScoreCalculator:
 
         # 1. LLM Financial Risk Score (0-40 points deduction)
         financial_risk = await self.calculate_financial_risk_score(
-            ucc_filings=data.ucc_filings,
-            bankruptcy_history=data.bankruptcy_history
+            ucc_filings=data.ucc_filings, bankruptcy_history=data.bankruptcy_history
         )
         initial_score -= financial_risk.score
-        deductions.append({
-            "category": "Financial Risk (LLM)",
-            "deduction": financial_risk.score,
-            "reasoning": financial_risk.reasoning
-        })
+        deductions.append(
+            {
+                "category": "Financial Risk (LLM)",
+                "deduction": financial_risk.score,
+                "reasoning": financial_risk.reasoning,
+            }
+        )
 
         # 2. LLM Legal Risk Score (0-40 points deduction)
         legal_risk = await self.calculate_legal_risk_score(
             ucc_filings=data.ucc_filings,
             bankruptcy_history=data.bankruptcy_history,
             ntsb_incidents=data.ntsb_incidents,
-            faa_violations=data.faa_violations
+            faa_violations=data.faa_violations,
         )
         initial_score -= legal_risk.score
-        deductions.append({
-            "category": "Legal Risk (LLM)",
-            "deduction": legal_risk.score,
-            "reasoning": legal_risk.reasoning
-        })
+        deductions.append(
+            {
+                "category": "Legal Risk (LLM)",
+                "deduction": legal_risk.score,
+                "reasoning": legal_risk.reasoning,
+            }
+        )
 
         # 3. Age of Operator deduction: 2 × (Age - 10), minimum 0
         age_deduction = max(0, 2 * (data.operator_age_years - 10))
         initial_score -= age_deduction
-        deductions.append({
-            "category": "Operator Age",
-            "deduction": age_deduction,
-            "details": f"Operator age: {data.operator_age_years} years"
-        })
+        deductions.append(
+            {
+                "category": "Operator Age",
+                "deduction": age_deduction,
+                "details": f"Operator age: {data.operator_age_years} years",
+            }
+        )
 
         # 4. NTSB Accidents in last 5 years: 2 points each
-        five_years_ago = datetime.now(timezone.utc) - timedelta(days=5*365)
+        five_years_ago = datetime.now(timezone.utc) - timedelta(days=5 * 365)
         recent_accidents = [
-            inc for inc in data.ntsb_incidents
+            inc
+            for inc in data.ntsb_incidents
             if inc.get("event_type", "").lower() == "accident"
             and self._parse_date(inc.get("event_date")) > five_years_ago
         ]
         accident_deduction = 2 * len(recent_accidents)
         initial_score -= accident_deduction
-        deductions.append({
-            "category": "Recent NTSB Accidents",
-            "deduction": accident_deduction,
-            "details": f"{len(recent_accidents)} accidents in last 5 years"
-        })
+        deductions.append(
+            {
+                "category": "Recent NTSB Accidents",
+                "deduction": accident_deduction,
+                "details": f"{len(recent_accidents)} accidents in last 5 years",
+            }
+        )
 
         # 5. Certification deductions (ARGUS/WYVERN - use better of the two)
         cert_deduction = self._calculate_certification_deduction(
-            data.argus_rating,
-            data.wyvern_rating
+            data.argus_rating, data.wyvern_rating
         )
         initial_score += cert_deduction  # Note: cert_deduction is already negative
-        deductions.append({
-            "category": "Certification Rating",
-            "deduction": abs(cert_deduction),
-            "details": f"ARGUS: {data.argus_rating or 'None'}, WYVERN: {data.wyvern_rating or 'None'}"
-        })
+        deductions.append(
+            {
+                "category": "Certification Rating",
+                "deduction": abs(cert_deduction),
+                "details": f"ARGUS: {data.argus_rating or 'None'}, WYVERN: {data.wyvern_rating or 'None'}",
+            }
+        )
 
         # Ensure score doesn't fall below 0
         final_score = max(0.0, initial_score)
@@ -202,15 +212,12 @@ class TrustScoreCalculator:
             "initial_score": 100.0,
             "final_score": final_score,
             "total_deductions": 100.0 - final_score,
-            "deductions": deductions
+            "deductions": deductions,
         }
 
         return final_score, breakdown
 
-    def calculate_tail_score(
-        self,
-        data: TailScoreData
-    ) -> Tuple[float, Dict[str, Any]]:
+    def calculate_tail_score(self, data: TailScoreData) -> Tuple[float, Dict[str, Any]]:
         """
         Calculate TailScore (out of 100)
 
@@ -226,32 +233,40 @@ class TrustScoreCalculator:
         # 1. Aircraft age deduction
         age_deduction = self._calculate_aircraft_age_deduction(data.aircraft_age_years)
         initial_score += age_deduction  # Note: age_deduction is already negative
-        deductions.append({
-            "category": "Aircraft Age",
-            "deduction": abs(age_deduction),
-            "details": f"Aircraft age: {data.aircraft_age_years} years"
-        })
+        deductions.append(
+            {
+                "category": "Aircraft Age",
+                "deduction": abs(age_deduction),
+                "details": f"Aircraft age: {data.aircraft_age_years} years",
+            }
+        )
 
         # 2. Operator name vs Registered Owner mismatch: -10 points
         if data.operator_name.lower() != data.registered_owner.lower():
             initial_score -= 10
-            deductions.append({
-                "category": "Owner Mismatch",
-                "deduction": 10,
-                "details": f"Operator: {data.operator_name}, Owner: {data.registered_owner}"
-            })
+            deductions.append(
+                {
+                    "category": "Owner Mismatch",
+                    "deduction": 10,
+                    "details": f"Operator: {data.operator_name}, Owner: {data.registered_owner}",
+                }
+            )
 
         # 3. Fractional Owner: -5 points
         if data.fractional_owner:
             initial_score -= 5
-            deductions.append({
-                "category": "Fractional Ownership",
-                "deduction": 5,
-                "details": "Aircraft is fractionally owned"
-            })
+            deductions.append(
+                {
+                    "category": "Fractional Ownership",
+                    "deduction": 5,
+                    "details": "Aircraft is fractionally owned",
+                }
+            )
 
         # 4. NTSB Incident deductions
-        incident_deductions = self._calculate_ntsb_incident_deductions(data.ntsb_incidents)
+        incident_deductions = self._calculate_ntsb_incident_deductions(
+            data.ntsb_incidents
+        )
         for inc_deduction in incident_deductions:
             initial_score -= inc_deduction["deduction"]
             deductions.append(inc_deduction)
@@ -263,7 +278,7 @@ class TrustScoreCalculator:
             "initial_score": 100.0,
             "final_score": final_score,
             "total_deductions": 100.0 - final_score,
-            "deductions": deductions
+            "deductions": deductions,
         }
 
         return final_score, breakdown
@@ -271,7 +286,7 @@ class TrustScoreCalculator:
     async def calculate_financial_risk_score(
         self,
         ucc_filings: List[Dict[str, Any]],
-        bankruptcy_history: Optional[List[Dict[str, Any]]] = None
+        bankruptcy_history: Optional[List[Dict[str, Any]]] = None,
     ) -> LLMRiskScore:
         """
         Calculate financial risk score using LLM (0-40 points)
@@ -286,8 +301,7 @@ class TrustScoreCalculator:
         if not self.llm_client:
             # Return default score if no LLM client configured
             return LLMRiskScore(
-                score=0,
-                reasoning="No LLM client configured - using default score"
+                score=0, reasoning="No LLM client configured - using default score"
             )
 
         prompt = self._build_financial_risk_prompt(ucc_filings, bankruptcy_history)
@@ -305,7 +319,7 @@ class TrustScoreCalculator:
         ucc_filings: List[Dict[str, Any]],
         bankruptcy_history: Optional[List[Dict[str, Any]]],
         ntsb_incidents: List[Dict[str, Any]],
-        faa_violations: Optional[List[Dict[str, Any]]]
+        faa_violations: Optional[List[Dict[str, Any]]],
     ) -> LLMRiskScore:
         """
         Calculate legal risk score using LLM (0-40 points)
@@ -322,15 +336,11 @@ class TrustScoreCalculator:
         if not self.llm_client:
             # Return default score if no LLM client configured
             return LLMRiskScore(
-                score=0,
-                reasoning="No LLM client configured - using default score"
+                score=0, reasoning="No LLM client configured - using default score"
             )
 
         prompt = self._build_legal_risk_prompt(
-            ucc_filings,
-            bankruptcy_history,
-            ntsb_incidents,
-            faa_violations
+            ucc_filings, bankruptcy_history, ntsb_incidents, faa_violations
         )
 
         try:
@@ -344,7 +354,7 @@ class TrustScoreCalculator:
     def _build_financial_risk_prompt(
         self,
         ucc_filings: List[Dict[str, Any]],
-        bankruptcy_history: Optional[List[Dict[str, Any]]]
+        bankruptcy_history: Optional[List[Dict[str, Any]]],
     ) -> str:
         """Build the financial risk assessment prompt for LLM"""
         prompt = """You are a financial risk analyst specializing in the aviation industry. Your task is to provide a financial risk score for an aircraft operator based on the provided data. The score you provide will be deducted from a starting score of 100, so a higher risk score from you means a lower final score for the operator. Your output must be a single integer between 0 and 40. 0 signifies no identifiable financial risk. 40 signifies the highest level of financial risk.
@@ -390,7 +400,7 @@ Here is the data for your evaluation. Assume that this data is comprehensive and
         ucc_filings: List[Dict[str, Any]],
         bankruptcy_history: Optional[List[Dict[str, Any]]],
         ntsb_incidents: List[Dict[str, Any]],
-        faa_violations: Optional[List[Dict[str, Any]]]
+        faa_violations: Optional[List[Dict[str, Any]]],
     ) -> str:
         """Build the legal risk assessment prompt for LLM"""
         prompt = """You are a legal risk analyst with expertise in the aviation sector. Your role is to evaluate the legal risk associated with an aircraft operator based on the information provided below. The score you generate will be subtracted from a base score of 100. Your output must be a single integer between 0 and 40. 0 signifies no identifiable legal risk. 40 signifies the highest level of legal risk.
@@ -477,9 +487,7 @@ Here is the data for your evaluation. Assume that this data is comprehensive and
             return (0, f"Error: {str(e)}")
 
     def _calculate_certification_deduction(
-        self,
-        argus_rating: Optional[str],
-        wyvern_rating: Optional[str]
+        self, argus_rating: Optional[str], wyvern_rating: Optional[str]
     ) -> int:
         """
         Calculate certification deduction based on ARGUS and WYVERN ratings
@@ -499,8 +507,7 @@ Here is the data for your evaluation. Assume that this data is comprehensive and
         return -10  # Default for very old aircraft
 
     def _calculate_ntsb_incident_deductions(
-        self,
-        incidents: List[Dict[str, Any]]
+        self, incidents: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Calculate deductions for NTSB incidents
@@ -534,11 +541,13 @@ Here is the data for your evaluation. Assume that this data is comprehensive and
             total_deduction = (age_deduction + injury_deduction) * multiplier
 
             if total_deduction > 0:
-                deductions.append({
-                    "category": f"NTSB Incident - {incident.get('event_id', 'Unknown')}",
-                    "deduction": total_deduction,
-                    "details": f"Type: {event_type}, Injury: {injury_level}, Age: {age_years:.1f} years"
-                })
+                deductions.append(
+                    {
+                        "category": f"NTSB Incident - {incident.get('event_id', 'Unknown')}",
+                        "deduction": total_deduction,
+                        "details": f"Type: {event_type}, Injury: {injury_level}, Age: {age_years:.1f} years",
+                    }
+                )
 
         return deductions
 
@@ -549,7 +558,7 @@ Here is the data for your evaluation. Assume that this data is comprehensive and
 
         try:
             # Try ISO format first
-            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
             try:
                 # Try common date formats and make timezone-aware

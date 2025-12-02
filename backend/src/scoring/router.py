@@ -227,18 +227,20 @@ async def start_browserbase_session(operator_name: str):
     description="Execute complete scoring workflow: Query NTSB incident database and verify UCC filings",
     tags=["scoring"]
 )
-async def full_scoring_flow(operator_name: str, state: str = None, session_id: str = None):
+async def full_scoring_flow(operator_name: str, faa_state: str, state: str = None, session_id: str = None):
     """
     Run full scoring flow including NTSB and UCC checks.
 
     This endpoint:
     1. Queries NTSB database for incident history
     2. Verifies UCC filings using Browserbase (with optional existing session)
-    3. Returns combined scoring results
+    3. Uses faa_state as fallback if no filings found in NTSB-based states
+    4. Returns combined scoring results
 
     Args:
         operator_name: Name of the operator to verify
-        state: Optional state code for UCC search
+        faa_state: FAA state code (2-letter abbreviation) from database - used as fallback
+        state: Optional state code for UCC search override
         session_id: Optional existing Browserbase session ID
 
     Returns:
@@ -274,7 +276,9 @@ async def full_scoring_flow(operator_name: str, state: str = None, session_id: s
         # Step 2: Verify UCC filings
         print("\nStep 2: Verifying UCC filings with Browserbase...")
         ucc_service = UCCVerificationService()
-        ucc_data = await ucc_service.verify_ucc_filings_with_session(operator_name, state, session_id)
+        # Pass raw NTSB results (Results array) to UCC service, not parsed incidents
+        ntsb_results = ntsb_data.get("Results", [])
+        ucc_data = await ucc_service.verify_ucc_filings_with_session(operator_name, ntsb_results, faa_state, state, session_id)
 
         print(f"✓ UCC check complete: {ucc_data.get('status')}")
 

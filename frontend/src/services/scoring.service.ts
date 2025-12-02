@@ -120,19 +120,22 @@ export const runScoreCalculation = async (
 /**
  * Run full scoring flow (NTSB + UCC verification) for an operator
  * @param operatorName - Name of the operator
- * @param state - Optional state for UCC search (uses backend default if not provided)
+ * @param faaState - FAA state code (2-letter abbreviation) - used as fallback if no filings found
+ * @param state - Optional state for UCC search override
  * @param sessionId - Optional existing Browserbase session ID
  * @returns Full scoring results with NTSB and UCC data
  * @throws Error if the API request fails
  */
 export const runFullScoringFlow = async (
   operatorName: string,
+  faaState: string,
   state?: string,
   sessionId?: string
 ): Promise<FullScoringFlowResponse> => {
   try {
     const params = new URLSearchParams();
     params.append('operator_name', operatorName);
+    params.append('faa_state', faaState);
     if (state) params.append('state', state);
     if (sessionId) params.append('session_id', sessionId);
 

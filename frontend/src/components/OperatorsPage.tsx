@@ -84,9 +84,14 @@ export function OperatorsPage() {
 
       toast.info(`Running full verification for ${operator.company}...`);
 
+      // Ensure faa_state is available
+      if (!operator.faa_state) {
+        throw new Error('FAA state not available for this operator');
+      }
+
       // Run the full scoring flow (NTSB + UCC)
-      // Note: state parameter is omitted, so backend will use Oregon as default
-      const result = await runFullScoringFlow(operator.company);
+      // faa_state is used as fallback if no UCC filings found in NTSB-based states
+      const result = await runFullScoringFlow(operator.company, operator.faa_state);
 
       // Transform the full scoring result to match ScoreResult interface
       const scoreData = {
@@ -223,13 +228,13 @@ export function OperatorsPage() {
       {/* Operators Grid */}
       {!isLoading && !error && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredOperators.map((operator, index) => {
+          {filteredOperators.map((operator) => {
             const score = operator.score || 0;
             const certBadges = getCertBadges(operator);
 
             return (
               <Card
-                key={index}
+                key={operator.charter_operator_id || operator.company}
                 className="p-6 hover:shadow-lg transition-shadow"
               >
                 <div className="space-y-4">

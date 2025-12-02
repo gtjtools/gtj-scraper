@@ -1,7 +1,7 @@
 """
 California UCC Filing Flow
 State-specific implementation for California's UCC filing system
-URL: http://www.sos.ca.gov/business-programs/ucc/
+URL: https://bizfileonline.sos.ca.gov/search/ucc
 """
 
 from typing import Dict, Any
@@ -12,16 +12,20 @@ from base_flow import BaseUCCFlow
 class CaliforniaFlow(BaseUCCFlow):
     """California-specific UCC filing flow"""
 
+    SEARCH_URL = "https://bizfileonline.sos.ca.gov/search/ucc"
+
     async def navigate_to_search(self, page: Page) -> bool:
         """Navigate to California UCC search page"""
         try:
-            print(f"📍 Navigating to California UCC page: {self.state_url}")
-            await page.goto(
-                self.state_url, wait_until="domcontentloaded", timeout=30000
-            )
-            await page.wait_for_timeout(2000)
+            print(f"📍 Navigating to California UCC search page...")
+            print(f"   URL: {self.SEARCH_URL}")
 
-            print("✓ Successfully navigated to California UCC page")
+            await page.goto(
+                self.SEARCH_URL, wait_until="domcontentloaded", timeout=30000
+            )
+            await page.wait_for_timeout(3000)
+
+            print("✓ Successfully navigated to California UCC search page")
             return True
         except Exception as e:
             print(f"❌ California navigation error: {str(e)}")
@@ -32,85 +36,51 @@ class CaliforniaFlow(BaseUCCFlow):
         Fill California UCC search form
 
         Steps:
-        1. Look for organization/debtor name input
-        2. Fill in the organization name field
-        3. Click the search button
-        4. Wait for results
+        1. Find and fill the search input: //input[@placeholder="Search by name or file number"]
+        2. Click the advanced search button: //button[contains(@class,"advanced-search-button")]
+        3. Wait for results
         """
         try:
             print(f"📝 Filling California UCC search form for: {search_query}")
 
-            # Step 1: Look for organization name input
-            print("   Step 1: Looking for organization name input...")
-            input_selectors = [
-                'input[name*="organization"]',
-                'input[name*="Organization"]',
-                'input[id*="organization"]',
-                'input[id*="orgName"]',
-                'input[name*="debtor"]',
-                'input[name*="Debtor"]',
-                'input[id*="debtor"]',
-                'input[name*="name"]',
-                'input[name*="Name"]',
-                'input[placeholder*="Organization"]',
-                'input[placeholder*="Business"]',
-                'input[placeholder*="Debtor"]',
-                'input[placeholder*="Name"]',
-                'input[type="text"]',
-                'input[type="search"]'
-            ]
+            # Step 1: Find and fill the search input
+            print("   Step 1: Looking for search input field...")
+            try:
+                search_input = page.locator(
+                    '//input[@placeholder="Search by name or file number"]'
+                )
+                await search_input.wait_for(state="visible", timeout=10000)
+                print("   ✓ Found search input field")
 
-            input_found = False
-            for selector in input_selectors:
-                try:
-                    input_field = await page.query_selector(selector)
-                    if input_field:
-                        is_visible = await input_field.is_visible()
-                        if is_visible:
-                            print(f"   ✓ Found input field: {selector}")
-                            await input_field.fill(search_query)
-                            await page.wait_for_timeout(1000)
-                            print(f"   ✓ Organization name entered: {search_query}")
-                            input_found = True
-                            break
-                except:
-                    continue
+                await search_input.fill(search_query)
+                await page.wait_for_timeout(1000)
+                print(f"   ✓ Entered search query: {search_query}")
 
-            if not input_found:
-                print("   ⚠️  Could not find organization name input")
+            except Exception as e:
+                print(f"   ❌ Could not find or fill search input: {str(e)}")
+                await self.take_screenshot(page, f"california_input_error.png")
+                return False
 
-            # Step 2: Click the search button
-            print("   Step 2: Clicking search button...")
-            button_selectors = [
-                'button[type="submit"]',
-                'input[type="submit"]',
-                'button:has-text("Search")',
-                'button:has-text("Submit")',
-                'input[value*="Search"]',
-                'a:has-text("Search")'
-            ]
+            # Step 2: Click the advanced search button
+            print("   Step 2: Clicking advanced search button...")
+            try:
+                search_button = page.locator(
+                    '//button[contains(@class,"search-button")]'
+                )
+                await search_button.wait_for(state="visible", timeout=10000)
+                print("   ✓ Found advanced search button")
 
-            button_found = False
-            for selector in button_selectors:
-                try:
-                    button = await page.query_selector(selector)
-                    if button:
-                        is_visible = await button.is_visible()
-                        if is_visible:
-                            print(f"   ✓ Found search button: {selector}")
-                            await button.click()
-                            print("   ✓ Search button clicked")
-                            button_found = True
-                            break
-                except:
-                    continue
+                await search_button.click()
+                print("   ✓ Advanced search button clicked")
 
-            if not button_found:
-                print("   ⚠️  Could not find search button")
+            except Exception as e:
+                print(f"   ❌ Could not find or click search button: {str(e)}")
+                await self.take_screenshot(page, f"california_button_error.png")
+                return False
 
             # Step 3: Wait for results to load
             print("   Step 3: Waiting for results...")
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(5000)
             print("   ✓ Results loaded")
 
             # Take screenshot of results
@@ -118,6 +88,7 @@ class CaliforniaFlow(BaseUCCFlow):
 
             print("✓ California search form completed successfully")
             return True
+
         except Exception as e:
             print(f"❌ California form fill error: {str(e)}")
             await self.take_screenshot(page, f"california_error.png")
@@ -125,7 +96,10 @@ class CaliforniaFlow(BaseUCCFlow):
 
     async def extract_results(self, page: Page) -> Dict[str, Any]:
         """
-        Extract UCC filing results from California's page
+        Extract UCC filing results from California's custom table structure
+
+        Table structure:
+        - UCC Type | Debtor Information | File Number | Secured Party Info | Status | Filing Date | Lapse Date
         """
         try:
             print("📊 Extracting California UCC search results...")
@@ -140,55 +114,62 @@ class CaliforniaFlow(BaseUCCFlow):
             # Take screenshot of final results
             await self.take_screenshot(page, f"california_final_results.png")
 
-            # Extract data from tables
+            # Extract data from California's custom table
             filings = []
 
             try:
-                # Find all table rows
-                print("   Looking for result tables...")
-                tables = page.locator('table')
-                table_count = await tables.count()
-                print(f"   Found {table_count} tables")
+                # Find all rows in the table body using XPath
+                print("   Looking for result table rows...")
 
-                if table_count > 0:
-                    # Try to extract from the main results table
-                    rows = page.locator('table tr')
-                    row_count = await rows.count()
-                    print(f"   Found {row_count} rows in tables")
+                # Use XPath to find tbody rows in the div-table
+                rows = page.locator('//tbody[@class="div-table-body"]/tr[@class="div-table-row  "]')
+                row_count = await rows.count()
+                print(f"   Found {row_count} filing rows")
 
-                    # Process each row (skip header)
-                    for i in range(1, row_count):
+                # Process each row
+                for i in range(row_count):
+                    try:
                         row = rows.nth(i)
-                        try:
-                            # Extract all cells
-                            cells = row.locator('td')
-                            cell_count = await cells.count()
 
-                            if cell_count > 0:
-                                # Extract data from cells
-                                filing_record = {}
+                        # Extract all cell values (columns in order):
+                        # 0: UCC Type
+                        # 1: Debtor Information
+                        # 2: File Number
+                        # 3: Secured Party Info
+                        # 4: Status
+                        # 5: Filing Date
+                        # 6: Lapse Date
 
-                                # Typically: File Number, Debtor, Filing Date, Status, etc.
-                                if cell_count >= 1:
-                                    filing_record['file_number'] = (await cells.nth(0).inner_text()).strip()
-                                if cell_count >= 2:
-                                    filing_record['debtor_name'] = (await cells.nth(1).inner_text()).strip()
-                                if cell_count >= 3:
-                                    filing_record['filing_date'] = (await cells.nth(2).inner_text()).strip()
-                                if cell_count >= 4:
-                                    filing_record['status'] = (await cells.nth(3).inner_text()).strip()
+                        # Get all td cells in the row
+                        cells = row.locator('xpath=.//td[@class="div-table-cell  interactive"]')
+                        cell_count = await cells.count()
 
-                                if filing_record.get('file_number') or filing_record.get('debtor_name'):
-                                    filings.append(filing_record)
-                                    print(f"   Row {i}: {filing_record}")
-                        except Exception as row_error:
-                            print(f"   ⚠️  Error processing row {i}: {str(row_error)}")
-                            continue
+                        if cell_count >= 7:
+                            # Extract text from each cell (handles nested spans/divs)
+                            filing_record = {
+                                "ucc_type": (await cells.nth(0).inner_text()).strip(),
+                                "debtor_name": (await cells.nth(1).inner_text()).strip(),
+                                "file_number": (await cells.nth(2).inner_text()).strip(),
+                                "secured_party": (await cells.nth(3).inner_text()).strip(),
+                                "status": (await cells.nth(4).inner_text()).strip(),
+                                "filing_date": (await cells.nth(5).inner_text()).strip(),
+                                "lapse_date": (await cells.nth(6).inner_text()).strip(),
+                            }
+
+                            filings.append(filing_record)
+                            print(f"   Row {i + 1}: {filing_record}")
+                        else:
+                            print(f"   ⚠️  Row {i + 1} has only {cell_count} cells, expected 7")
+
+                    except Exception as row_error:
+                        print(f"   ⚠️  Error processing row {i + 1}: {str(row_error)}")
+                        continue
 
                 print(f"\n✓ Extracted {len(filings)} filing records")
 
             except Exception as e:
                 print(f"⚠️  Could not extract table data: {str(e)}")
+                await self.take_screenshot(page, f"california_extraction_error.png")
 
             print("✓ California results extraction completed")
 
@@ -198,7 +179,7 @@ class CaliforniaFlow(BaseUCCFlow):
                 "page_title": page_title,
                 "page_url": page_url,
                 "implementation_status": "functional",
-                "notes": f"Extracted {len(filings)} UCC filing records",
+                "notes": f"Extracted {len(filings)} UCC filing records from California BizFile",
             }
         except Exception as e:
             print(f"❌ California extraction error: {str(e)}")

@@ -71,7 +71,7 @@ export function useOperators() {
 
         // Convert charter operator data to operator options
         const operatorOptions = result.data.map((op, index) => ({
-          id: op.url || `op-${index}`,
+          id: op.charter_operator_id || op.url || `op-${index}`,
           name: op.company,
           locations: op.locations || [],
         }));

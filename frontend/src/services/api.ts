@@ -1,38 +1,10 @@
 import axios from 'axios';
+import type { CharterOperator } from '../types/operator';
+
+// Re-export CharterOperator type for backward compatibility
+export type { CharterOperator } from '../types/operator';
 
 const API_BASE_URL = '/api';
-
-// Types from the backend
-export interface CharterOperator {
-  company: string;
-  locations: string[];
-  url: string;
-  part135_cert?: string;
-  score?: number;
-  faa_data?: any;
-  data?: {
-    name?: string;
-    country?: string;
-    certifications?: {
-      aoc_part135?: string;
-      wyvern_certified?: string;
-      argus_rating?: string;
-      is_bao?: string;
-      acsf_ias?: string;
-    };
-    contact?: {
-      telephone?: string;
-      email?: string;
-      website?: string;
-    };
-    bases?: Array<{
-      location: string;
-      aircraft: string;
-      type?: string;
-    }>;
-    url?: string;
-  };
-}
 
 export interface TailSearchResult {
   found: boolean;

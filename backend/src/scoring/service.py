@@ -5,12 +5,17 @@ from typing import Dict, Any, List, Optional
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 from src.common.models import Operator
-from src.scoring.schemas import NTSBIncident, NTSBQueryResponse, ScoreCalculationResponse
+from src.scoring.schemas import (
+    NTSBIncident,
+    NTSBQueryResponse,
+    ScoreCalculationResponse,
+)
 from src.common.error import HTTPError
 
 # NTSB API Configuration
 NTSB_API_URL = "https://data.ntsb.gov/carol-main-public/api/Query/Main"
 NTSB_TIMEOUT = 30.0  # seconds
+
 
 class NTSBService:
     """Service for interacting with NTSB API"""
@@ -39,7 +44,7 @@ class NTSBService:
                             "RuleType": "Simple",
                             "Values": [operator_name],
                             "Columns": ["AviationOperation.OperatorName"],
-                            "Operator": "is",
+                            "Operator": "contains",
                             "overrideColumn": "",
                             "selectedOption": {
                                 "FieldName": "OperatorName",
@@ -50,20 +55,20 @@ class NTSBService:
                                 "RuleType": 0,
                                 "Options": None,
                                 "TargetCollection": "cases",
-                                "UnderDevelopment": False
-                            }
+                                "UnderDevelopment": False,
+                            },
                         }
                     ],
                     "AndOr": "and",
                     "inLastSearch": False,
-                    "editedSinceLastSearch": False
+                    "editedSinceLastSearch": False,
                 }
             ],
             "AndOr": "and",
             "SortColumn": None,
             "SortDescending": True,
             "TargetCollection": "cases",
-            "SessionId": 146165
+            "SessionId": 146165,
         }
 
         try:
@@ -72,7 +77,9 @@ class NTSBService:
                 response.raise_for_status()
                 return response.json()
         except httpx.TimeoutException:
-            raise HTTPError(detail=f"NTSB API request timed out after {NTSB_TIMEOUT} seconds")
+            raise HTTPError(
+                detail=f"NTSB API request timed out after {NTSB_TIMEOUT} seconds"
+            )
         except httpx.HTTPStatusError as e:
             raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
         except Exception as e:
@@ -119,7 +126,9 @@ class NTSBService:
                 event_id = NTSBService._extract_field_value(fields, "NtsbNo")
                 event_date = NTSBService._extract_field_value(fields, "EventDate")
                 event_type = NTSBService._extract_field_value(fields, "EventType")
-                injury_level = NTSBService._extract_field_value(fields, "HighestInjuryLevel")
+                injury_level = NTSBService._extract_field_value(
+                    fields, "HighestInjuryLevel"
+                )
                 city = NTSBService._extract_field_value(fields, "City")
                 state = NTSBService._extract_field_value(fields, "State")
                 country = NTSBService._extract_field_value(fields, "Country")
@@ -136,7 +145,7 @@ class NTSBService:
                     aircraft_damage=None,  # Not in this response format
                     injury_level=injury_level,
                     investigation_type=None,  # Not directly available
-                    event_type=event_type
+                    event_type=event_type,
                 )
                 incidents.append(incident)
 
@@ -166,9 +175,15 @@ class NTSBService:
 
         # Additional deductions for severe incidents
         for incident in incidents:
-            if incident.aircraft_damage and incident.aircraft_damage.lower() in ["destroyed", "substantial"]:
+            if incident.aircraft_damage and incident.aircraft_damage.lower() in [
+                "destroyed",
+                "substantial",
+            ]:
                 score -= 10
-            if incident.injury_level and incident.injury_level.lower() in ["fatal", "serious"]:
+            if incident.injury_level and incident.injury_level.lower() in [
+                "fatal",
+                "serious",
+            ]:
                 score -= 15
 
         # Ensure score doesn't go below 0
@@ -195,12 +210,16 @@ class ScoringService:
         Raises:
             HTTPError: If operator not found
         """
-        operator = self.db.query(Operator).filter(Operator.operator_id == operator_id).first()
+        operator = (
+            self.db.query(Operator).filter(Operator.operator_id == operator_id).first()
+        )
         if not operator:
             raise HTTPError(detail=f"Operator with ID {operator_id} not found")
         return operator
 
-    async def run_score_calculation(self, operator_id: UUID4) -> ScoreCalculationResponse:
+    async def run_score_calculation(
+        self, operator_id: UUID4
+    ) -> ScoreCalculationResponse:
         """
         Run complete score calculation for an operator.
 
@@ -229,5 +248,5 @@ class ScoringService:
             ntsb_score=ntsb_score,
             total_incidents=len(incidents),
             incidents=incidents,
-            calculated_at=datetime.utcnow()
+            calculated_at=datetime.utcnow(),
         )

@@ -637,6 +637,8 @@ function displayCharterList(companies) {
                       company.company.replace(/'/g, "\\'")
                     )}', '${escapeHtml(
         (part135 || '').replace(/'/g, "\\'")
+      )}', '${escapeHtml(
+        (company.faa_state || '').replace(/'/g, "\\'")
       )}')" style="width: 100%;">
                         🚀 Run Full Verification (NTSB + UCC)
                     </button>
@@ -1211,8 +1213,13 @@ tailSearchInput.addEventListener('keypress', (e) => {
 });
 
 // Run Score functionality for Charter Operators
-async function runCharterScore(operatorName, certificateDesignator) {
+async function runCharterScore(operatorName, certificateDesignator, faaState) {
   try {
+    // Validate faa_state
+    if (!faaState || faaState.trim() === '') {
+      throw new Error('FAA state not available for this operator. Please ensure the operator has a valid faa_state in the database.');
+    }
+
     const BACKEND_API_URL = 'http://localhost:8000';
 
     // Step 1: Create Browserbase session and get live view URL immediately
@@ -1278,7 +1285,7 @@ async function runCharterScore(operatorName, certificateDesignator) {
     const scoreResponse = await fetch(
       `${BACKEND_API_URL}/scoring/full-scoring-flow?operator_name=${encodeURIComponent(
         operatorName
-      )}&session_id=${sessionData.session_id}`,
+      )}&faa_state=${encodeURIComponent(faaState)}&session_id=${sessionData.session_id}`,
       {
         method: 'POST',
         headers: {

@@ -3,10 +3,12 @@ const XLSX = require('xlsx');
 const path = require('path');
 const fs = require('fs');
 const basicAuth = require('express-basic-auth');
+const axios = require('axios');
 const { enrichOperatorData } = require('./scraper');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 // Password protection - Only in production
 if (process.env.NODE_ENV === 'production') {
@@ -304,62 +306,84 @@ app.get('/api/enriched/:operatorName', (req, res) => {
     }
 });
 
-// API endpoint to get all charter operators (sorted by score)
-app.get('/api/charter/operators', (req, res) => {
-    res.json({
-        total: scrapedCharterData.length,
-        data: scrapedCharterData
-    });
-});
-
-// API endpoint to filter charter operators by certification
-app.get('/api/charter/filter', (req, res) => {
-    const { cert, minScore } = req.query;
-
-    let filtered = scrapedCharterData;
-
-    // Filter by minimum score
-    if (minScore) {
-        const minScoreNum = parseInt(minScore);
-        filtered = filtered.filter(op => (op.score || 0) >= minScoreNum);
-    }
-
-    // Filter by certification type
-    if (cert && filtered.length > 0) {
-        filtered = filtered.filter(op => {
-            if (!op.data || !op.data.certifications) return false;
-
-            const certs = op.data.certifications;
-            const certLower = cert.toLowerCase();
-
-            // Check for specific certifications
-            if (certLower.includes('argus')) {
-                if (certLower.includes('platinum')) {
-                    return certs.argus_rating && certs.argus_rating.toLowerCase().includes('platinum');
-                }
-                if (certLower.includes('gold')) {
-                    return certs.argus_rating && certs.argus_rating.toLowerCase().includes('gold');
-                }
-                return certs.argus_rating && certs.argus_rating !== 'No' && certs.argus_rating !== 'N/A';
-            }
-
-            if (certLower.includes('wyvern')) {
-                return certs.wyvern_certified && certs.wyvern_certified !== 'No' && certs.wyvern_certified !== 'N/A';
-            }
-
-            if (certLower.includes('is-bao') || certLower.includes('isbao')) {
-                return certs.is_bao && certs.is_bao !== 'No' && certs.is_bao !== 'N/A';
-            }
-
-            return false;
+// API endpoint to get all charter operators (proxied to backend)
+app.get('/api/charter/operators', async (req, res) => {
+    try {
+        // Proxy request to backend with query parameters
+        const response = await axios.get(`${BACKEND_URL}/charter/operators`, {
+            params: req.query
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('Error proxying charter operators request:', error.message);
+        // Fallback to static data if backend is unavailable
+        console.log('Falling back to static charter data');
+        res.json({
+            total: scrapedCharterData.length,
+            data: scrapedCharterData
         });
     }
+});
 
-    res.json({
-        total: filtered.length,
-        filters: { cert, minScore },
-        data: filtered
-    });
+// API endpoint to filter charter operators by certification (proxied to backend)
+app.get('/api/charter/filter', async (req, res) => {
+    try {
+        // Proxy request to backend with query parameters
+        const response = await axios.get(`${BACKEND_URL}/charter/filter`, {
+            params: req.query
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('Error proxying charter filter request:', error.message);
+        // Fallback to local filtering if backend is unavailable
+        console.log('Falling back to local filter logic');
+
+        const { cert, minScore } = req.query;
+        let filtered = scrapedCharterData;
+
+        // Filter by minimum score
+        if (minScore) {
+            const minScoreNum = parseInt(minScore);
+            filtered = filtered.filter(op => (op.score || 0) >= minScoreNum);
+        }
+
+        // Filter by certification type
+        if (cert && filtered.length > 0) {
+            filtered = filtered.filter(op => {
+                if (!op.data || !op.data.certifications) return false;
+
+                const certs = op.data.certifications;
+                const certLower = cert.toLowerCase();
+
+                // Check for specific certifications
+                if (certLower.includes('argus')) {
+                    if (certLower.includes('platinum')) {
+                        return certs.argus_rating && certs.argus_rating.toLowerCase().includes('platinum');
+                    }
+                    if (certLower.includes('gold')) {
+                        return certs.argus_rating && certs.argus_rating.toLowerCase().includes('gold');
+                    }
+                    return certs.argus_rating && certs.argus_rating !== 'No' && certs.argus_rating !== 'N/A';
+                }
+
+                if (certLower.includes('wyvern')) {
+                    return certs.wyvern_certified && certs.wyvern_certified !== 'No' && certs.wyvern_certified !== 'N/A';
+                }
+
+                if (certLower.includes('is-bao') || certLower.includes('isbao')) {
+                    return certs.is_bao && certs.is_bao !== 'No' && certs.is_bao !== 'N/A';
+                }
+
+                return false;
+            });
+        }
+
+        res.json({
+            total: filtered.length,
+            filters: { cert, minScore },
+            data: filtered
+        });
+    }
 });
 
 // API endpoint for direct charter search (no Part 135 lookup)
@@ -444,4 +468,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Backend API: ${BACKEND_URL}`);
+    console.log(`Charter operators endpoint: ${BACKEND_URL}/charter/operators`);
 });

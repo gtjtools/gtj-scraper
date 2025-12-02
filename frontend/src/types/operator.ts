@@ -33,13 +33,17 @@ export interface OperatorData {
 }
 
 export interface CharterOperator {
+  charter_operator_id?: string; // UUID from backend
   company: string;
   locations: string[];
   score?: number;
   part135_cert?: string;
+  faa_state?: string; // 2-letter state code from FAA database
   faa_data?: any;
   data?: OperatorData;
   url?: string;
+  created_at?: string; // ISO datetime string
+  updated_at?: string; // ISO datetime string
 }
 
 export interface Operator {

@@ -99,11 +99,11 @@ export const getOrCreateOperator = async (
 };
 
 /**
- * Load charter operators from the charter API
+ * Load charter operators from the backend API (Supabase)
  */
 export const loadCharterOperators = async (): Promise<CharterOperator[]> => {
   try {
-    const response = await axios.get<{ data: CharterOperator[] }>(
+    const response = await axios.get<{ total: number; data: CharterOperator[] }>(
       `${API_BASE_URL}/charter/operators`
     );
     return response.data.data || [];
