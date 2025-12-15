@@ -1,0 +1,127 @@
+{
+  "metadata": {
+    "start_time": "2025-12-03T13:59:04.081057",
+    "total_operators": 2,
+    "source_file": "operators-single.dat",
+    "end_time": "2025-12-03T14:00:51.783790"
+  },
+  "operators": [
+    {
+      "trust_score": 30.5,
+      "fleet_score": 61.0,
+      "tail_score": 0.0,
+      "fleet_breakdown": {
+        "initial_score": 100.0,
+        "final_score": 61.0,
+        "total_deductions": 39.0,
+        "deductions": [
+          {
+            "category": "Financial Risk (LLM)",
+            "deduction": 12,
+            "reasoning": "12"
+          },
+          {
+            "category": "Legal Risk (LLM)",
+            "deduction": 15,
+            "reasoning": "15"
+          },
+          {
+            "category": "Operator Age",
+            "deduction": 0,
+            "details": "Operator age: 10.0 years"
+          },
+          {
+            "category": "Recent NTSB Accidents",
+            "deduction": 2,
+            "details": "1 accidents in last 5 years"
+          },
+          {
+            "category": "Certification Rating",
+            "deduction": 10,
+            "details": "ARGUS: None, WYVERN: None"
+          }
+        ]
+      },
+      "tail_breakdown": {
+        "initial_score": 100.0,
+        "final_score": 0.0,
+        "total_deductions": 100.0,
+        "deductions": [
+          {
+            "category": "Aircraft Age",
+            "deduction": 2,
+            "details": "Aircraft age: 5.0 years"
+          },
+          {
+            "category": "NTSB Incident - WPR24FA083",
+            "deduction": 100,
+            "details": "Type: accident, Injury: Fatal, Age: 1.8 years"
+          },
+          {
+            "category": "NTSB Incident - WPR10LA198",
+            "deduction": 42.620123203285424,
+            "details": "Type: accident, Injury: Minor, Age: 15.7 years"
+          },
+          {
+            "category": "NTSB Incident - LAX06FA238",
+            "deduction": 37.54688569472964,
+            "details": "Type: accident, Injury: None, Age: 19.4 years"
+          }
+        ]
+      },
+      "calculated_at": "2025-12-03T20:00:45.421282+00:00",
+      "operator_name": "Clay Lacy Aviation"
+    },
+    {
+      "trust_score": 94.0,
+      "fleet_score": 90.0,
+      "tail_score": 98.0,
+      "fleet_breakdown": {
+        "initial_score": 100.0,
+        "final_score": 90.0,
+        "total_deductions": 10.0,
+        "deductions": [
+          {
+            "category": "Financial Risk (LLM)",
+            "deduction": 0,
+            "reasoning": "0"
+          },
+          {
+            "category": "Legal Risk (LLM)",
+            "deduction": 0,
+            "reasoning": "0"
+          },
+          {
+            "category": "Operator Age",
+            "deduction": 0,
+            "details": "Operator age: 10.0 years"
+          },
+          {
+            "category": "Recent NTSB Accidents",
+            "deduction": 0,
+            "details": "0 accidents in last 5 years"
+          },
+          {
+            "category": "Certification Rating",
+            "deduction": 10,
+            "details": "ARGUS: None, WYVERN: None"
+          }
+        ]
+      },
+      "tail_breakdown": {
+        "initial_score": 100.0,
+        "final_score": 98.0,
+        "total_deductions": 2.0,
+        "deductions": [
+          {
+            "category": "Aircraft Age",
+            "deduction": 2,
+            "details": "Aircraft age: 5.0 years"
+          }
+        ]
+      },
+      "calculated_at": "2025-12-03T20:00:51.781779+00:00",
+      "operator_name": "Sun Air Jets"
+    }
+  ]
+}

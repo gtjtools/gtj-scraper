@@ -1,0 +1,3 @@
+[submodule "gtj-scraper"]
+	path = gtj-scraper
+	url = https://github.com/gtjtools/gtj-scraper.git

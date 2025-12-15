@@ -1,0 +1,374 @@
+"""
+Full Scoring Flow Script
+Runs NTSB + UCC + TrustScore calculation for all operators in operators.dat
+Outputs results to separate files: ntsb_results.json, ucc_results.json, aircraft_ratings.json
+"""
+import asyncio
+import json
+import logging
+import os
+import sys
+from datetime import datetime
+from typing import List, Dict, Any
+from pathlib import Path
+
+# Load environment variables from .env file in parent directory (backend/)
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+
+# Add parent directory (backend) to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+from src.scoring.service import NTSBService
+from src.scoring.ucc_service import UCCVerificationService
+from src.trustscore.calculator import TrustScoreCalculator, FleetScoreData, TailScoreData
+from src.trustscore.llm_client import LLMClient, LLMProvider
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('scoring_flow.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
+def load_operators(filepath: str) -> List[str]:
+    """Load operator names from operators.dat file"""
+    operators = []
+    with open(filepath, 'r') as f:
+        content = f.read()
+        for line in content.strip().split('\n'):
+            line = line.strip().strip(',')
+            if line.startswith("'") and line.endswith("'"):
+                operators.append(line[1:-1])
+            elif line.startswith('"') and line.endswith('"'):
+                operators.append(line[1:-1])
+            elif line:
+                operators.append(line)
+    return operators
+
+
+async def run_full_scoring_flow(
+    operator_name: str,
+    faa_state: str = "FL",
+    state: str = None,
+    use_browserbase: bool = True
+) -> Dict[str, Any]:
+    """
+    Run full scoring flow for a single operator.
+
+    Args:
+        operator_name: Name of the operator to verify
+        faa_state: FAA state code (2-letter abbreviation) - used as fallback
+        state: Optional state code for UCC search override
+        use_browserbase: Whether to run UCC verification (requires Browserbase)
+
+    Returns:
+        Combined scoring results with NTSB, UCC, and TrustScore data
+    """
+    logger.info("=" * 80)
+    logger.info(f"FULL SCORING FLOW FOR: {operator_name}")
+    logger.info("=" * 80)
+
+    result = {
+        "operator_name": operator_name,
+        "verification_date": datetime.now().isoformat(),
+        "status": "pending"
+    }
+
+    try:
+        # Step 1: Query NTSB
+        logger.info(f"[{operator_name}] Step 1: Querying NTSB database...")
+        ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+        incidents = NTSBService.parse_ntsb_response(ntsb_data)
+        total_incidents = len(incidents)
+        ntsb_score = max(0, 100 - (total_incidents * 5))
+
+        logger.info(f"[{operator_name}] NTSB check complete: {total_incidents} incidents found, score: {ntsb_score}")
+
+        # Convert incidents to dict format
+        ntsb_incidents_dict = [incident.dict() for incident in incidents]
+
+        result["ntsb"] = {
+            "operator_name": operator_name,
+            "score": ntsb_score,
+            "total_incidents": total_incidents,
+            "incidents": ntsb_incidents_dict,
+        }
+
+        # Step 2: Verify UCC filings (optional)
+        ucc_filings = []
+        if use_browserbase:
+            logger.info(f"[{operator_name}] Step 2: Verifying UCC filings with Browserbase...")
+            ucc_service = UCCVerificationService()
+            ntsb_results = ntsb_data.get("Results", [])
+
+            try:
+                ucc_data = await ucc_service.verify_ucc_filings(
+                    operator_name, ntsb_results, faa_state, state
+                )
+                logger.info(f"[{operator_name}] UCC check complete: {ucc_data.get('status')}")
+
+                # Extract UCC filings from the verification result
+                visited_states = ucc_data.get("visited_states", [])
+                for state_result in visited_states:
+                    if state_result.get("flow_used") and state_result.get("flow_result"):
+                        flow_result = state_result["flow_result"]
+                        filings = flow_result.get("filings", [])
+                        for filing in filings:
+                            ucc_filings.append({
+                                "status": filing.get("status", "Unknown"),
+                                "filing_date": filing.get("filing_date", "Unknown"),
+                                "debtor": filing.get("debtor_name", filing.get("debtor", "Unknown")),
+                                "secured_party": filing.get("secured_party", "Unknown"),
+                                "collateral": filing.get("collateral", "Unknown"),
+                                "state": state_result.get("state", "Unknown")
+                            })
+
+                ucc_data["operator_name"] = operator_name
+                result["ucc"] = ucc_data
+            except Exception as e:
+                logger.warning(f"[{operator_name}] UCC verification failed: {str(e)}")
+                result["ucc"] = {"operator_name": operator_name, "status": "error", "error": str(e)}
+        else:
+            logger.info(f"[{operator_name}] Step 2: Skipping UCC verification (Browserbase disabled)")
+            result["ucc"] = {"operator_name": operator_name, "status": "skipped", "message": "Browserbase disabled"}
+
+        # Step 3: Calculate TrustScore
+        logger.info(f"[{operator_name}] Step 3: Calculating TrustScore...")
+
+        fleet_data = FleetScoreData(
+            operator_name=operator_name,
+            operator_age_years=10.0,  # Default
+            ntsb_incidents=ntsb_incidents_dict,
+            ucc_filings=ucc_filings,
+            argus_rating=None,
+            wyvern_rating=None,
+            bankruptcy_history=None,
+            faa_violations=None
+        )
+
+        tail_data = TailScoreData(
+            aircraft_age_years=5.0,  # Default
+            operator_name=operator_name,
+            registered_owner=operator_name,
+            fractional_owner=False,
+            ntsb_incidents=ntsb_incidents_dict
+        )
+
+        # Try with LLM, fallback to basic calculation
+        try:
+            llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
+            calculator = TrustScoreCalculator(llm_client=llm_client)
+            trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
+            logger.info(f"[{operator_name}] TrustScore calculated: {trust_score_result['trust_score']}")
+        except Exception as e:
+            logger.warning(f"[{operator_name}] Error calculating TrustScore with LLM: {str(e)}")
+            calculator = TrustScoreCalculator(llm_client=None)
+            trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
+            trust_score_result["llm_error"] = str(e)
+            logger.info(f"[{operator_name}] TrustScore calculated (without LLM): {trust_score_result['trust_score']}")
+
+        trust_score_result["operator_name"] = operator_name
+        result["trust_score"] = trust_score_result
+        result["combined_score"] = trust_score_result["trust_score"]
+        result["status"] = "completed"
+
+        logger.info("=" * 80)
+        logger.info(f"[{operator_name}] FULL SCORING FLOW COMPLETED")
+        logger.info(f"[{operator_name}] NTSB Score: {ntsb_score}, TrustScore: {trust_score_result['trust_score']}")
+        logger.info("=" * 80)
+
+    except Exception as e:
+        logger.error(f"[{operator_name}] Full scoring flow error: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        result["status"] = "error"
+        result["error"] = str(e)
+
+    return result
+
+
+def save_separate_results(ntsb_results: Dict, ucc_results: Dict, aircraft_ratings: Dict, output_dir: str = "."):
+    """Save results to separate JSON files"""
+    output_path = Path(output_dir)
+
+    # Save NTSB results
+    ntsb_file = output_path / "ntsb_results.json"
+    with open(ntsb_file, 'w') as f:
+        json.dump(ntsb_results, f, indent=2, default=str)
+    logger.info(f"Saved NTSB results to {ntsb_file}")
+
+    # Save UCC results
+    ucc_file = output_path / "ucc_results.json"
+    with open(ucc_file, 'w') as f:
+        json.dump(ucc_results, f, indent=2, default=str)
+    logger.info(f"Saved UCC results to {ucc_file}")
+
+    # Save Aircraft ratings (TrustScore)
+    ratings_file = output_path / "aircraft_ratings.json"
+    with open(ratings_file, 'w') as f:
+        json.dump(aircraft_ratings, f, indent=2, default=str)
+    logger.info(f"Saved aircraft ratings to {ratings_file}")
+
+
+async def main():
+    """Main entry point"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run full scoring flow for operators")
+    # Default to operators.dat in parent directory (backend/)
+    default_operators_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "operators.dat")
+    parser.add_argument(
+        "--operators-file",
+        default=default_operators_file,
+        help="Path to operators file (default: ../operators.dat)"
+    )
+    parser.add_argument(
+        "--output-dir", "-o",
+        default=".",
+        help="Output directory for JSON files (default: current directory)"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit number of operators to process (for testing)"
+    )
+    parser.add_argument(
+        "--faa-state",
+        default="FL",
+        help="Default FAA state code for UCC fallback (default: FL)"
+    )
+    parser.add_argument(
+        "--no-browserbase",
+        action="store_true",
+        help="Skip UCC verification (don't use Browserbase)"
+    )
+    parser.add_argument(
+        "--operator",
+        type=str,
+        default=None,
+        help="Run for a single operator (overrides operators file)"
+    )
+
+    args = parser.parse_args()
+
+    # Determine operators to process
+    if args.operator:
+        operators = [args.operator]
+        logger.info(f"Running for single operator: {args.operator}")
+    else:
+        operators_path = Path(args.operators_file)
+        if not operators_path.exists():
+            logger.error(f"Operators file not found: {args.operators_file}")
+            sys.exit(1)
+
+        operators = load_operators(str(operators_path))
+        logger.info(f"Loaded {len(operators)} operators from {args.operators_file}")
+
+    if args.limit:
+        operators = operators[:args.limit]
+        logger.info(f"Limited to first {args.limit} operators")
+
+    # Initialize separate result containers
+    ntsb_results = {
+        "metadata": {
+            "start_time": datetime.now().isoformat(),
+            "total_operators": len(operators),
+            "source_file": args.operators_file if not args.operator else "command_line"
+        },
+        "operators": []
+    }
+
+    ucc_results = {
+        "metadata": {
+            "start_time": datetime.now().isoformat(),
+            "total_operators": len(operators),
+            "browserbase_enabled": not args.no_browserbase,
+            "source_file": args.operators_file if not args.operator else "command_line"
+        },
+        "operators": []
+    }
+
+    aircraft_ratings = {
+        "metadata": {
+            "start_time": datetime.now().isoformat(),
+            "total_operators": len(operators),
+            "source_file": args.operators_file if not args.operator else "command_line"
+        },
+        "operators": []
+    }
+
+    logger.info("=" * 70)
+    logger.info("Full Scoring Flow - Batch Processing")
+    logger.info("=" * 70)
+    logger.info(f"Operators: {len(operators)}")
+    logger.info(f"Output directory: {args.output_dir}")
+    logger.info(f"Browserbase: {'Enabled' if not args.no_browserbase else 'Disabled'}")
+    logger.info("=" * 70)
+
+    # Process each operator
+    for i, operator in enumerate(operators, 1):
+        logger.info(f"[{i}/{len(operators)}] Processing: {operator}")
+        logger.info("-" * 50)
+
+        operator_result = await run_full_scoring_flow(
+            operator_name=operator,
+            faa_state=args.faa_state,
+            use_browserbase=not args.no_browserbase
+        )
+
+        # Separate results into different categories
+        if "ntsb" in operator_result:
+            ntsb_results["operators"].append(operator_result["ntsb"])
+
+        if "ucc" in operator_result:
+            ucc_results["operators"].append(operator_result["ucc"])
+
+        if "trust_score" in operator_result:
+            aircraft_ratings["operators"].append(operator_result["trust_score"])
+
+        # Save intermediate results to separate files
+        save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir)
+
+        # Small delay between operators to be respectful
+        if i < len(operators):
+            logger.info("Waiting 2 seconds before next operator...")
+            await asyncio.sleep(2)
+
+    # Final save with end time
+    end_time = datetime.now().isoformat()
+    ntsb_results["metadata"]["end_time"] = end_time
+    ucc_results["metadata"]["end_time"] = end_time
+    aircraft_ratings["metadata"]["end_time"] = end_time
+
+    save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir)
+
+    logger.info("=" * 70)
+    logger.info("Processing Complete!")
+    logger.info("=" * 70)
+    logger.info(f"Results saved to:")
+    logger.info(f"  - ntsb_results.json")
+    logger.info(f"  - ucc_results.json")
+    logger.info(f"  - aircraft_ratings.json")
+    logger.info(f"  - scoring_flow.log")
+
+    # Summary
+    completed = len([r for r in ntsb_results["operators"] if r.get("score") is not None])
+    total = len(operators)
+    logger.info(f"Completed: {completed}/{total}")
+
+    return {
+        "ntsb": ntsb_results,
+        "ucc": ucc_results,
+        "aircraft_ratings": aircraft_ratings
+    }
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

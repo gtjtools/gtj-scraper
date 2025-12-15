@@ -1,0 +1,1619 @@
+{
+  "metadata": {
+    "start_time": "2025-12-02T14:57:59.063923",
+    "total_operators": 10,
+    "output_file": "full_score.json",
+    "browserbase_enabled": true,
+    "end_time": "2025-12-02T15:00:33.364368"
+  },
+  "operators": {
+    "Clay Lacy Aviation": {
+      "operator_name": "Clay Lacy Aviation",
+      "verification_date": "2025-12-02T14:57:59.064221",
+      "status": "completed",
+      "ntsb": {
+        "score": 85,
+        "total_incidents": 3,
+        "incidents": [
+          {
+            "event_id": "WPR24FA083",
+            "event_date": "2024-02-07T12:48:00Z",
+            "location": "Westwater, Utah, United States",
+            "aircraft_damage": null,
+            "injury_level": "Fatal",
+            "investigation_type": null,
+            "event_type": "Accident"
+          },
+          {
+            "event_id": "WPR10LA198",
+            "event_date": "2010-04-08T19:45:00Z",
+            "location": "Seattle, Washington, United States",
+            "aircraft_damage": null,
+            "injury_level": "Minor",
+            "investigation_type": null,
+            "event_type": "Accident"
+          },
+          {
+            "event_id": "LAX06FA238",
+            "event_date": "2006-07-15T16:30:00Z",
+            "location": "Van Nuys, California, United States",
+            "aircraft_damage": null,
+            "injury_level": "None",
+            "investigation_type": null,
+            "event_type": "Accident"
+          }
+        ],
+        "raw_response": {
+          "Results": [
+            {
+              "Fields": [
+                {
+                  "FieldName": "NtsbNo",
+                  "ExportName": "NtsbNo",
+                  "Values": [
+                    "WPR24FA083"
+                  ]
+                },
+                {
+                  "FieldName": "CompletionStatus",
+                  "ExportName": null,
+                  "Values": [
+                    "In work"
+                  ]
+                },
+                {
+                  "FieldName": "EventType",
+                  "ExportName": "EventType",
+                  "Values": [
+                    "Accident"
+                  ]
+                },
+                {
+                  "FieldName": "Mkey",
+                  "ExportName": "Mkey",
+                  "Values": [
+                    "193761"
+                  ]
+                },
+                {
+                  "FieldName": "IsStudy",
+                  "ExportName": null,
+                  "Values": [
+                    "false"
+                  ]
+                },
+                {
+                  "FieldName": "EventDate",
+                  "ExportName": "EventDate",
+                  "Values": [
+                    "2024-02-07T12:48:00Z"
+                  ]
+                },
+                {
+                  "FieldName": "City",
+                  "ExportName": "City",
+                  "Values": [
+                    "Westwater"
+                  ]
+                },
+                {
+                  "FieldName": "State",
+                  "ExportName": "State",
+                  "Values": [
+                    "Utah"
+                  ]
+                },
+                {
+                  "FieldName": "Country",
+                  "ExportName": "Country",
+                  "Values": [
+                    "United States"
+                  ]
+                },
+                {
+                  "FieldName": "ReportNo",
+                  "ExportName": "ReportNo",
+                  "Values": []
+                },
+                {
+                  "FieldName": "N#",
+                  "ExportName": null,
+                  "Values": [
+                    "N900VA"
+                  ]
+                },
+                {
+                  "FieldName": "VehicleMake",
+                  "ExportName": null,
+                  "Values": [
+                    "HAWKER BEECHCRAFT CORP"
+                  ]
+                },
+                {
+                  "FieldName": "VehicleModel",
+                  "ExportName": null,
+                  "Values": [
+                    "HAWKER 900XP"
+                  ]
+                },
+                {
+                  "FieldName": "HighestInjuryLevel",
+                  "ExportName": null,
+                  "Values": [
+                    "Fatal"
+                  ]
+                },
+                {
+                  "FieldName": "InjuryOngroundCount",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "InjuryOnboardCount",
+                  "ExportName": null,
+                  "Values": [
+                    "2"
+                  ]
+                },
+                {
+                  "FieldName": "HasSafetyRec",
+                  "ExportName": "HasSafetyRec",
+                  "Values": [
+                    "false"
+                  ]
+                },
+                {
+                  "FieldName": "Mode",
+                  "ExportName": "Mode",
+                  "Values": [
+                    "Aviation"
+                  ]
+                },
+                {
+                  "FieldName": "ReportNumber",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "ReportType",
+                  "ExportName": "ReportType",
+                  "Values": [
+                    "DirectorBrief"
+                  ]
+                },
+                {
+                  "FieldName": "DocketPublishDate",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "OriginalPublishedDate",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "ReportDate",
+                  "ExportName": null,
+                  "Values": [
+                    "2024-02-27T00:11:24.004Z"
+                  ]
+                },
+                {
+                  "FieldName": "MostRecentReportType",
+                  "ExportName": null,
+                  "Values": [
+                    "Prelim"
+                  ]
+                },
+                {
+                  "FieldName": "EV_ID",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "RepGenFlag",
+                  "ExportName": null,
+                  "Values": []
+                }
+              ],
+              "EntryId": "692e9845762abe9a7f904897"
+            },
+            {
+              "Fields": [
+                {
+                  "FieldName": "NtsbNo",
+                  "ExportName": "NtsbNo",
+                  "Values": [
+                    "WPR10LA198"
+                  ]
+                },
+                {
+                  "FieldName": "CompletionStatus",
+                  "ExportName": null,
+                  "Values": [
+                    "Completed"
+                  ]
+                },
+                {
+                  "FieldName": "EventType",
+                  "ExportName": "EventType",
+                  "Values": [
+                    "Accident"
+                  ]
+                },
+                {
+                  "FieldName": "Mkey",
+                  "ExportName": "Mkey",
+                  "Values": [
+                    "75707"
+                  ]
+                },
+                {
+                  "FieldName": "IsStudy",
+                  "ExportName": null,
+                  "Values": [
+                    "false"
+                  ]
+                },
+                {
+                  "FieldName": "EventDate",
+                  "ExportName": "EventDate",
+                  "Values": [
+                    "2010-04-08T19:45:00Z"
+                  ]
+                },
+                {
+                  "FieldName": "City",
+                  "ExportName": "City",
+                  "Values": [
+                    "Seattle"
+                  ]
+                },
+                {
+                  "FieldName": "State",
+                  "ExportName": "State",
+                  "Values": [
+                    "Washington"
+                  ]
+                },
+                {
+                  "FieldName": "Country",
+                  "ExportName": "Country",
+                  "Values": [
+                    "United States"
+                  ]
+                },
+                {
+                  "FieldName": "ReportNo",
+                  "ExportName": "ReportNo",
+                  "Values": []
+                },
+                {
+                  "FieldName": "N#",
+                  "ExportName": null,
+                  "Values": [
+                    "N706TJ"
+                  ]
+                },
+                {
+                  "FieldName": "VehicleMake",
+                  "ExportName": null,
+                  "Values": [
+                    "GRUMMAN AMERICAN AVN. CORP."
+                  ]
+                },
+                {
+                  "FieldName": "VehicleModel",
+                  "ExportName": null,
+                  "Values": [
+                    "G-1159"
+                  ]
+                },
+                {
+                  "FieldName": "HighestInjuryLevel",
+                  "ExportName": null,
+                  "Values": [
+                    "Minor"
+                  ]
+                },
+                {
+                  "FieldName": "InjuryOngroundCount",
+                  "ExportName": null,
+                  "Values": [
+                    "1"
+                  ]
+                },
+                {
+                  "FieldName": "InjuryOnboardCount",
+                  "ExportName": null,
+                  "Values": [
+                    "0"
+                  ]
+                },
+                {
+                  "FieldName": "HasSafetyRec",
+                  "ExportName": "HasSafetyRec",
+                  "Values": [
+                    "false"
+                  ]
+                },
+                {
+                  "FieldName": "Mode",
+                  "ExportName": "Mode",
+                  "Values": [
+                    "Aviation"
+                  ]
+                },
+                {
+                  "FieldName": "ReportNumber",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "ReportType",
+                  "ExportName": "ReportType",
+                  "Values": [
+                    "DirectorBrief"
+                  ]
+                },
+                {
+                  "FieldName": "DocketPublishDate",
+                  "ExportName": null,
+                  "Values": [
+                    "2011-02-08T19:20:00Z"
+                  ]
+                },
+                {
+                  "FieldName": "OriginalPublishedDate",
+                  "ExportName": null,
+                  "Values": [
+                    "2011-04-28T04:00:00Z"
+                  ]
+                },
+                {
+                  "FieldName": "ReportDate",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "MostRecentReportType",
+                  "ExportName": null,
+                  "Values": [
+                    "Final"
+                  ]
+                },
+                {
+                  "FieldName": "EV_ID",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "RepGenFlag",
+                  "ExportName": null,
+                  "Values": []
+                }
+              ],
+              "EntryId": "692e982f762abe9a7f8fef29"
+            },
+            {
+              "Fields": [
+                {
+                  "FieldName": "NtsbNo",
+                  "ExportName": "NtsbNo",
+                  "Values": [
+                    "LAX06FA238"
+                  ]
+                },
+                {
+                  "FieldName": "CompletionStatus",
+                  "ExportName": null,
+                  "Values": [
+                    "Completed"
+                  ]
+                },
+                {
+                  "FieldName": "EventType",
+                  "ExportName": "EventType",
+                  "Values": [
+                    "Accident"
+                  ]
+                },
+                {
+                  "FieldName": "Mkey",
+                  "ExportName": "Mkey",
+                  "Values": [
+                    "64150"
+                  ]
+                },
+                {
+                  "FieldName": "IsStudy",
+                  "ExportName": null,
+                  "Values": [
+                    "false"
+                  ]
+                },
+                {
+                  "FieldName": "EventDate",
+                  "ExportName": "EventDate",
+                  "Values": [
+                    "2006-07-15T16:30:00Z"
+                  ]
+                },
+                {
+                  "FieldName": "City",
+                  "ExportName": "City",
+                  "Values": [
+                    "Van Nuys"
+                  ]
+                },
+                {
+                  "FieldName": "State",
+                  "ExportName": "State",
+                  "Values": [
+                    "California"
+                  ]
+                },
+                {
+                  "FieldName": "Country",
+                  "ExportName": "Country",
+                  "Values": [
+                    "United States"
+                  ]
+                },
+                {
+                  "FieldName": "ReportNo",
+                  "ExportName": "ReportNo",
+                  "Values": []
+                },
+                {
+                  "FieldName": "N#",
+                  "ExportName": null,
+                  "Values": [
+                    "N554CL"
+                  ]
+                },
+                {
+                  "FieldName": "VehicleMake",
+                  "ExportName": null,
+                  "Values": [
+                    "Learjet"
+                  ]
+                },
+                {
+                  "FieldName": "VehicleModel",
+                  "ExportName": null,
+                  "Values": [
+                    "55"
+                  ]
+                },
+                {
+                  "FieldName": "HighestInjuryLevel",
+                  "ExportName": null,
+                  "Values": [
+                    "None"
+                  ]
+                },
+                {
+                  "FieldName": "InjuryOngroundCount",
+                  "ExportName": null,
+                  "Values": [
+                    "0"
+                  ]
+                },
+                {
+                  "FieldName": "InjuryOnboardCount",
+                  "ExportName": null,
+                  "Values": [
+                    "0"
+                  ]
+                },
+                {
+                  "FieldName": "HasSafetyRec",
+                  "ExportName": "HasSafetyRec",
+                  "Values": [
+                    "false"
+                  ]
+                },
+                {
+                  "FieldName": "Mode",
+                  "ExportName": "Mode",
+                  "Values": [
+                    "Aviation"
+                  ]
+                },
+                {
+                  "FieldName": "ReportNumber",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "ReportType",
+                  "ExportName": "ReportType",
+                  "Values": [
+                    "DirectorBrief"
+                  ]
+                },
+                {
+                  "FieldName": "DocketPublishDate",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "OriginalPublishedDate",
+                  "ExportName": null,
+                  "Values": [
+                    "2009-06-22T04:00:00Z"
+                  ]
+                },
+                {
+                  "FieldName": "ReportDate",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "MostRecentReportType",
+                  "ExportName": null,
+                  "Values": [
+                    "Final"
+                  ]
+                },
+                {
+                  "FieldName": "EV_ID",
+                  "ExportName": null,
+                  "Values": []
+                },
+                {
+                  "FieldName": "RepGenFlag",
+                  "ExportName": null,
+                  "Values": []
+                }
+              ],
+              "EntryId": "692e9825762abe9a7f8fc683"
+            }
+          ],
+          "Columns": [
+            "NtsbNo",
+            "CompletionStatus",
+            "EventType",
+            "Mkey",
+            "IsStudy",
+            "EventDate",
+            "City",
+            "State",
+            "Country",
+            "ReportNo",
+            "N#",
+            "VehicleMake",
+            "VehicleModel",
+            "HighestInjuryLevel",
+            "InjuryOngroundCount",
+            "InjuryOnboardCount",
+            "HasSafetyRec",
+            "Mode",
+            "ReportNumber",
+            "ReportType",
+            "DocketPublishDate",
+            "OriginalPublishedDate",
+            "ReportDate",
+            "MostRecentReportType",
+            "EV_ID",
+            "RepGenFlag"
+          ],
+          "ResultListCount": 3,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Clay Lacy Aviation",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T14:59:23.583687",
+        "source": "State-specific UCC filing pages",
+        "status": "manual_verification_required",
+        "message": "Navigated to 4 state-specific UCC pages based on NTSB incident locations for Clay Lacy Aviation.",
+        "states_processed": 4,
+        "visited_states": [
+          {
+            "state": "Utah",
+            "url": "https://secure.utah.gov/uccsearch/uccs",
+            "flow_used": true,
+            "flow_result": {
+              "state": "Utah",
+              "success": true,
+              "operator_name": "Clay Lacy Aviation",
+              "url": "https://secure.utah.gov/uccsearch/uccs",
+              "filings": [],
+              "total_count": 0,
+              "page_title": "UtahID",
+              "page_url": "https://id.utah.gov/login/?goto=https%3A%2F%2Flogin.dts.utah.gov%3A443%2Fsso%2Foauth2%2Fauthorize%3Fclient_id%3Dmerchantable-whitefisher-216470%26redirect_uri%3Dhttps%3A%2F%2Fucc.utah.gov%2FOnlineAccount%2FBackFromOpenIdConnect%26scope%3Dopenid%2520profile%2520email%2520phone%2520address%26response_type%3Dcode%26state%3DOnline&realm=/",
+              "implementation_status": "functional",
+              "notes": "Extracted 0 UCC filing records"
+            },
+            "page_info": {
+              "state": "Utah",
+              "flow_success": true,
+              "filings_count": 0
+            }
+          },
+          {
+            "state": "Washington",
+            "url": "https://www.dol.wa.gov/business/UCC/uccforms.html",
+            "flow_used": true,
+            "flow_result": {
+              "state": "Washington",
+              "success": true,
+              "operator_name": "Clay Lacy Aviation",
+              "url": "https://www.dol.wa.gov/business/UCC/uccforms.html",
+              "filings": [],
+              "total_count": 0,
+              "page_title": "Search | Washington State Department of Licensing",
+              "page_url": "https://dol.wa.gov/search/cse?keys=",
+              "implementation_status": "functional",
+              "notes": "Extracted 0 UCC filing records"
+            },
+            "page_info": {
+              "state": "Washington",
+              "flow_success": true,
+              "filings_count": 0
+            }
+          },
+          {
+            "state": "California",
+            "url": "http://www.sos.ca.gov/business-programs/ucc/",
+            "flow_used": true,
+            "flow_result": {
+              "state": "California",
+              "success": true,
+              "operator_name": "Clay Lacy Aviation",
+              "url": "http://www.sos.ca.gov/business-programs/ucc/",
+              "filings": [
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "187640702732",
+                  "secured_party": "BANK OF UTAH, NOT IN ITS INDIVIDUAL CAPACITY, BUT SOLELY AS OWNER TRUSTEE FOR FLATIRON AIR, LLC - DANBURY, CT",
+                  "status": "Lapsed",
+                  "filing_date": "03/28/2018",
+                  "lapse_date": "03/28/2023"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "187640702853",
+                  "secured_party": "BANK OF UTAH, NOT IN ITS INDIVIDUAL CAPACITY, BUT SOLELY AS OWNER TRUSTEE FOR AVN AIR, LLC - DANBURY, CT",
+                  "status": "Terminated",
+                  "filing_date": "03/28/2018",
+                  "lapse_date": "03/28/2028"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "U240031543321",
+                  "secured_party": "DELL FINANCIAL SERVICES L.L.C. - ROUND ROCK, TX",
+                  "status": "Active",
+                  "filing_date": "04/08/2024",
+                  "lapse_date": "04/08/2029"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "U240037116827",
+                  "secured_party": "CISCO SYSTEMS CAPITAL CORPORATION - WAYNE, PA",
+                  "status": "Active",
+                  "filing_date": "04/29/2024",
+                  "lapse_date": "04/29/2029"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "187651287601",
+                  "secured_party": "SUMITOMO MITSUI FINANCE AND LEASING COMPANY, LIMITED - NEW YORK, NY",
+                  "status": "Lapsed",
+                  "filing_date": "05/31/2018",
+                  "lapse_date": "05/31/2023"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "187655070312",
+                  "secured_party": "WELLS FARGO BANK, N.A. - LINCOLNSHIRE, IL",
+                  "status": "Active",
+                  "filing_date": "06/20/2018",
+                  "lapse_date": "06/20/2028"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "U200006572927",
+                  "secured_party": "DELL FINANCIAL SERVICES L.L.C. - ROUND ROCK, TX",
+                  "status": "Lapsed",
+                  "filing_date": "07/31/2020",
+                  "lapse_date": "07/31/2025"
+                },
+                {
+                  "ucc_type": "Notice of State Tax Lien",
+                  "debtor_name": "CLAY LACY AVIATION, INCORPORAT A CORPORATION - VAN NUYS, CA",
+                  "file_number": "117285550953",
+                  "secured_party": "BOARD OF EQUALIZATION - SACRAMENTO, CA",
+                  "status": "Lapsed",
+                  "filing_date": "09/20/2011",
+                  "lapse_date": "09/20/2021"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "U200031235015",
+                  "secured_party": "DEUTSCHE BANK (SUISSE) S.A., AS SECURITY TRUSTEE - ,",
+                  "status": "Lapsed",
+                  "filing_date": "10/13/2020",
+                  "lapse_date": "10/13/2025"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "147433093428",
+                  "secured_party": "WELLS FARGO BANK, NATIONAL ASSOCIATION - LOS ANGELES, CA",
+                  "status": "Active",
+                  "filing_date": "10/20/2014",
+                  "lapse_date": "10/20/2029"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "U200033751425",
+                  "secured_party": "CISCO SYSTEMS CAPITAL - MESQUITE, TX",
+                  "status": "Lapsed",
+                  "filing_date": "11/30/2020",
+                  "lapse_date": "11/30/2025"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "U210110557519",
+                  "secured_party": "FIRST REPUBLIC BANK - SAN FRANCISCO, CA",
+                  "status": "Terminated",
+                  "filing_date": "12/13/2021",
+                  "lapse_date": "12/13/2026"
+                },
+                {
+                  "ucc_type": "UCC",
+                  "debtor_name": "CLAY LACY AVIATION, INC. - VAN NUYS, CA",
+                  "file_number": "197752125110",
+                  "secured_party": "HIGH LINE AIR, LLC - DANBURY, CT",
+                  "status": "Lapsed",
+                  "filing_date": "12/16/2019",
+                  "lapse_date": "12/16/2024"
+                }
+              ],
+              "total_count": 13,
+              "page_title": "Search | California Secretary of State",
+              "page_url": "https://bizfileonline.sos.ca.gov/search/ucc",
+              "implementation_status": "functional",
+              "notes": "Extracted 13 UCC filing records from California BizFile"
+            },
+            "page_info": {
+              "state": "California",
+              "flow_success": true,
+              "filings_count": 13
+            }
+          },
+          {
+            "state": "Florida",
+            "url": "https://dos.myflorida.com/sunbiz/other-services/ucc-information/",
+            "flow_used": true,
+            "flow_result": {
+              "state": "Florida",
+              "success": true,
+              "operator_name": "Clay Lacy Aviation",
+              "url": "https://dos.myflorida.com/sunbiz/other-services/ucc-information/",
+              "raw_response": {
+                "status": "OK",
+                "notOk": false,
+                "messages": [],
+                "payload": {
+                  "debtors": [],
+                  "totalExactMatches": 0,
+                  "pages_fetched": 1,
+                  "all_page_responses": [
+                    {
+                      "status": "OK",
+                      "notOk": false,
+                      "messages": [],
+                      "payload": {
+                        "debtors": "[Omitted - 0 records included in combined debtors list above]",
+                        "nextRowNumber": null,
+                        "previousRowNumber": null,
+                        "totalExactMatches": 0
+                      },
+                      "messageSummary": "",
+                      "friendlyMessageSummary": ""
+                    }
+                  ]
+                },
+                "messageSummary": "",
+                "friendlyMessageSummary": ""
+              },
+              "api_url": "https://publicsearchapi.floridaucc.com/search",
+              "status_code": 200,
+              "implementation_status": "api_integration",
+              "pages_fetched": 1,
+              "normalized_filings": [],
+              "filings_count": 0,
+              "notes": "Using Florida public search API with pagination (1 pages)"
+            },
+            "page_info": {
+              "state": "Florida",
+              "flow_success": true,
+              "filings_count": 0
+            }
+          }
+        ],
+        "all_page_info": [
+          {
+            "state": "Utah",
+            "flow_success": true,
+            "filings_count": 0
+          },
+          {
+            "state": "Washington",
+            "flow_success": true,
+            "filings_count": 0
+          },
+          {
+            "state": "California",
+            "flow_success": true,
+            "filings_count": 13
+          },
+          {
+            "state": "Florida",
+            "flow_success": true,
+            "filings_count": 0
+          }
+        ],
+        "browserbase_session_id": "e1d0d6ca-eadb-4611-94a0-49fa31911e18",
+        "browserbase_debug_url": "https://www.browserbase.com/sessions/e1d0d6ca-eadb-4611-94a0-49fa31911e18",
+        "browserbase_live_view_url": "https://www.browserbase.com/sessions/e1d0d6ca-eadb-4611-94a0-49fa31911e18"
+      },
+      "trust_score": {
+        "trust_score": 30.5,
+        "fleet_score": 61.0,
+        "tail_score": 0.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 61.0,
+          "total_deductions": 39.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 12,
+              "reasoning": "12"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 15,
+              "reasoning": "15"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 2,
+              "details": "1 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 0.0,
+          "total_deductions": 100.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            },
+            {
+              "category": "NTSB Incident - WPR24FA083",
+              "deduction": 100,
+              "details": "Type: accident, Injury: Fatal, Age: 1.8 years"
+            },
+            {
+              "category": "NTSB Incident - WPR10LA198",
+              "deduction": 42.60917180013689,
+              "details": "Type: accident, Injury: Minor, Age: 15.7 years"
+            },
+            {
+              "category": "NTSB Incident - LAX06FA238",
+              "deduction": 37.535934291581114,
+              "details": "Type: accident, Injury: None, Age: 19.4 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T20:59:27.832135+00:00"
+      },
+      "combined_score": 30.5
+    },
+    "Sun Air Jets": {
+      "operator_name": "Sun Air Jets",
+      "verification_date": "2025-12-02T14:59:29.837008",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Sun Air Jets",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T14:59:31.739006",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T20:59:34.858322+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "Latitude 33 Aviation, LLC": {
+      "operator_name": "Latitude 33 Aviation, LLC",
+      "verification_date": "2025-12-02T14:59:36.866552",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Latitude 33 Aviation, LLC",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T14:59:38.729207",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T20:59:42.012398+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "Desert Jet": {
+      "operator_name": "Desert Jet",
+      "verification_date": "2025-12-02T14:59:44.016783",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Desert Jet",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T14:59:45.932051",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T20:59:49.132559+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "Helinet Aviation Services, LLC": {
+      "operator_name": "Helinet Aviation Services, LLC",
+      "verification_date": "2025-12-02T14:59:51.136974",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Helinet Aviation Services, LLC",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T14:59:53.020677",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T20:59:56.881132+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "Orange County Helicopters, LLC": {
+      "operator_name": "Orange County Helicopters, LLC",
+      "verification_date": "2025-12-02T14:59:58.885427",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Orange County Helicopters, LLC",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T15:00:00.830871",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T21:00:06.217636+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "Pacific Coast Jet Charter, Inc.": {
+      "operator_name": "Pacific Coast Jet Charter, Inc.",
+      "verification_date": "2025-12-02T15:00:08.222527",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Pacific Coast Jet Charter, Inc.",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T15:00:10.142441",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T21:00:12.958215+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "Air Shasta Rotor & Wing, Inc": {
+      "operator_name": "Air Shasta Rotor & Wing, Inc",
+      "verification_date": "2025-12-02T15:00:14.963179",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Air Shasta Rotor & Wing, Inc",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T15:00:16.795006",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T21:00:20.354723+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "Orbic Air, LLC": {
+      "operator_name": "Orbic Air, LLC",
+      "verification_date": "2025-12-02T15:00:22.358790",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "Orbic Air, LLC",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T15:00:24.227530",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T21:00:26.869599+00:00"
+      },
+      "combined_score": 94.0
+    },
+    "TRANS-EXEC AIR SERVICE INC": {
+      "operator_name": "TRANS-EXEC AIR SERVICE INC",
+      "verification_date": "2025-12-02T15:00:28.874283",
+      "status": "completed",
+      "ntsb": {
+        "score": 100,
+        "total_incidents": 0,
+        "incidents": [],
+        "raw_response": {
+          "Results": [],
+          "Columns": [],
+          "ResultListCount": 0,
+          "MaxResultCountReached": false
+        }
+      },
+      "ucc": {
+        "operator_name": "TRANS-EXEC AIR SERVICE INC",
+        "ucc_verified": false,
+        "verification_date": "2025-12-02T15:00:30.796286",
+        "status": "error",
+        "error": "No NTSB incidents found for this operator",
+        "browserbase_session_id": null
+      },
+      "trust_score": {
+        "trust_score": 94.0,
+        "fleet_score": 90.0,
+        "tail_score": 98.0,
+        "fleet_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 90.0,
+          "total_deductions": 10.0,
+          "deductions": [
+            {
+              "category": "Financial Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Legal Risk (LLM)",
+              "deduction": 0,
+              "reasoning": "0"
+            },
+            {
+              "category": "Operator Age",
+              "deduction": 0,
+              "details": "Operator age: 10.0 years"
+            },
+            {
+              "category": "Recent NTSB Accidents",
+              "deduction": 0,
+              "details": "0 accidents in last 5 years"
+            },
+            {
+              "category": "Certification Rating",
+              "deduction": 10,
+              "details": "ARGUS: None, WYVERN: None"
+            }
+          ]
+        },
+        "tail_breakdown": {
+          "initial_score": 100.0,
+          "final_score": 98.0,
+          "total_deductions": 2.0,
+          "deductions": [
+            {
+              "category": "Aircraft Age",
+              "deduction": 2,
+              "details": "Aircraft age: 5.0 years"
+            }
+          ]
+        },
+        "calculated_at": "2025-12-02T21:00:33.361487+00:00"
+      },
+      "combined_score": 94.0
+    }
+  }
+}
