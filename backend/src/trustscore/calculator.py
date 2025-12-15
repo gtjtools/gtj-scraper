@@ -373,12 +373,27 @@ Here is the data for your evaluation. Assume that this data is comprehensive and
         prompt += "\n=== UCC FILINGS ===\n"
         if ucc_filings:
             for i, filing in enumerate(ucc_filings, 1):
+                # Validate required fields (all except secured_party and collateral)
+                required_fields = ['file_number', 'status', 'filing_date', 'lapse_date', 'lien_type', 'debtor']
+                missing_fields = []
+
+                for field in required_fields:
+                    value = filing.get(field, 'Unknown')
+                    if not value or value == 'Unknown':
+                        missing_fields.append(field)
+
+                if missing_fields:
+                    print(f"⚠️  WARNING: UCC filing {i} is missing required fields: {', '.join(missing_fields)}")
+
                 prompt += f"\nFiling {i}:\n"
+                prompt += f"  File Number: {filing.get('file_number', 'Unknown')}\n"
                 prompt += f"  Status: {filing.get('status', 'Unknown')}\n"
                 prompt += f"  Filing Date: {filing.get('filing_date', 'Unknown')}\n"
+                prompt += f"  Lapse Date: {filing.get('lapse_date', 'Unknown')}\n"
+                prompt += f"  Lien Type: {filing.get('lien_type', 'Unknown')}\n"
                 prompt += f"  Debtor: {filing.get('debtor', 'Unknown')}\n"
-                prompt += f"  Secured Party: {filing.get('secured_party', 'Unknown')}\n"
-                prompt += f"  Collateral: {filing.get('collateral', 'Unknown')}\n"
+                prompt += f"  Secured Party: {filing.get('secured_party', 'Not specified')}\n"
+                prompt += f"  Collateral: {filing.get('collateral', 'Not specified')}\n"
         else:
             prompt += "No UCC filings found.\n"
 
@@ -420,11 +435,26 @@ Here is the data for your evaluation. Assume that this data is comprehensive and
         prompt += "\n=== UCC FILINGS ===\n"
         if ucc_filings:
             for i, filing in enumerate(ucc_filings, 1):
+                # Validate required fields (all except secured_party and collateral)
+                required_fields = ['file_number', 'status', 'filing_date', 'lapse_date', 'lien_type', 'debtor']
+                missing_fields = []
+
+                for field in required_fields:
+                    value = filing.get(field, 'Unknown')
+                    if not value or value == 'Unknown':
+                        missing_fields.append(field)
+
+                if missing_fields:
+                    print(f"⚠️  WARNING: UCC filing {i} is missing required fields: {', '.join(missing_fields)}")
+
                 prompt += f"\nFiling {i}:\n"
+                prompt += f"  File Number: {filing.get('file_number', 'Unknown')}\n"
                 prompt += f"  Status: {filing.get('status', 'Unknown')}\n"
                 prompt += f"  Filing Date: {filing.get('filing_date', 'Unknown')}\n"
+                prompt += f"  Lapse Date: {filing.get('lapse_date', 'Unknown')}\n"
+                prompt += f"  Lien Type: {filing.get('lien_type', 'Unknown')}\n"
                 prompt += f"  Debtor: {filing.get('debtor', 'Unknown')}\n"
-                prompt += f"  Secured Party: {filing.get('secured_party', 'Unknown')}\n"
+                prompt += f"  Secured Party: {filing.get('secured_party', 'Not specified')}\n"
         else:
             prompt += "No UCC filings found.\n"
 
