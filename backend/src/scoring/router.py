@@ -291,14 +291,18 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
         for state_result in visited_states:
             if state_result.get("flow_used") and state_result.get("flow_result"):
                 flow_result = state_result["flow_result"]
-                filings = flow_result.get("filings", [])
-                for filing in filings:
+                # Use normalized_filings instead of raw filings
+                normalized_filings = flow_result.get("normalized_filings", [])
+                for filing in normalized_filings:
                     ucc_filings.append({
+                        "file_number": filing.get("file_number", "Unknown"),
                         "status": filing.get("status", "Unknown"),
                         "filing_date": filing.get("filing_date", "Unknown"),
-                        "debtor": filing.get("debtor_name", filing.get("debtor", "Unknown")),
-                        "secured_party": filing.get("secured_party", "Unknown"),
-                        "collateral": filing.get("collateral", "Unknown"),
+                        "lapse_date": filing.get("lapse_date", "Unknown"),
+                        "lien_type": filing.get("lien_type", "Unknown"),
+                        "debtor": filing.get("debtor", "Unknown"),
+                        "secured_party": filing.get("secured_party", None),
+                        "collateral": filing.get("collateral", None),
                         "state": state_result.get("state", "Unknown")
                     })
 

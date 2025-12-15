@@ -81,13 +81,15 @@ def _normalize_florida(flow_result: Dict[str, Any]) -> List[Dict[str, Any]]:
         full_address = ", ".join([p for p in address_parts if p]).strip()
 
         normalized.append({
-            "filing_date": filing_date,
-            "status": status,
-            "debtor_name": debtor.get("name", "Unknown"),
             "file_number": ucc_number,
-            "address": full_address,
+            "filing_date": filing_date,
+            "lapse_date": None,  # Not available in Florida API response
+            "status": status,
+            "lien_type": "UCC Lien",  # Florida filings are UCC liens
+            "debtor": debtor.get("name", "Unknown"),
             "secured_party": None,  # Not available in Florida compact response
-            "collateral": None  # Not available in Florida compact response
+            "collateral": None,  # Not available in Florida compact response
+            "address": full_address  # Additional field for Florida
         })
 
     return normalized
@@ -121,14 +123,21 @@ def _normalize_generic(flow_result: Dict[str, Any]) -> List[Dict[str, Any]]:
         if filing_date and filing_date != "Unknown":
             filing_date = _normalize_date(filing_date)
 
+        # Normalize lapse date
+        lapse_date = filing.get("lapse_date", "Unknown")
+        if lapse_date and lapse_date != "Unknown":
+            lapse_date = _normalize_date(lapse_date)
+
         # Normalize status
         status = _normalize_status(filing.get("status", "Unknown"))
 
         normalized.append({
-            "filing_date": filing_date,
-            "status": status,
-            "debtor_name": filing.get("debtor_name", filing.get("debtor", "Unknown")),
             "file_number": filing.get("file_number", None),
+            "filing_date": filing_date,
+            "lapse_date": lapse_date,
+            "status": status,
+            "lien_type": filing.get("lien_type", None),
+            "debtor": filing.get("debtor", filing.get("debtor_name", "Unknown")),
             "secured_party": filing.get("secured_party", None),
             "collateral": filing.get("collateral", None)
         })
