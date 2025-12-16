@@ -306,19 +306,20 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
                         "state": state_result.get("state", "Unknown")
                     })
 
-        # Convert NTSB incidents to dict format for TrustScore calculator
-        ntsb_incidents_dict = [incident.dict() for incident in incidents]
+        # Convert NTSB incidents to dict format for TrustScore calculator (Algorithm v3)
+        fleet_events = [incident.dict() for incident in incidents]
+        ntsb_incidents_dict = fleet_events  # Keep reference for result output
 
-        # Create FleetScoreData
+        # Create FleetScoreData (Algorithm v3)
         fleet_data = FleetScoreData(
             operator_name=operator_name,
             operator_age_years=10.0,  # Default - would need to be fetched from operator data
-            ntsb_incidents=ntsb_incidents_dict,
+            fleet_size=1,  # Default - would need to be fetched from operator data
+            fleet_events=fleet_events,  # All fleet-wide events (NTSB + FAA)
             ucc_filings=ucc_filings,
             argus_rating=None,  # Would need to be fetched from operator data
             wyvern_rating=None,  # Would need to be fetched from operator data
-            bankruptcy_history=None,
-            faa_violations=None
+            bankruptcy_history=None
         )
 
         # Create TailScoreData (placeholder - would need aircraft-specific data)
@@ -327,24 +328,21 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
             operator_name=operator_name,
             registered_owner=operator_name,  # Assume same as operator
             fractional_owner=False,
-            ntsb_incidents=ntsb_incidents_dict
+            tail_events=fleet_events  # Tail-specific events
         )
 
-        # Initialize LLM client and calculator
+        # Initialize calculator with LLM for AI insights
         try:
             llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
             calculator = TrustScoreCalculator(llm_client=llm_client)
-
-            # Calculate TrustScore
-            trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
-            print(f"✓ TrustScore calculated: {trust_score_result['trust_score']}")
+            print("✓ Using LLM for AI insights")
         except Exception as e:
-            print(f"⚠️  Error calculating TrustScore: {str(e)}")
-            # Fallback to basic calculation without LLM
+            print(f"⚠️  LLM unavailable, using calculator without AI insights: {e}")
             calculator = TrustScoreCalculator(llm_client=None)
-            trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
-            trust_score_result["llm_error"] = str(e)
-            print(f"✓ TrustScore calculated (without LLM): {trust_score_result['trust_score']}")
+
+        # Calculate TrustScore
+        trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
+        print(f"✓ TrustScore calculated: {trust_score_result['trust_score']}")
 
         # Combine results
         result = {

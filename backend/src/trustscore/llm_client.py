@@ -88,6 +88,31 @@ class LLMClient:
         except Exception as e:
             print(f"⚠️  ERROR initializing OpenRouter client: {e}")
 
+    async def get_completion(self, prompt: str) -> str:
+        """
+        Get text completion from LLM (for explanations and insights)
+
+        Args:
+            prompt: Complete prompt for the LLM
+
+        Returns:
+            Text response from the LLM
+
+        Raises:
+            Exception: If LLM call fails
+        """
+        if not self.client:
+            raise Exception("LLM client not initialized. Check API key configuration.")
+
+        if self.provider == LLMProvider.OPENAI:
+            return await self._get_completion_openai(prompt)
+        elif self.provider == LLMProvider.ANTHROPIC:
+            return await self._get_completion_anthropic(prompt)
+        elif self.provider == LLMProvider.OPENROUTER:
+            return await self._get_completion_openrouter(prompt)
+        else:
+            raise ValueError(f"Unsupported provider: {self.provider}")
+
     async def get_risk_score(self, prompt: str) -> Tuple[int, str]:
         """
         Get risk score from LLM
@@ -245,6 +270,53 @@ class LLMClient:
 
             return score, content
 
+        except Exception as e:
+            raise Exception(f"OpenRouter API call failed: {str(e)}")
+
+    async def _get_completion_openai(self, prompt: str) -> str:
+        """Get text completion from OpenAI"""
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[
+                    {"role": "system", "content": "You are an aviation safety analyst providing clear, professional insights."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            raise Exception(f"OpenAI API call failed: {str(e)}")
+
+    async def _get_completion_anthropic(self, prompt: str) -> str:
+        """Get text completion from Anthropic"""
+        try:
+            response = await self.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=500,
+                temperature=0.7,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response.content[0].text.strip()
+        except Exception as e:
+            raise Exception(f"Anthropic API call failed: {str(e)}")
+
+    async def _get_completion_openrouter(self, prompt: str) -> str:
+        """Get text completion from OpenRouter"""
+        try:
+            response = await self.client.chat.completions.create(
+                model="anthropic/claude-3.5-sonnet",
+                messages=[
+                    {"role": "system", "content": "You are an aviation safety analyst providing clear, professional insights."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+            return response.choices[0].message.content.strip()
         except Exception as e:
             raise Exception(f"OpenRouter API call failed: {str(e)}")
 
