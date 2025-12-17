@@ -26,12 +26,11 @@ from src.trustscore.llm_client import LLMClient, LLMProvider
 from src.common.config import SessionLocal
 from src.common.models import Operator
 
-# Configure logging
+# Configure logging (file handler added later with output directory)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('scoring_flow.log'),
         logging.StreamHandler()
     ]
 )
@@ -207,24 +206,24 @@ async def run_full_scoring_flow(
     return result
 
 
-def save_separate_results(ntsb_results: Dict, ucc_results: Dict, aircraft_ratings: Dict, output_dir: str = "."):
+def save_separate_results(ntsb_results: Dict, ucc_results: Dict, aircraft_ratings: Dict, output_dir: str = ".", datetime_suffix: str = ""):
     """Save results to separate JSON files"""
     output_path = Path(output_dir)
 
     # Save NTSB results
-    ntsb_file = output_path / "ntsb_results.json"
+    ntsb_file = output_path / f"ntsb_results_{datetime_suffix}.json"
     with open(ntsb_file, 'w') as f:
         json.dump(ntsb_results, f, indent=2, default=str)
     logger.info(f"Saved NTSB results to {ntsb_file}")
 
     # Save UCC results
-    ucc_file = output_path / "ucc_results.json"
+    ucc_file = output_path / f"ucc_results_{datetime_suffix}.json"
     with open(ucc_file, 'w') as f:
         json.dump(ucc_results, f, indent=2, default=str)
     logger.info(f"Saved UCC results to {ucc_file}")
 
     # Save Aircraft ratings (TrustScore)
-    ratings_file = output_path / "aircraft_ratings.json"
+    ratings_file = output_path / f"aircraft_ratings_{datetime_suffix}.json"
     with open(ratings_file, 'w') as f:
         json.dump(aircraft_ratings, f, indent=2, default=str)
     logger.info(f"Saved aircraft ratings to {ratings_file}")
@@ -265,13 +264,25 @@ async def main():
 
     args = parser.parse_args()
 
+    # Generate datetime suffix for output files
+    datetime_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Ensure output directory exists and add file handler for logging
+    output_path = Path(args.output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    log_file = output_path / f"scoring_flow_{datetime_suffix}.log"
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logging.getLogger().addHandler(file_handler)
+    logger.info(f"Logging to: {log_file}")
+
     # Determine operators to process
     if args.operator_id:
         # Fetch single operator from database
         db = SessionLocal()
         try:
             from uuid import UUID
-            op = db.query(Operator).filter(Operator.operator_id == UUID(args.operator_id)).first()
+            op = db.query(Operator).filter(Operator.operator_id == UUID(args.operator_id)).order_by(Operator.name).first()
             if not op:
                 logger.error(f"Operator not found with ID: {args.operator_id}")
                 sys.exit(1)
@@ -322,6 +333,10 @@ async def main():
         "operators": []
     }
 
+    # Track processed operators and errors
+    processed_operators = []
+    failed_operators = []
+
     logger.info("=" * 70)
     logger.info("Full Scoring Flow - Batch Processing (Database Source)")
     logger.info("=" * 70)
@@ -342,6 +357,23 @@ async def main():
             use_browserbase=not args.no_browserbase
         )
 
+        # Track success/failure
+        if operator_result.get("status") == "completed":
+            processed_operators.append({
+                "operator_id": operator["operator_id"],
+                "operator_name": operator["name"],
+                "combined_score": operator_result.get("combined_score"),
+                "ntsb_score": operator_result.get("ntsb", {}).get("score"),
+                "ntsb_incidents": operator_result.get("ntsb", {}).get("total_incidents", 0)
+            })
+        else:
+            failed_operators.append({
+                "operator_id": operator["operator_id"],
+                "operator_name": operator["name"],
+                "status": operator_result.get("status"),
+                "error": operator_result.get("error", "Unknown error")
+            })
+
         # Separate results into different categories
         if "ntsb" in operator_result:
             ntsb_results["operators"].append(operator_result["ntsb"])
@@ -353,7 +385,7 @@ async def main():
             aircraft_ratings["operators"].append(operator_result["trust_score"])
 
         # Save intermediate results to separate files
-        save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir)
+        save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir, datetime_suffix)
 
         # Small delay between operators to be respectful
         if i < len(operators):
@@ -366,21 +398,57 @@ async def main():
     ucc_results["metadata"]["end_time"] = end_time
     aircraft_ratings["metadata"]["end_time"] = end_time
 
-    save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir)
+    save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir, datetime_suffix)
+
+    # Save summary file
+    summary_data = {
+        "metadata": {
+            "start_time": ntsb_results["metadata"]["start_time"],
+            "end_time": end_time,
+            "total_operators": len(operators),
+            "successful": len(processed_operators),
+            "failed": len(failed_operators),
+            "browserbase_enabled": not args.no_browserbase,
+            "source": "database"
+        },
+        "processed_operators": processed_operators
+    }
+    summary_file = output_path / f"summary_{datetime_suffix}.json"
+    with open(summary_file, 'w') as f:
+        json.dump(summary_data, f, indent=2, default=str)
+    logger.info(f"Saved summary to {summary_file}")
+
+    # Save errors file (only if there are errors)
+    if failed_operators:
+        errors_data = {
+            "metadata": {
+                "start_time": ntsb_results["metadata"]["start_time"],
+                "end_time": end_time,
+                "total_failed": len(failed_operators)
+            },
+            "failed_operators": failed_operators
+        }
+        errors_file = output_path / f"errors_{datetime_suffix}.json"
+        with open(errors_file, 'w') as f:
+            json.dump(errors_data, f, indent=2, default=str)
+        logger.info(f"Saved errors to {errors_file}")
 
     logger.info("=" * 70)
     logger.info("Processing Complete!")
     logger.info("=" * 70)
     logger.info(f"Results saved to:")
-    logger.info(f"  - ntsb_results.json")
-    logger.info(f"  - ucc_results.json")
-    logger.info(f"  - aircraft_ratings.json")
-    logger.info(f"  - scoring_flow.log")
+    logger.info(f"  - ntsb_results_{datetime_suffix}.json")
+    logger.info(f"  - ucc_results_{datetime_suffix}.json")
+    logger.info(f"  - aircraft_ratings_{datetime_suffix}.json")
+    logger.info(f"  - summary_{datetime_suffix}.json")
+    if failed_operators:
+        logger.info(f"  - errors_{datetime_suffix}.json")
+    logger.info(f"  - scoring_flow_{datetime_suffix}.log")
 
     # Summary
-    completed = len([r for r in ntsb_results["operators"] if r.get("score") is not None])
-    total = len(operators)
-    logger.info(f"Completed: {completed}/{total}")
+    logger.info(f"Successful: {len(processed_operators)}/{len(operators)}")
+    if failed_operators:
+        logger.info(f"Failed: {len(failed_operators)}/{len(operators)}")
 
     return {
         "ntsb": ntsb_results,
