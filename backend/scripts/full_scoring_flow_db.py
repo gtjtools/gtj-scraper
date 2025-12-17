@@ -19,6 +19,8 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 # Add parent directory (backend) to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+from sqlalchemy import func
+
 from src.scoring.service import NTSBService
 from src.scoring.ucc_service import UCCVerificationService
 from src.trustscore.calculator import TrustScoreCalculator, FleetScoreData, TailScoreData
@@ -37,11 +39,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_operators_from_db(limit: int = None) -> List[Dict[str, Any]]:
-    """Load operators from the database"""
+def get_operators_from_db(limit: int = None, cert_start: str = None, cert_end: str = None) -> List[Dict[str, Any]]:
+    """Load operators from the database
+
+    Args:
+        limit: Maximum number of operators to return
+        cert_start: Filter operators where first char of certificate_number >= this value
+        cert_end: Filter operators where first char of certificate_number <= this value
+    """
     db = SessionLocal()
     try:
         query = db.query(Operator).order_by(Operator.name)
+
+        # Apply certificate_number filter if specified
+        if cert_start or cert_end:
+            first_char = func.substring(Operator.certificate_number, 1, 1)
+            if cert_start and cert_end:
+                query = query.filter(first_char.between(cert_start.upper(), cert_end.upper()))
+            elif cert_start:
+                query = query.filter(first_char >= cert_start.upper())
+            elif cert_end:
+                query = query.filter(first_char <= cert_end.upper())
+
         if limit:
             query = query.limit(limit)
         operators = query.all()
@@ -51,7 +70,8 @@ def get_operators_from_db(limit: int = None) -> List[Dict[str, Any]]:
                 "name": op.name,
                 "dba_name": op.dba_name,
                 "base_airport": op.base_airport,
-                "regulatory_status": op.regulatory_status
+                "regulatory_status": op.regulatory_status,
+                "certificate_number": op.certificate_number
             }
             for op in operators
         ]
@@ -261,6 +281,18 @@ async def main():
         default=None,
         help="Run for a single operator by ID (overrides database query)"
     )
+    parser.add_argument(
+        "--cert-start",
+        type=str,
+        default=None,
+        help="Filter operators where first char of certificate_number >= this value (e.g., 'A')"
+    )
+    parser.add_argument(
+        "--cert-end",
+        type=str,
+        default=None,
+        help="Filter operators where first char of certificate_number <= this value (e.g., 'M')"
+    )
 
     args = parser.parse_args()
 
@@ -297,19 +329,35 @@ async def main():
         finally:
             db.close()
     else:
-        operators = get_operators_from_db(limit=args.limit)
-        logger.info(f"Loaded {len(operators)} operators from database")
+        operators = get_operators_from_db(
+            limit=args.limit,
+            cert_start=args.cert_start,
+            cert_end=args.cert_end
+        )
+        filter_desc = ""
+        if args.cert_start or args.cert_end:
+            filter_desc = f" (certificate filter: {args.cert_start or '*'} to {args.cert_end or '*'})"
+        logger.info(f"Loaded {len(operators)} operators from database{filter_desc}")
 
     if not operators:
         logger.error("No operators found in database")
         sys.exit(1)
+
+    # Build filter metadata
+    filter_metadata = {}
+    if args.cert_start or args.cert_end:
+        filter_metadata["cert_filter"] = {
+            "start": args.cert_start,
+            "end": args.cert_end
+        }
 
     # Initialize separate result containers
     ntsb_results = {
         "metadata": {
             "start_time": datetime.now().isoformat(),
             "total_operators": len(operators),
-            "source": "database"
+            "source": "database",
+            **filter_metadata
         },
         "operators": []
     }
@@ -319,7 +367,8 @@ async def main():
             "start_time": datetime.now().isoformat(),
             "total_operators": len(operators),
             "browserbase_enabled": not args.no_browserbase,
-            "source": "database"
+            "source": "database",
+            **filter_metadata
         },
         "operators": []
     }
@@ -328,7 +377,8 @@ async def main():
         "metadata": {
             "start_time": datetime.now().isoformat(),
             "total_operators": len(operators),
-            "source": "database"
+            "source": "database",
+            **filter_metadata
         },
         "operators": []
     }
@@ -343,6 +393,8 @@ async def main():
     logger.info(f"Operators: {len(operators)}")
     logger.info(f"Output directory: {args.output_dir}")
     logger.info(f"Browserbase: {'Enabled' if not args.no_browserbase else 'Disabled'}")
+    if args.cert_start or args.cert_end:
+        logger.info(f"Certificate filter: {args.cert_start or '*'} to {args.cert_end or '*'}")
     logger.info("=" * 70)
 
     # Process each operator
@@ -409,7 +461,8 @@ async def main():
             "successful": len(processed_operators),
             "failed": len(failed_operators),
             "browserbase_enabled": not args.no_browserbase,
-            "source": "database"
+            "source": "database",
+            **filter_metadata
         },
         "processed_operators": processed_operators
     }
