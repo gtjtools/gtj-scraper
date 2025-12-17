@@ -41,7 +41,7 @@ def get_operators_from_db(limit: int = None) -> List[Dict[str, Any]]:
     """Load operators from the database"""
     db = SessionLocal()
     try:
-        query = db.query(Operator)
+        query = db.query(Operator).order_by(Operator.name)
         if limit:
             query = query.limit(limit)
         operators = query.all()
@@ -282,7 +282,7 @@ async def main():
         db = SessionLocal()
         try:
             from uuid import UUID
-            op = db.query(Operator).filter(Operator.operator_id == UUID(args.operator_id)).order_by(Operator.name).first()
+            op = db.query(Operator).filter(Operator.operator_id == UUID(args.operator_id)).first()
             if not op:
                 logger.error(f"Operator not found with ID: {args.operator_id}")
                 sys.exit(1)
