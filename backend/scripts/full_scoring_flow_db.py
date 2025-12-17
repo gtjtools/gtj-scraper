@@ -398,51 +398,59 @@ async def main():
     logger.info("=" * 70)
 
     # Process each operator
-    for i, operator in enumerate(operators, 1):
-        logger.info(f"[{i}/{len(operators)}] Processing: {operator['name']} (ID: {operator['operator_id']})")
-        logger.info("-" * 50)
+    try:
+        for i, operator in enumerate(operators, 1):
+            logger.info(f"[{i}/{len(operators)}] Processing: {operator['name']} (ID: {operator['operator_id']})")
+            logger.info("-" * 50)
 
-        operator_result = await run_full_scoring_flow(
-            operator_id=operator["operator_id"],
-            operator_name=operator["name"],
-            faa_state=args.faa_state,
-            use_browserbase=not args.no_browserbase
-        )
+            operator_result = await run_full_scoring_flow(
+                operator_id=operator["operator_id"],
+                operator_name=operator["name"],
+                faa_state=args.faa_state,
+                use_browserbase=not args.no_browserbase
+            )
 
-        # Track success/failure
-        if operator_result.get("status") == "completed":
-            processed_operators.append({
-                "operator_id": operator["operator_id"],
-                "operator_name": operator["name"],
-                "combined_score": operator_result.get("combined_score"),
-                "ntsb_score": operator_result.get("ntsb", {}).get("score"),
-                "ntsb_incidents": operator_result.get("ntsb", {}).get("total_incidents", 0)
-            })
-        else:
-            failed_operators.append({
-                "operator_id": operator["operator_id"],
-                "operator_name": operator["name"],
-                "status": operator_result.get("status"),
-                "error": operator_result.get("error", "Unknown error")
-            })
+            # Track success/failure
+            if operator_result.get("status") == "completed":
+                processed_operators.append({
+                    "operator_id": operator["operator_id"],
+                    "operator_name": operator["name"],
+                    "combined_score": operator_result.get("combined_score"),
+                    "ntsb_score": operator_result.get("ntsb", {}).get("score"),
+                    "ntsb_incidents": operator_result.get("ntsb", {}).get("total_incidents", 0)
+                })
+            else:
+                failed_operators.append({
+                    "operator_id": operator["operator_id"],
+                    "operator_name": operator["name"],
+                    "status": operator_result.get("status"),
+                    "error": operator_result.get("error", "Unknown error")
+                })
 
-        # Separate results into different categories
-        if "ntsb" in operator_result:
-            ntsb_results["operators"].append(operator_result["ntsb"])
+            # Separate results into different categories
+            if "ntsb" in operator_result:
+                ntsb_results["operators"].append(operator_result["ntsb"])
 
-        if "ucc" in operator_result:
-            ucc_results["operators"].append(operator_result["ucc"])
+            if "ucc" in operator_result:
+                ucc_results["operators"].append(operator_result["ucc"])
 
-        if "trust_score" in operator_result:
-            aircraft_ratings["operators"].append(operator_result["trust_score"])
+            if "trust_score" in operator_result:
+                aircraft_ratings["operators"].append(operator_result["trust_score"])
 
-        # Save intermediate results to separate files
-        save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir, datetime_suffix)
+            # Save intermediate results to separate files
+            save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir, datetime_suffix)
 
-        # Small delay between operators to be respectful
-        if i < len(operators):
-            logger.info("Waiting 2 seconds before next operator...")
-            await asyncio.sleep(2)
+            # Small delay between operators to be respectful
+            if i < len(operators):
+                logger.info("Waiting 2 seconds before next operator...")
+                await asyncio.sleep(2)
+    except Exception as e:
+        logger.error(f"Error during processing: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+    finally:
+        # Always save final results, even if processing was interrupted
+        pass
 
     # Final save with end time
     end_time = datetime.now().isoformat()
