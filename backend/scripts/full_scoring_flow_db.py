@@ -44,17 +44,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_operators_from_db(limit: int = None, cert_start: str = None, cert_end: str = None) -> List[Dict[str, Any]]:
+def get_operators_from_db(limit: int = None, cert_start: str = None, cert_end: str = None, only_null_trustscore: bool = False) -> List[Dict[str, Any]]:
     """Load operators from the database
 
     Args:
         limit: Maximum number of operators to return
         cert_start: Filter operators where first char of certificate_number >= this value
         cert_end: Filter operators where first char of certificate_number <= this value
+        only_null_trustscore: Filter operators that have no trust score yet
     """
     db = SessionLocal()
     try:
         query = db.query(Operator).order_by(Operator.name)
+
+        if only_null_trustscore:
+            query = query.filter(Operator.trust_score.is_(None))
 
         # Apply certificate_number filter if specified
         if cert_start or cert_end:
@@ -304,6 +308,11 @@ async def main():
         default=None,
         help="Filter operators where first char of certificate_number <= this value (e.g., 'M')"
     )
+    parser.add_argument(
+        "--only-null-trustscore",
+        action="store_true",
+        help="Run only for operators that have no trust score calculated yet"
+    )
 
     args = parser.parse_args()
 
@@ -343,9 +352,12 @@ async def main():
         operators = get_operators_from_db(
             limit=args.limit,
             cert_start=args.cert_start,
-            cert_end=args.cert_end
+            cert_end=args.cert_end,
+            only_null_trustscore=args.only_null_trustscore
         )
         filter_desc = ""
+        if args.only_null_trustscore:
+            filter_desc += " (only null trust scores)"
         if args.cert_start or args.cert_end:
             filter_desc = f" (certificate filter: {args.cert_start or '*'} to {args.cert_end or '*'})"
         logger.info(f"Loaded {len(operators)} operators from database{filter_desc}")
@@ -361,6 +373,8 @@ async def main():
             "start": args.cert_start,
             "end": args.cert_end
         }
+    if args.only_null_trustscore:
+        filter_metadata["only_null_trustscore"] = True
 
     # Initialize separate result containers
     ntsb_results = {
@@ -497,6 +511,7 @@ async def main():
             "failed": len(failed_operators),
             "browserbase_enabled": not args.no_browserbase,
             "source": "database",
+            "status": "completed",
             **filter_metadata
         },
         "processed_operators": processed_operators
