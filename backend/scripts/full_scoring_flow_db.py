@@ -11,13 +11,18 @@ import sys
 from datetime import datetime
 from typing import List, Dict, Any
 from pathlib import Path
+from tqdm import tqdm
 
-# Load environment variables from .env file in parent directory (backend/)
+# Robust path resolution: Find 'backend' directory relative to this script
+# Script is in: backend/scripts/full_scoring_flow_db.py
+# We want: backend/
+script_path = Path(__file__).resolve()
+backend_dir = script_path.parent.parent
+sys.path.insert(0, str(backend_dir))
+
+# Load environment variables from .env file in backend directory
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
-
-# Add parent directory (backend) to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+load_dotenv(backend_dir / ".env")
 
 from sqlalchemy import func
 
@@ -266,6 +271,12 @@ async def main():
         help="Limit number of operators to process (for testing)"
     )
     parser.add_argument(
+        "--concurrency", "-c",
+        type=int,
+        default=5,
+        help="Number of concurrent operators to process (default: 5)"
+    )
+    parser.add_argument(
         "--faa-state",
         default="FL",
         help="Default FAA state code for UCC fallback (default: FL)"
@@ -393,64 +404,80 @@ async def main():
     logger.info(f"Operators: {len(operators)}")
     logger.info(f"Output directory: {args.output_dir}")
     logger.info(f"Browserbase: {'Enabled' if not args.no_browserbase else 'Disabled'}")
+    logger.info(f"Concurrency: {args.concurrency}")
     if args.cert_start or args.cert_end:
         logger.info(f"Certificate filter: {args.cert_start or '*'} to {args.cert_end or '*'}")
     logger.info("=" * 70)
 
-    # Process each operator
+    # Semaphore for concurrency control
+    semaphore = asyncio.Semaphore(args.concurrency)
+    
+    # Progress bar
+    pbar = tqdm(total=len(operators), desc="Processing Operators", unit="op")
+
+    async def process_operator(operator):
+        async with semaphore:
+            try:
+                # Update progress bar description
+                pbar.set_postfix_str(f"Current: {operator['name'][:20]}...")
+                
+                result = await run_full_scoring_flow(
+                    operator_id=operator["operator_id"],
+                    operator_name=operator["name"],
+                    faa_state=args.faa_state,
+                    use_browserbase=not args.no_browserbase
+                )
+                pbar.update(1)
+                return result
+            except Exception as e:
+                logger.error(f"Error processing {operator['name']}: {e}")
+                pbar.update(1)
+                return {
+                    "operator_id": operator["operator_id"],
+                    "operator_name": operator["name"],
+                    "status": "error",
+                    "error": str(e)
+                }
+
+    # Create tasks
+    tasks = [process_operator(op) for op in operators]
+    
+    # Run tasks
     try:
-        for i, operator in enumerate(operators, 1):
-            logger.info(f"[{i}/{len(operators)}] Processing: {operator['name']} (ID: {operator['operator_id']})")
-            logger.info("-" * 50)
-
-            operator_result = await run_full_scoring_flow(
-                operator_id=operator["operator_id"],
-                operator_name=operator["name"],
-                faa_state=args.faa_state,
-                use_browserbase=not args.no_browserbase
-            )
-
-            # Track success/failure
-            if operator_result.get("status") == "completed":
-                processed_operators.append({
-                    "operator_id": operator["operator_id"],
-                    "operator_name": operator["name"],
-                    "combined_score": operator_result.get("combined_score"),
-                    "ntsb_score": operator_result.get("ntsb", {}).get("score"),
-                    "ntsb_incidents": operator_result.get("ntsb", {}).get("total_incidents", 0)
-                })
-            else:
-                failed_operators.append({
-                    "operator_id": operator["operator_id"],
-                    "operator_name": operator["name"],
-                    "status": operator_result.get("status"),
-                    "error": operator_result.get("error", "Unknown error")
-                })
-
-            # Separate results into different categories
-            if "ntsb" in operator_result:
-                ntsb_results["operators"].append(operator_result["ntsb"])
-
-            if "ucc" in operator_result:
-                ucc_results["operators"].append(operator_result["ucc"])
-
-            if "trust_score" in operator_result:
-                aircraft_ratings["operators"].append(operator_result["trust_score"])
-
-            # Save intermediate results to separate files
-            save_separate_results(ntsb_results, ucc_results, aircraft_ratings, args.output_dir, datetime_suffix)
-
-            # Small delay between operators to be respectful
-            if i < len(operators):
-                logger.info("Waiting 2 seconds before next operator...")
-                await asyncio.sleep(2)
-    except Exception as e:
-        logger.error(f"Error during processing: {type(e).__name__}: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+        results = await asyncio.gather(*tasks)
     finally:
-        # Always save final results, even if processing was interrupted
-        pass
+        pbar.close()
+
+    # Process results
+    for i, operator_result in enumerate(results):
+        operator = operators[i] # Map back to original operator if needed, though result has ID
+        
+        # Track success/failure
+        if operator_result.get("status") == "completed":
+            processed_operators.append({
+                "operator_id": operator_result["operator_id"],
+                "operator_name": operator_result["operator_name"],
+                "combined_score": operator_result.get("combined_score"),
+                "ntsb_score": operator_result.get("ntsb", {}).get("score"),
+                "ntsb_incidents": operator_result.get("ntsb", {}).get("total_incidents", 0)
+            })
+        else:
+            failed_operators.append({
+                "operator_id": operator_result.get("operator_id", "unknown"),
+                "operator_name": operator_result.get("operator_name", "unknown"),
+                "status": operator_result.get("status", "error"),
+                "error": operator_result.get("error", "Unknown error")
+            })
+
+        # Separate results into different categories
+        if "ntsb" in operator_result:
+            ntsb_results["operators"].append(operator_result["ntsb"])
+
+        if "ucc" in operator_result:
+            ucc_results["operators"].append(operator_result["ucc"])
+
+        if "trust_score" in operator_result:
+            aircraft_ratings["operators"].append(operator_result["trust_score"])
 
     # Final save with end time
     end_time = datetime.now().isoformat()
