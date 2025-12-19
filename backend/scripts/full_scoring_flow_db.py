@@ -185,12 +185,12 @@ async def run_full_scoring_flow(
         fleet_data = FleetScoreData(
             operator_name=operator_name,
             operator_age_years=10.0,  # Default
-            ntsb_incidents=ntsb_incidents_dict,
+            fleet_size=1,  # Default to 1 if unknown
+            fleet_events=ntsb_incidents_dict,
             ucc_filings=ucc_filings,
             argus_rating=None,
             wyvern_rating=None,
-            bankruptcy_history=None,
-            faa_violations=None
+            bankruptcy_history=None
         )
 
         tail_data = TailScoreData(
@@ -198,7 +198,7 @@ async def run_full_scoring_flow(
             operator_name=operator_name,
             registered_owner=operator_name,
             fractional_owner=False,
-            ntsb_incidents=ntsb_incidents_dict
+            tail_events=ntsb_incidents_dict
         )
 
         # Try with LLM, fallback to basic calculation
