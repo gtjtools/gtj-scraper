@@ -310,15 +310,48 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
         fleet_events = [incident.dict() for incident in incidents]
         ntsb_incidents_dict = fleet_events  # Keep reference for result output
 
+        # Fetch operator data from database to get business_started_date
+        from src.common.models import Operator
+        from src.common.config import SessionLocal
+
+        operator_age_years = 10.0  # Default fallback
+        fleet_size = 1  # Default fallback
+        argus_rating = None  # Default fallback
+        wyvern_rating = None  # Default fallback
+
+        try:
+            db = SessionLocal()
+            operator = db.query(Operator).filter(Operator.name == operator_name).first()
+
+            if operator:
+                # Calculate operator age in years from business_started_date
+                if operator.business_started_date:
+                    years_diff = (datetime.now() - operator.business_started_date).days / 365.25
+                    operator_age_years = round(years_diff, 1)
+                    print(f"✓ Operator age calculated: {operator_age_years} years (started: {operator.business_started_date})")
+                else:
+                    print(f"⚠️  No business_started_date found for operator, using default: {operator_age_years} years")
+
+                # Fetch ARGUS and Wyvern ratings
+                argus_rating = operator.argus_rating
+                wyvern_rating = operator.wyvern_rating
+                print(f"✓ ARGUS rating: {argus_rating or 'None'}, Wyvern rating: {wyvern_rating or 'None'}")
+            else:
+                print(f"⚠️  Operator not found in database, using default values")
+
+            db.close()
+        except Exception as e:
+            print(f"⚠️  Error fetching operator data: {e}, using default values")
+
         # Create FleetScoreData (Algorithm v3)
         fleet_data = FleetScoreData(
             operator_name=operator_name,
-            operator_age_years=10.0,  # Default - would need to be fetched from operator data
-            fleet_size=1,  # Default - would need to be fetched from operator data
+            operator_age_years=operator_age_years,
+            fleet_size=fleet_size,  # Default - would need to be fetched from operator data
             fleet_events=fleet_events,  # All fleet-wide events (NTSB + FAA)
             ucc_filings=ucc_filings,
-            argus_rating=None,  # Would need to be fetched from operator data
-            wyvern_rating=None,  # Would need to be fetched from operator data
+            argus_rating=argus_rating,
+            wyvern_rating=wyvern_rating,
             bankruptcy_history=None
         )
 
