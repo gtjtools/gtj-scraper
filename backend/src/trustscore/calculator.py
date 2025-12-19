@@ -1,9 +1,9 @@
 """
-TrustScore Calculator Service with LLM Integration
-Calculates TrustScore = 0.5 × FleetScore + 0.5 × TailScore
+TrustScore Calculator Service - Algorithm v3
+Calculates TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
 """
 
-import os
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
@@ -11,92 +11,85 @@ from dataclasses import dataclass
 
 @dataclass
 class FleetScoreData:
-    """Data required for FleetScore calculation"""
+    """Data required for FleetScore calculation (Algorithm v3)"""
 
     operator_name: str
-    operator_age_years: float
-    ntsb_incidents: List[Dict[str, Any]]
-    ucc_filings: List[Dict[str, Any]]
+    operator_age_years: float  # Years since business registration
+    fleet_size: int  # Total number of tails in operator's fleet
+    fleet_events: List[Dict[str, Any]]  # All events across the fleet (NTSB, FAA)
+    ucc_filings: List[Dict[str, Any]]  # UCC filings with status, dates
     argus_rating: Optional[str] = None
     wyvern_rating: Optional[str] = None
     bankruptcy_history: Optional[List[Dict[str, Any]]] = None
-    faa_violations: Optional[List[Dict[str, Any]]] = None
 
 
 @dataclass
 class TailScoreData:
-    """Data required for TailScore calculation"""
+    """Data required for TailScore calculation (Algorithm v3)"""
 
-    aircraft_age_years: float
+    aircraft_age_years: float  # Years since tail registration
     operator_name: str
     registered_owner: str
-    fractional_owner: bool
-    ntsb_incidents: List[Dict[str, Any]]
-
-
-@dataclass
-class LLMRiskScore:
-    """LLM-generated risk score result"""
-
-    score: int  # 0-40
-    reasoning: Optional[str] = None
+    tail_events: List[Dict[str, Any]]  # Events specific to this tail
+    fractional_owner: bool  # True if fractional/partial ownership
 
 
 class TrustScoreCalculator:
     """
-    Main TrustScore calculation service
-    TrustScore = 0.5 × FleetScore + 0.5 × TailScore
+    Main TrustScore calculation service - Algorithm v3
+    TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
     """
 
-    # Certification deduction tables
-    ARGUS_DEDUCTIONS = {
-        "Platinum Elite": 0,
-        "Platinum": -2,
-        "Gold Plus": -4,
-        "Gold": -6,
-        "None": -10,
-    }
-
-    WYVERN_DEDUCTIONS = {
-        "Wingman PRO": -2,
-        "Wingman": -4,
-        "Registered Operator": -6,
-        "None": -10,
-    }
-
-    # Aircraft age deductions
-    AIRCRAFT_AGE_DEDUCTIONS = [
-        (0, 2, -10),
-        (2, 5, 0),
-        (5, 8, -2),
-        (8, 12, -4),
-        (12, 16, -6),
-        (16, 20, -8),
-        (20, float("inf"), -10),
-    ]
-
-    # Injury level deductions
-    INJURY_DEDUCTIONS = {
+    # Certification points (CSF Component)
+    ARGUS_POINTS = {
+        "Platinum Elite": 10,
+        "Platinum": 8,
+        "Gold Plus": 6,
+        "Gold": 4,
         "None": 0,
-        "Minor": -10,
-        "Serious": -20,
-        "Fatal": -50,
     }
+
+    WYVERN_POINTS = {
+        "Wingman PRO": 8,
+        "Wingman": 6,
+        "Registered Operator": 4,
+        "None": 0,
+    }
+
+    # Time decay constant: k = ln(2) / 5
+    TIME_DECAY_K = math.log(2) / 5
 
     def __init__(self, llm_client=None):
         """
-        Initialize TrustScore Calculator
+        Initialize TrustScore Calculator v3
 
         Args:
-            llm_client: Optional LLM client for risk scoring (e.g., OpenAI, Anthropic)
+            llm_client: Optional LLM client for generating explanations and insights
         """
         self.llm_client = llm_client
+
+    def calculate_confidence_score(self, operator_age_years: float) -> float:
+        """
+        Calculate Confidence Score (CS)
+        CS = 1 - e^(-0.3y) where y = Years Since Operator Business Registration
+
+        This penalizes youth and rewards experience, ensuring new operators
+        cannot achieve scores near 100.
+
+        Args:
+            operator_age_years: Years since operator business registration
+
+        Returns:
+            Confidence score between 0 and 1
+        """
+        return 1 - math.exp(-0.3 * operator_age_years)
 
     async def calculate_trust_score(
         self, fleet_data: FleetScoreData, tail_data: TailScoreData
     ) -> Dict[str, Any]:
         """
-        Calculate the complete TrustScore
+        Calculate the complete TrustScore (Algorithm v3)
+        TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
 
         Args:
             fleet_data: Data for FleetScore calculation
@@ -106,24 +99,43 @@ class TrustScoreCalculator:
             Dictionary containing TrustScore, FleetScore, TailScore, and breakdowns
         """
         fleet_score, fleet_breakdown = await self.calculate_fleet_score(fleet_data)
-        tail_score, tail_breakdown = self.calculate_tail_score(tail_data)
+        tail_score, tail_breakdown = await self.calculate_tail_score(tail_data)
+        confidence_score = self.calculate_confidence_score(fleet_data.operator_age_years)
 
-        trust_score = (0.5 * fleet_score) + (0.5 * tail_score)
+        # TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
+        raw_score = (0.6 * fleet_score) + (0.4 * tail_score)
+        trust_score = raw_score * confidence_score
 
-        return {
+        # Generate AI insights if LLM client is available
+        ai_insights = None
+        if self.llm_client:
+            ai_insights = await self._generate_overall_insights(
+                fleet_data, tail_data, trust_score, fleet_score, tail_score,
+                confidence_score, fleet_breakdown, tail_breakdown
+            )
+
+        result = {
             "trust_score": round(trust_score, 2),
             "fleet_score": round(fleet_score, 2),
             "tail_score": round(tail_score, 2),
+            "confidence_score": round(confidence_score, 4),
+            "raw_score": round(raw_score, 2),
             "fleet_breakdown": fleet_breakdown,
             "tail_breakdown": tail_breakdown,
             "calculated_at": datetime.now(timezone.utc).isoformat(),
         }
 
+        if ai_insights:
+            result["ai_insights"] = ai_insights
+
+        return result
+
     async def calculate_fleet_score(
         self, data: FleetScoreData
     ) -> Tuple[float, Dict[str, Any]]:
         """
-        Calculate FleetScore (out of 100)
+        Calculate FleetScore (out of 100) - Algorithm v3
+        FS = 100 - ORF + FSF - CSF
 
         Args:
             data: FleetScoreData object with all required information
@@ -131,95 +143,63 @@ class TrustScoreCalculator:
         Returns:
             Tuple of (score, breakdown_dict)
         """
-        initial_score = 100.0
-        deductions = []
+        components = {}
 
-        # 1. LLM Financial Risk Score (0-40 points deduction)
-        financial_risk = await self.calculate_financial_risk_score(
-            ucc_filings=data.ucc_filings, bankruptcy_history=data.bankruptcy_history
+        # Component 1: Fleet Operational Risk (ORF)
+        orf = self._calculate_fleet_operational_risk(
+            data.fleet_events, data.fleet_size, data.operator_age_years
         )
-        initial_score -= financial_risk.score
-        deductions.append(
-            {
-                "category": "Financial Risk (LLM)",
-                "deduction": financial_risk.score,
-                "reasoning": financial_risk.reasoning,
-            }
-        )
-
-        # 2. LLM Legal Risk Score (0-40 points deduction)
-        legal_risk = await self.calculate_legal_risk_score(
-            ucc_filings=data.ucc_filings,
-            bankruptcy_history=data.bankruptcy_history,
-            ntsb_incidents=data.ntsb_incidents,
-            faa_violations=data.faa_violations,
-        )
-        initial_score -= legal_risk.score
-        deductions.append(
-            {
-                "category": "Legal Risk (LLM)",
-                "deduction": legal_risk.score,
-                "reasoning": legal_risk.reasoning,
-            }
-        )
-
-        # 3. Age of Operator deduction: 2 × (Age - 10), minimum 0
-        age_deduction = max(0, 2 * (data.operator_age_years - 10))
-        initial_score -= age_deduction
-        deductions.append(
-            {
-                "category": "Operator Age",
-                "deduction": age_deduction,
-                "details": f"Operator age: {data.operator_age_years} years",
-            }
-        )
-
-        # 4. NTSB Accidents in last 5 years: 2 points each
-        five_years_ago = datetime.now(timezone.utc) - timedelta(days=5 * 365)
-        recent_accidents = [
-            inc
-            for inc in data.ntsb_incidents
-            if inc.get("event_type", "").lower() == "accident"
-            and self._parse_date(inc.get("event_date")) > five_years_ago
-        ]
-        accident_deduction = 2 * len(recent_accidents)
-        initial_score -= accident_deduction
-        deductions.append(
-            {
-                "category": "Recent NTSB Accidents",
-                "deduction": accident_deduction,
-                "details": f"{len(recent_accidents)} accidents in last 5 years",
-            }
-        )
-
-        # 5. Certification deductions (ARGUS/WYVERN - use better of the two)
-        cert_deduction = self._calculate_certification_deduction(
-            data.argus_rating, data.wyvern_rating
-        )
-        initial_score += cert_deduction  # Note: cert_deduction is already negative
-        deductions.append(
-            {
-                "category": "Certification Rating",
-                "deduction": abs(cert_deduction),
-                "details": f"ARGUS: {data.argus_rating or 'None'}, WYVERN: {data.wyvern_rating or 'None'}",
-            }
-        )
-
-        # Ensure score doesn't fall below 0
-        final_score = max(0.0, initial_score)
-
-        breakdown = {
-            "initial_score": 100.0,
-            "final_score": final_score,
-            "total_deductions": 100.0 - final_score,
-            "deductions": deductions,
+        components["ORF"] = {
+            "value": round(orf, 2),
+            "description": "Fleet Operational Risk - higher values indicate more risk from incidents and accidents"
         }
 
-        return final_score, breakdown
+        # Component 2: Fleet Financial Score (FSF)
+        fsf = self._calculate_fleet_financial_score(
+            data.ucc_filings, data.bankruptcy_history
+        )
+        components["FSF"] = {
+            "value": round(fsf, 2),
+            "description": "Fleet Financial Score - positive values indicate good financial standing, negative indicates risk"
+        }
 
-    def calculate_tail_score(self, data: TailScoreData) -> Tuple[float, Dict[str, Any]]:
+        # Component 3: Fleet Certification Status (CSF)
+        csf = self._calculate_fleet_certification_score(
+            data.argus_rating, data.wyvern_rating
+        )
+        components["CSF"] = {
+            "value": csf,
+            "description": f"Fleet Certification Score - points awarded for {data.argus_rating or 'No'} ARGUS and {data.wyvern_rating or 'No'} WYVERN rating"
+        }
+
+        # FS = 100 - ORF + FSF - CSF
+        fleet_score = 100 - orf + fsf - csf
+
+        # Clamp score between 0 and 100
+        fleet_score = max(0.0, min(100.0, fleet_score))
+
+        # Generate AI explanation if available
+        explanation = None
+        if self.llm_client:
+            explanation = await self._generate_fleet_explanation(
+                data, orf, fsf, csf, fleet_score
+            )
+
+        breakdown = {
+            "final_score": round(fleet_score, 2),
+            "components": components,
+            "formula": "100 - ORF + FSF - CSF",
+        }
+
+        if explanation:
+            breakdown["explanation"] = explanation
+
+        return fleet_score, breakdown
+
+    async def calculate_tail_score(self, data: TailScoreData) -> Tuple[float, Dict[str, Any]]:
         """
-        Calculate TailScore (out of 100)
+        Calculate TailScore (out of 100) - Algorithm v3
+        TS = 100 - MRT + OST - 5*IHT
 
         Args:
             data: TailScoreData object with all required information
@@ -227,372 +207,469 @@ class TrustScoreCalculator:
         Returns:
             Tuple of (score, breakdown_dict)
         """
-        initial_score = 100.0
-        deductions = []
+        components = {}
 
-        # 1. Aircraft age deduction
-        age_deduction = self._calculate_aircraft_age_deduction(data.aircraft_age_years)
-        initial_score += age_deduction  # Note: age_deduction is already negative
-        deductions.append(
-            {
-                "category": "Aircraft Age",
-                "deduction": abs(age_deduction),
-                "details": f"Aircraft age: {data.aircraft_age_years} years",
-            }
-        )
-
-        # 2. Operator name vs Registered Owner mismatch: -10 points
-        if data.operator_name.lower() != data.registered_owner.lower():
-            initial_score -= 10
-            deductions.append(
-                {
-                    "category": "Owner Mismatch",
-                    "deduction": 10,
-                    "details": f"Operator: {data.operator_name}, Owner: {data.registered_owner}",
-                }
-            )
-
-        # 3. Fractional Owner: -5 points
-        if data.fractional_owner:
-            initial_score -= 5
-            deductions.append(
-                {
-                    "category": "Fractional Ownership",
-                    "deduction": 5,
-                    "details": "Aircraft is fractionally owned",
-                }
-            )
-
-        # 4. NTSB Incident deductions
-        incident_deductions = self._calculate_ntsb_incident_deductions(
-            data.ntsb_incidents
-        )
-        for inc_deduction in incident_deductions:
-            initial_score -= inc_deduction["deduction"]
-            deductions.append(inc_deduction)
-
-        # Ensure score doesn't fall below 0
-        final_score = max(0.0, initial_score)
-
-        breakdown = {
-            "initial_score": 100.0,
-            "final_score": final_score,
-            "total_deductions": 100.0 - final_score,
-            "deductions": deductions,
+        # Component 4: Tail Maintenance Risk (MRT)
+        mrt = self._calculate_tail_maintenance_risk(data.aircraft_age_years)
+        components["MRT"] = {
+            "value": round(mrt, 2),
+            "description": f"Tail Maintenance Risk - aircraft age is {data.aircraft_age_years:.1f} years (ideal: 2-5 years)"
         }
 
-        return final_score, breakdown
-
-    async def calculate_financial_risk_score(
-        self,
-        ucc_filings: List[Dict[str, Any]],
-        bankruptcy_history: Optional[List[Dict[str, Any]]] = None,
-    ) -> LLMRiskScore:
-        """
-        Calculate financial risk score using LLM (0-40 points)
-
-        Args:
-            ucc_filings: List of UCC filing records
-            bankruptcy_history: Optional list of bankruptcy records
-
-        Returns:
-            LLMRiskScore with score (0-40) and optional reasoning
-        """
-        if not self.llm_client:
-            # Return default score if no LLM client configured
-            return LLMRiskScore(
-                score=0, reasoning="No LLM client configured - using default score"
-            )
-
-        prompt = self._build_financial_risk_prompt(ucc_filings, bankruptcy_history)
-
-        try:
-            # Call LLM (implementation depends on client)
-            score, reasoning = await self._call_llm_for_scoring(prompt)
-            return LLMRiskScore(score=score, reasoning=reasoning)
-        except Exception as e:
-            print(f"⚠️  Error calling LLM for financial risk scoring: {e}")
-            return LLMRiskScore(score=0, reasoning=f"Error: {str(e)}")
-
-    async def calculate_legal_risk_score(
-        self,
-        ucc_filings: List[Dict[str, Any]],
-        bankruptcy_history: Optional[List[Dict[str, Any]]],
-        ntsb_incidents: List[Dict[str, Any]],
-        faa_violations: Optional[List[Dict[str, Any]]],
-    ) -> LLMRiskScore:
-        """
-        Calculate legal risk score using LLM (0-40 points)
-
-        Args:
-            ucc_filings: List of UCC filing records
-            bankruptcy_history: Optional list of bankruptcy records
-            ntsb_incidents: List of NTSB incidents
-            faa_violations: Optional list of FAA violations
-
-        Returns:
-            LLMRiskScore with score (0-40) and optional reasoning
-        """
-        if not self.llm_client:
-            # Return default score if no LLM client configured
-            return LLMRiskScore(
-                score=0, reasoning="No LLM client configured - using default score"
-            )
-
-        prompt = self._build_legal_risk_prompt(
-            ucc_filings, bankruptcy_history, ntsb_incidents, faa_violations
+        # Component 5: Tail Ownership Status (OST)
+        ost = self._calculate_tail_ownership_status(
+            data.operator_name, data.registered_owner, data.fractional_owner
         )
+        ownership_desc = "full ownership" if ost == 10 else ("fractional ownership" if ost == 5 else "no ownership")
+        components["OST"] = {
+            "value": ost,
+            "description": f"Tail Ownership Status - operator has {ownership_desc}"
+        }
 
-        try:
-            # Call LLM (implementation depends on client)
-            score, reasoning = await self._call_llm_for_scoring(prompt)
-            return LLMRiskScore(score=score, reasoning=reasoning)
-        except Exception as e:
-            print(f"⚠️  Error calling LLM for legal risk scoring: {e}")
-            return LLMRiskScore(score=0, reasoning=f"Error: {str(e)}")
+        # Component 6: Tail Incident History (IHT)
+        iht = self._calculate_tail_incident_history(data.tail_events)
+        components["IHT"] = {
+            "value": round(iht, 2),
+            "description": f"Tail Incident History - {len(data.tail_events)} incident(s) found for this aircraft"
+        }
 
-    def _build_financial_risk_prompt(
-        self,
-        ucc_filings: List[Dict[str, Any]],
-        bankruptcy_history: Optional[List[Dict[str, Any]]],
-    ) -> str:
-        """Build the financial risk assessment prompt for LLM"""
-        prompt = """You are a financial risk analyst specializing in the aviation industry. Your task is to provide a financial risk score for an aircraft operator based on the provided data. The score you provide will be deducted from a starting score of 100, so a higher risk score from you means a lower final score for the operator. Your output must be a single integer between 0 and 40. 0 signifies no identifiable financial risk. 40 signifies the highest level of financial risk.
+        # TS = 100 - MRT + OST - 5*IHT
+        tail_score = 100 - mrt + ost - (5 * iht)
 
-Analysis Instructions:
-1. Review all the provided information.
-2. Assess the operator's financial stability based on active UCC filings, any history of bankruptcy, and liens against the operator. Consider the quality of the debtors, considering the reputation of lending institutions used as debtors, the frequency of filings, and the likelihood that the company may be struggling with its debt.
-3. Consider inactive and lapsed UCC filings as evidence of payment history. Treat these results as historical data that provide evidence as to the operator's history with paying its debts and its potential for maintaining good financial standing in the future.
-4. Synthesize your findings into a single risk score between 0 and 40. Provide only the integer score as your output.
+        # Clamp score between 0 and 100
+        tail_score = max(0.0, min(100.0, tail_score))
 
-Here is the data for your evaluation. Assume that this data is comprehensive and complete.
+        # Generate AI explanation if available
+        explanation = None
+        if self.llm_client:
+            explanation = await self._generate_tail_explanation(
+                data, mrt, ost, iht, tail_score
+            )
 
-"""
+        breakdown = {
+            "final_score": round(tail_score, 2),
+            "components": components,
+            "formula": "100 - MRT + OST - 5*IHT",
+        }
 
-        # Add UCC filings data
-        prompt += "\n=== UCC FILINGS ===\n"
-        if ucc_filings:
-            for i, filing in enumerate(ucc_filings, 1):
-                # Validate required fields (all except secured_party and collateral)
-                required_fields = ['file_number', 'status', 'filing_date', 'lapse_date', 'lien_type', 'debtor']
-                missing_fields = []
+        if explanation:
+            breakdown["explanation"] = explanation
 
-                for field in required_fields:
-                    value = filing.get(field, 'Unknown')
-                    if not value or value == 'Unknown':
-                        missing_fields.append(field)
+        return tail_score, breakdown
 
-                if missing_fields:
-                    print(f"⚠️  WARNING: UCC filing {i} is missing required fields: {', '.join(missing_fields)}")
-
-                prompt += f"\nFiling {i}:\n"
-                prompt += f"  File Number: {filing.get('file_number', 'Unknown')}\n"
-                prompt += f"  Status: {filing.get('status', 'Unknown')}\n"
-                prompt += f"  Filing Date: {filing.get('filing_date', 'Unknown')}\n"
-                prompt += f"  Lapse Date: {filing.get('lapse_date', 'Unknown')}\n"
-                prompt += f"  Lien Type: {filing.get('lien_type', 'Unknown')}\n"
-                prompt += f"  Debtor: {filing.get('debtor', 'Unknown')}\n"
-                prompt += f"  Secured Party: {filing.get('secured_party', 'Not specified')}\n"
-                prompt += f"  Collateral: {filing.get('collateral', 'Not specified')}\n"
-        else:
-            prompt += "No UCC filings found.\n"
-
-        # Add bankruptcy history
-        prompt += "\n=== BANKRUPTCY HISTORY ===\n"
-        if bankruptcy_history:
-            for i, record in enumerate(bankruptcy_history, 1):
-                prompt += f"\nBankruptcy {i}:\n"
-                prompt += f"  Date: {record.get('date', 'Unknown')}\n"
-                prompt += f"  Type: {record.get('type', 'Unknown')}\n"
-                prompt += f"  Status: {record.get('status', 'Unknown')}\n"
-        else:
-            prompt += "No bankruptcy history found.\n"
-
-        return prompt
-
-    def _build_legal_risk_prompt(
-        self,
-        ucc_filings: List[Dict[str, Any]],
-        bankruptcy_history: Optional[List[Dict[str, Any]]],
-        ntsb_incidents: List[Dict[str, Any]],
-        faa_violations: Optional[List[Dict[str, Any]]],
-    ) -> str:
-        """Build the legal risk assessment prompt for LLM"""
-        prompt = """You are a legal risk analyst with expertise in the aviation sector. Your role is to evaluate the legal risk associated with an aircraft operator based on the information provided below. The score you generate will be subtracted from a base score of 100. Your output must be a single integer between 0 and 40. 0 signifies no identifiable legal risk. 40 signifies the highest level of legal risk.
-
-Analysis Instructions:
-1. Review all the provided information.
-2. Assess the operator's legal standing based on active UCC filings, any history of bankruptcy, NTSB filings, and any potential legal trouble associated with them, and FAA violations and any legal trouble that might be considered there. Do not consider financial or operational risks, only legal risks should be considered. The age of each report should also be considered in terms of how it affects the current risk of doing business with this operator.
-3. Evaluate the severity and frequency of any legal issues found. For example, the possibility of a single, minor lawsuit is less of a risk than multiple, serious FAA enforcement actions.
-4. Formulate a comprehensive legal risk assessment.
-5. Translate your assessment into a single integer score between 0 and 40. Your output should be only the integer.
-
-Here is the data for your evaluation. Assume that this data is comprehensive and complete.
-
-"""
-
-        # Add UCC filings data
-        prompt += "\n=== UCC FILINGS ===\n"
-        if ucc_filings:
-            for i, filing in enumerate(ucc_filings, 1):
-                # Validate required fields (all except secured_party and collateral)
-                required_fields = ['file_number', 'status', 'filing_date', 'lapse_date', 'lien_type', 'debtor']
-                missing_fields = []
-
-                for field in required_fields:
-                    value = filing.get(field, 'Unknown')
-                    if not value or value == 'Unknown':
-                        missing_fields.append(field)
-
-                if missing_fields:
-                    print(f"⚠️  WARNING: UCC filing {i} is missing required fields: {', '.join(missing_fields)}")
-
-                prompt += f"\nFiling {i}:\n"
-                prompt += f"  File Number: {filing.get('file_number', 'Unknown')}\n"
-                prompt += f"  Status: {filing.get('status', 'Unknown')}\n"
-                prompt += f"  Filing Date: {filing.get('filing_date', 'Unknown')}\n"
-                prompt += f"  Lapse Date: {filing.get('lapse_date', 'Unknown')}\n"
-                prompt += f"  Lien Type: {filing.get('lien_type', 'Unknown')}\n"
-                prompt += f"  Debtor: {filing.get('debtor', 'Unknown')}\n"
-                prompt += f"  Secured Party: {filing.get('secured_party', 'Not specified')}\n"
-        else:
-            prompt += "No UCC filings found.\n"
-
-        # Add bankruptcy history
-        prompt += "\n=== BANKRUPTCY HISTORY ===\n"
-        if bankruptcy_history:
-            for i, record in enumerate(bankruptcy_history, 1):
-                prompt += f"\nBankruptcy {i}:\n"
-                prompt += f"  Date: {record.get('date', 'Unknown')}\n"
-                prompt += f"  Type: {record.get('type', 'Unknown')}\n"
-                prompt += f"  Status: {record.get('status', 'Unknown')}\n"
-        else:
-            prompt += "No bankruptcy history found.\n"
-
-        # Add NTSB incidents
-        prompt += "\n=== NTSB INCIDENTS ===\n"
-        if ntsb_incidents:
-            for i, incident in enumerate(ntsb_incidents, 1):
-                prompt += f"\nIncident {i}:\n"
-                prompt += f"  Event ID: {incident.get('event_id', 'Unknown')}\n"
-                prompt += f"  Date: {incident.get('event_date', 'Unknown')}\n"
-                prompt += f"  Type: {incident.get('event_type', 'Unknown')}\n"
-                prompt += f"  Injury Level: {incident.get('injury_level', 'Unknown')}\n"
-                prompt += f"  Location: {incident.get('location', 'Unknown')}\n"
-        else:
-            prompt += "No NTSB incidents found.\n"
-
-        # Add FAA violations
-        prompt += "\n=== FAA VIOLATIONS ===\n"
-        if faa_violations:
-            for i, violation in enumerate(faa_violations, 1):
-                prompt += f"\nViolation {i}:\n"
-                prompt += f"  Date: {violation.get('date', 'Unknown')}\n"
-                prompt += f"  Type: {violation.get('type', 'Unknown')}\n"
-                prompt += f"  Severity: {violation.get('severity', 'Unknown')}\n"
-                prompt += f"  Status: {violation.get('status', 'Unknown')}\n"
-        else:
-            prompt += "No FAA violations found.\n"
-
-        return prompt
-
-    async def _call_llm_for_scoring(self, prompt: str) -> Tuple[int, str]:
+    def _calculate_fleet_operational_risk(
+        self, fleet_events: List[Dict[str, Any]], fleet_size: int, operator_age_years: float
+    ) -> float:
         """
-        Call LLM to get risk score
+        Calculate Fleet Operational Risk (ORF)
+
+        ORF = ∑ ((Severity / VF) * e^(-k*Δt))
+
+        where:
+        - k = ln(2) / 5
+        - Δt = Time in years since the event
+        - VF = Total Tails in Operator's Fleet * ln(Years Since Business Registration + 1)
 
         Args:
-            prompt: The complete prompt for LLM
+            fleet_events: List of all fleet events
+            fleet_size: Total number of tails in fleet
+            operator_age_years: Years since business registration
 
         Returns:
-            Tuple of (score, reasoning)
+            Operational risk score
         """
-        if not self.llm_client:
-            return (0, "No LLM client configured")
+        if not fleet_events:
+            return 0.0
 
-        try:
-            score, reasoning = await self.llm_client.get_risk_score(prompt)
-            return (score, reasoning)
-        except Exception as e:
-            print(f"⚠️  Error in LLM scoring: {e}")
-            return (0, f"Error: {str(e)}")
+        # Calculate VF (Volatility Factor)
+        vf = fleet_size * math.log(operator_age_years + 1)
 
-    def _calculate_certification_deduction(
+        # Avoid division by zero
+        if vf == 0:
+            vf = 1
+
+        current_date = datetime.now(timezone.utc)
+        total_risk = 0.0
+
+        for event in fleet_events:
+            # Get severity
+            severity = self._get_event_severity(event)
+
+            # Get time since event
+            event_date = self._parse_date(event.get("event_date"))
+            if event_date:
+                delta_t = (current_date - event_date).days / 365.25
+
+                # Calculate time decay
+                time_decay = math.exp(-self.TIME_DECAY_K * delta_t)
+
+                # Add to total risk
+                total_risk += (severity / vf) * time_decay
+
+        return total_risk
+
+    def _calculate_fleet_financial_score(
+        self, ucc_filings: List[Dict[str, Any]], bankruptcy_history: Optional[List[Dict[str, Any]]]
+    ) -> float:
+        """
+        Calculate Fleet Financial Score (FSF)
+
+        If active Chapter 11/7 bankruptcy or filed within last 5 years: FSF = 0
+
+        Otherwise:
+        FSF = ∑(e^(-0.15*Δr)) - ∑(5 * e^(-0.15*Δf))
+
+        where:
+        - Δr = time in years since resolution (for resolved liens)
+        - Δf = time in years since filing (for unresolved liens)
+
+        Args:
+            ucc_filings: List of UCC filings
+            bankruptcy_history: Optional list of bankruptcy records
+
+        Returns:
+            Financial score
+        """
+        # Check for recent bankruptcy
+        if bankruptcy_history:
+            five_years_ago = datetime.now(timezone.utc) - timedelta(days=5 * 365)
+            for record in bankruptcy_history:
+                status = record.get("status", "").lower()
+                record_date = self._parse_date(record.get("date"))
+
+                # If active or filed within last 5 years
+                if status == "active" or (record_date and record_date > five_years_ago):
+                    return 0.0
+
+        if not ucc_filings:
+            return 0.0
+
+        current_date = datetime.now(timezone.utc)
+        five_years_ago = current_date - timedelta(days=5 * 365)
+
+        resolved_score = 0.0
+        unresolved_penalty = 0.0
+
+        for filing in ucc_filings:
+            filing_date = self._parse_date(filing.get("filing_date"))
+
+            # Only consider filings within last 5 years
+            if not filing_date or filing_date < five_years_ago:
+                continue
+
+            status = filing.get("status", "").lower()
+
+            # Check if resolved (satisfied, released, terminated)
+            is_resolved = any(keyword in status for keyword in ["satisfied", "released", "terminated", "lapsed"])
+
+            if is_resolved:
+                # For resolved liens, use resolution date (lapse_date)
+                resolution_date = self._parse_date(filing.get("lapse_date")) or filing_date
+                delta_r = (current_date - resolution_date).days / 365.25
+                resolved_score += math.exp(-0.15 * delta_r)
+            else:
+                # For unresolved liens
+                delta_f = (current_date - filing_date).days / 365.25
+                unresolved_penalty += 5 * math.exp(-0.15 * delta_f)
+
+        return resolved_score - unresolved_penalty
+
+    def _calculate_fleet_certification_score(
         self, argus_rating: Optional[str], wyvern_rating: Optional[str]
     ) -> int:
         """
-        Calculate certification deduction based on ARGUS and WYVERN ratings
-        Returns the better (less negative) of the two
+        Calculate Fleet Certification Status (CSF)
+        Returns the highest points from ARGUS or WYVERN ratings
+
+        Args:
+            argus_rating: ARGUS rating
+            wyvern_rating: WYVERN rating
+
+        Returns:
+            Certification points (0-10)
         """
-        argus_deduction = self.ARGUS_DEDUCTIONS.get(argus_rating or "None", -10)
-        wyvern_deduction = self.WYVERN_DEDUCTIONS.get(wyvern_rating or "None", -10)
+        argus_points = self.ARGUS_POINTS.get(argus_rating or "None", 0)
+        wyvern_points = self.WYVERN_POINTS.get(wyvern_rating or "None", 0)
 
-        # Return the better score (less negative = better)
-        return max(argus_deduction, wyvern_deduction)
+        # Return the highest score
+        return max(argus_points, wyvern_points)
 
-    def _calculate_aircraft_age_deduction(self, age_years: float) -> int:
-        """Calculate deduction based on aircraft age"""
-        for min_age, max_age, deduction in self.AIRCRAFT_AGE_DEDUCTIONS:
-            if min_age <= age_years < max_age:
-                return deduction
-        return -10  # Default for very old aircraft
-
-    def _calculate_ntsb_incident_deductions(
-        self, incidents: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def _calculate_tail_maintenance_risk(self, aircraft_age_years: float) -> float:
         """
-        Calculate deductions for NTSB incidents
+        Calculate Tail Maintenance Risk (MRT)
 
-        Rules:
-        - Multiply all values by 2 if event_type = "Accident"
-        - Deduct 2 × (Age of Event in Years - 10), minimum 0
-        - Deduct points based on injury level
+        MRT = 2 * (4.15 * e^(-2x) + 100 * (max(0, x-5)/25)^1.5)
+
+        where x = Years Since Tail Registration Date
+
+        The ideal tail age is 2-5 years, with penalties for both very new and old aircraft.
+
+        Args:
+            aircraft_age_years: Years since tail registration
+
+        Returns:
+            Maintenance risk score
         """
-        deductions = []
+        x = aircraft_age_years
+
+        # First term: penalty for new aircraft
+        new_penalty = 4.15 * math.exp(-2 * x)
+
+        # Second term: penalty for old aircraft
+        old_penalty = 100 * (max(0, x - 5) / 25) ** 1.5
+
+        mrt = 2 * (new_penalty + old_penalty)
+
+        return mrt
+
+    def _calculate_tail_ownership_status(
+        self, operator_name: str, registered_owner: str, fractional_owner: bool
+    ) -> int:
+        """
+        Calculate Tail Ownership Status (OST)
+
+        - Full exclusive ownership: 10 points
+        - Fractional/partial ownership: 5 points
+        - No ownership: 0 points
+
+        Args:
+            operator_name: Name of the operator
+            registered_owner: Name of the registered owner
+            fractional_owner: Whether it's a fractional ownership
+
+        Returns:
+            Ownership status points (0, 5, or 10)
+        """
+        # Check if operator owns the tail
+        operator_owns = operator_name.lower() in registered_owner.lower()
+
+        if operator_owns and not fractional_owner:
+            return 10
+        elif operator_owns and fractional_owner:
+            return 5
+        else:
+            return 0
+
+    def _calculate_tail_incident_history(self, tail_events: List[Dict[str, Any]]) -> float:
+        """
+        Calculate Tail Incident History (IHT)
+
+        IHT = ∑ (Severity * e^(-k*Δt))
+
+        where:
+        - k = ln(2) / 5
+        - Δt = Time in years since the event
+
+        Args:
+            tail_events: List of events specific to this tail
+
+        Returns:
+            Incident history score
+        """
+        if not tail_events:
+            return 0.0
+
         current_date = datetime.now(timezone.utc)
+        total_risk = 0.0
 
-        for incident in incidents:
-            event_type = incident.get("event_type", "").lower()
-            is_accident = event_type == "accident"
-            multiplier = 2 if is_accident else 1
+        for event in tail_events:
+            # Get severity
+            severity = self._get_event_severity(event)
 
-            # Calculate age deduction
-            event_date = self._parse_date(incident.get("event_date"))
+            # Get time since event
+            event_date = self._parse_date(event.get("event_date"))
             if event_date:
-                age_years = (current_date - event_date).days / 365.25
-                age_deduction = max(0, 2 * (age_years - 10))
+                delta_t = (current_date - event_date).days / 365.25
+
+                # Calculate time decay
+                time_decay = math.exp(-self.TIME_DECAY_K * delta_t)
+
+                # Add to total risk
+                total_risk += severity * time_decay
+
+        return total_risk
+
+    def _get_event_severity(self, event: Dict[str, Any]) -> float:
+        """
+        Get severity score for an event based on type and injury level
+
+        Severity values:
+        - Fatal Accident: 50
+        - Non-Fatal Accident: 25
+        - Serious Incident: 15
+        - Major FAA Enforcement Action: 10
+        - Minor Incident/Enforcement: 5
+
+        Args:
+            event: Event dictionary containing event_type and injury_level
+
+        Returns:
+            Severity score
+        """
+        event_type = event.get("event_type", "").lower()
+        injury_level = event.get("injury_level", "").lower()
+
+        # Determine severity based on event type and injury level
+        if "accident" in event_type:
+            if "fatal" in injury_level:
+                return 50
             else:
-                age_deduction = 0
-
-            # Calculate injury deduction
-            injury_level = incident.get("injury_level", "None")
-            injury_deduction = abs(self.INJURY_DEDUCTIONS.get(injury_level, 0))
-
-            # Apply multiplier
-            total_deduction = (age_deduction + injury_deduction) * multiplier
-
-            if total_deduction > 0:
-                deductions.append(
-                    {
-                        "category": f"NTSB Incident - {incident.get('event_id', 'Unknown')}",
-                        "deduction": total_deduction,
-                        "details": f"Type: {event_type}, Injury: {injury_level}, Age: {age_years:.1f} years",
-                    }
-                )
-
-        return deductions
+                return 25
+        elif "serious" in event_type or "serious" in injury_level:
+            return 15
+        elif "major" in event_type or "major" in event.get("severity", "").lower():
+            return 10
+        else:
+            return 5
 
     def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
-        """Parse date string to timezone-aware datetime object"""
+        """
+        Parse date string to timezone-aware datetime object
+
+        Args:
+            date_str: Date string in various formats
+
+        Returns:
+            Timezone-aware datetime object or None
+        """
         if not date_str:
             return None
 
         try:
-            # Try ISO format first
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        except (ValueError, AttributeError):
-            try:
-                # Try common date formats and make timezone-aware
+            # Try ISO format with timezone first
+            if "T" in str(date_str):
+                return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            else:
+                # Simple YYYY-MM-DD format
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
                 return dt.replace(tzinfo=timezone.utc)
-            except (ValueError, TypeError):
+        except (ValueError, AttributeError, TypeError):
+            try:
+                # Last resort: try ISO format
+                return datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
+            except (ValueError, AttributeError, TypeError):
                 return None
+
+    async def _generate_fleet_explanation(
+        self, data: FleetScoreData, orf: float, fsf: float, csf: int, fleet_score: float
+    ) -> str:
+        """Generate AI explanation for FleetScore components"""
+        if not self.llm_client:
+            return None
+
+        prompt = f"""You are an aviation safety analyst. Provide a clear, professional explanation of why this operator received their Fleet Score.
+
+Operator: {data.operator_name}
+Operator Age: {data.operator_age_years:.1f} years
+Fleet Size: {data.fleet_size} aircraft
+Fleet Score: {fleet_score:.2f}/100
+
+Components:
+- Operational Risk (ORF): {orf:.2f} - Events across fleet with time decay
+- Financial Score (FSF): {fsf:.2f} - Based on UCC filings and bankruptcy history
+- Certification Score (CSF): {csf} - ARGUS: {data.argus_rating or 'None'}, WYVERN: {data.wyvern_rating or 'None'}
+
+Fleet Events: {len(data.fleet_events)} total
+UCC Filings: {len(data.ucc_filings)} total
+Bankruptcy History: {'Yes' if data.bankruptcy_history else 'None'}
+
+Provide a 2-3 sentence explanation of:
+1. What are the main factors affecting this score?
+2. Are there any concerning patterns or positive indicators?
+3. What does this score mean for operator reliability?
+
+Keep it concise and focused on actionable insights."""
+
+        try:
+            response = await self.llm_client.get_completion(prompt)
+            return response
+        except Exception as e:
+            print(f"⚠️  Error generating fleet explanation: {e}")
+            return None
+
+    async def _generate_tail_explanation(
+        self, data: TailScoreData, mrt: float, ost: int, iht: float, tail_score: float
+    ) -> str:
+        """Generate AI explanation for TailScore components"""
+        if not self.llm_client:
+            return None
+
+        prompt = f"""You are an aviation safety analyst. Provide a clear, professional explanation of why this aircraft received its Tail Score.
+
+Aircraft Age: {data.aircraft_age_years:.1f} years
+Operator: {data.operator_name}
+Registered Owner: {data.registered_owner}
+Tail Score: {tail_score:.2f}/100
+
+Components:
+- Maintenance Risk (MRT): {mrt:.2f} - Based on aircraft age (ideal: 2-5 years)
+- Ownership Status (OST): {ost} - {'Full ownership' if ost == 10 else ('Fractional' if ost == 5 else 'No ownership')}
+- Incident History (IHT): {iht:.2f} - Tail-specific incidents
+
+Tail Events: {len(data.tail_events)} incident(s) found
+
+Provide a 2-3 sentence explanation of:
+1. What are the main factors affecting this score?
+2. Is the aircraft age appropriate, and how does ownership impact the score?
+3. What does this score indicate about this specific aircraft's reliability?
+
+Keep it concise and focused on actionable insights."""
+
+        try:
+            response = await self.llm_client.get_completion(prompt)
+            return response
+        except Exception as e:
+            print(f"⚠️  Error generating tail explanation: {e}")
+            return None
+
+    async def _generate_overall_insights(
+        self,
+        fleet_data: FleetScoreData,
+        tail_data: TailScoreData,
+        trust_score: float,
+        fleet_score: float,
+        tail_score: float,
+        confidence_score: float,
+        fleet_breakdown: Dict[str, Any],
+        tail_breakdown: Dict[str, Any]
+    ) -> str:
+        """Generate overall AI insights about the TrustScore"""
+        if not self.llm_client:
+            return None
+
+        prompt = f"""You are an aviation safety analyst providing executive summary insights for a TrustScore assessment.
+
+OVERALL RESULTS:
+TrustScore: {trust_score:.2f}/100
+Raw Score: {(0.6 * fleet_score + 0.4 * tail_score):.2f}/100
+Confidence Score: {confidence_score:.4f} (based on {fleet_data.operator_age_years:.1f} years in business)
+
+Fleet Score: {fleet_score:.2f}/100
+Tail Score: {tail_score:.2f}/100
+
+OPERATOR PROFILE:
+- Name: {fleet_data.operator_name}
+- Age: {fleet_data.operator_age_years:.1f} years
+- Fleet Size: {fleet_data.fleet_size} aircraft
+- Certifications: ARGUS {fleet_data.argus_rating or 'None'}, WYVERN {fleet_data.wyvern_rating or 'None'}
+
+RISK INDICATORS:
+- Fleet Events: {len(fleet_data.fleet_events)}
+- UCC Filings: {len(fleet_data.ucc_filings)}
+- Tail-Specific Events: {len(tail_data.tail_events)}
+- Aircraft Age: {tail_data.aircraft_age_years:.1f} years
+
+Provide a professional executive summary (4-6 sentences) covering:
+1. Overall assessment: Is this operator trustworthy? What's the confidence level?
+2. Key strengths and weaknesses identified in the scoring
+3. Primary risk factors that charter brokers should be aware of
+4. Recommendation: Would you recommend this operator for charter bookings? Under what conditions?
+
+Be direct, professional, and focus on actionable business intelligence."""
+
+        try:
+            response = await self.llm_client.get_completion(prompt)
+            return response
+        except Exception as e:
+            print(f"⚠️  Error generating overall insights: {e}")
+            return None

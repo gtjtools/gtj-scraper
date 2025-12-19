@@ -55,7 +55,7 @@ class UserRole(Base):
 class Operator(Base):
   __tablename__ = "operators"
   __table_args__ = {'schema': 'gtj'}
-  
+
   operator_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
   name = Column(String(255), nullable=False)
   dba_name = Column(String(255), nullable=True)
@@ -67,6 +67,9 @@ class Operator(Base):
   financial_health_score = Column(DECIMAL(5, 2), nullable=True)
   regulatory_status = Column(ENUM('COMPLIANT', 'WARNING', 'VIOLATION', 'SUSPENDED', name='regulatory_status'), nullable=False)
   is_verified = Column(Boolean, nullable=False, server_default="false")
+  business_started_date = Column(DateTime, nullable=True)
+  argus_rating = Column(String(50), nullable=True)
+  wyvern_rating = Column(String(50), nullable=True)
   created_at = Column(DateTime, nullable=False, server_default="now()")
 
 class Aircraft(Base):

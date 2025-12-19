@@ -306,19 +306,53 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
                         "state": state_result.get("state", "Unknown")
                     })
 
-        # Convert NTSB incidents to dict format for TrustScore calculator
-        ntsb_incidents_dict = [incident.dict() for incident in incidents]
+        # Convert NTSB incidents to dict format for TrustScore calculator (Algorithm v3)
+        fleet_events = [incident.dict() for incident in incidents]
+        ntsb_incidents_dict = fleet_events  # Keep reference for result output
 
-        # Create FleetScoreData
+        # Fetch operator data from database to get business_started_date
+        from src.common.models import Operator
+        from src.common.config import SessionLocal
+
+        operator_age_years = 10.0  # Default fallback
+        fleet_size = 1  # Default fallback
+        argus_rating = None  # Default fallback
+        wyvern_rating = None  # Default fallback
+
+        try:
+            db = SessionLocal()
+            operator = db.query(Operator).filter(Operator.name == operator_name).first()
+
+            if operator:
+                # Calculate operator age in years from business_started_date
+                if operator.business_started_date:
+                    years_diff = (datetime.now() - operator.business_started_date).days / 365.25
+                    operator_age_years = round(years_diff, 1)
+                    print(f"✓ Operator age calculated: {operator_age_years} years (started: {operator.business_started_date})")
+                else:
+                    print(f"⚠️  No business_started_date found for operator, using default: {operator_age_years} years")
+
+                # Fetch ARGUS and Wyvern ratings
+                argus_rating = operator.argus_rating
+                wyvern_rating = operator.wyvern_rating
+                print(f"✓ ARGUS rating: {argus_rating or 'None'}, Wyvern rating: {wyvern_rating or 'None'}")
+            else:
+                print(f"⚠️  Operator not found in database, using default values")
+
+            db.close()
+        except Exception as e:
+            print(f"⚠️  Error fetching operator data: {e}, using default values")
+
+        # Create FleetScoreData (Algorithm v3)
         fleet_data = FleetScoreData(
             operator_name=operator_name,
-            operator_age_years=10.0,  # Default - would need to be fetched from operator data
-            ntsb_incidents=ntsb_incidents_dict,
+            operator_age_years=operator_age_years,
+            fleet_size=fleet_size,  # Default - would need to be fetched from operator data
+            fleet_events=fleet_events,  # All fleet-wide events (NTSB + FAA)
             ucc_filings=ucc_filings,
-            argus_rating=None,  # Would need to be fetched from operator data
-            wyvern_rating=None,  # Would need to be fetched from operator data
-            bankruptcy_history=None,
-            faa_violations=None
+            argus_rating=argus_rating,
+            wyvern_rating=wyvern_rating,
+            bankruptcy_history=None
         )
 
         # Create TailScoreData (placeholder - would need aircraft-specific data)
@@ -327,24 +361,21 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
             operator_name=operator_name,
             registered_owner=operator_name,  # Assume same as operator
             fractional_owner=False,
-            ntsb_incidents=ntsb_incidents_dict
+            tail_events=fleet_events  # Tail-specific events
         )
 
-        # Initialize LLM client and calculator
+        # Initialize calculator with LLM for AI insights
         try:
             llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
             calculator = TrustScoreCalculator(llm_client=llm_client)
-
-            # Calculate TrustScore
-            trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
-            print(f"✓ TrustScore calculated: {trust_score_result['trust_score']}")
+            print("✓ Using LLM for AI insights")
         except Exception as e:
-            print(f"⚠️  Error calculating TrustScore: {str(e)}")
-            # Fallback to basic calculation without LLM
+            print(f"⚠️  LLM unavailable, using calculator without AI insights: {e}")
             calculator = TrustScoreCalculator(llm_client=None)
-            trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
-            trust_score_result["llm_error"] = str(e)
-            print(f"✓ TrustScore calculated (without LLM): {trust_score_result['trust_score']}")
+
+        # Calculate TrustScore
+        trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
+        print(f"✓ TrustScore calculated: {trust_score_result['trust_score']}")
 
         # Combine results
         result = {
