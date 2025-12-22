@@ -405,8 +405,16 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
         # Save combined verification result to single JSON file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_operator_name = "".join(c if c.isalnum() else "_" for c in operator_name)
+
+        # Create operator-specific folder: operator_name_YYYYMMDD
+        date_only = datetime.now().strftime("%Y%m%d")
+        folder_name = f"{safe_operator_name}_{date_only}"
+        operator_folder = os.path.join(VERIFICATION_RESULTS_DIR, folder_name)
+        os.makedirs(operator_folder, exist_ok=True)
+
+        # Save verification result in the operator folder
         filename = f"verification_result_{safe_operator_name}_{timestamp}.json"
-        filepath = os.path.join(VERIFICATION_RESULTS_DIR, filename)
+        filepath = os.path.join(operator_folder, filename)
 
         with open(filepath, 'w') as f:
             json.dump(result, f, indent=2, default=str)
