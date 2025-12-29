@@ -1593,3 +1593,272 @@ function displayCharterScoreResults(operatorName, scoreData) {
 
   modalBody.innerHTML = content;
 }
+
+// Batch Verify All functionality - Sequential with Browserbase
+async function runBatchVerify() {
+  const BACKEND_API_URL = 'http://localhost:8000';
+  const batchVerifyBtn = document.getElementById('batchVerifyBtn');
+  let processedCount = 0;
+  let successCount = 0;
+  let failCount = 0;
+  const results = [];
+
+  try {
+    // Disable button and show loading state
+    batchVerifyBtn.disabled = true;
+    batchVerifyBtn.textContent = '⏳ Loading operators...';
+
+    // Step 1: Fetch operators from backend
+    const operatorsResponse = await fetch(`${BACKEND_API_URL}/charter/operators`);
+    if (!operatorsResponse.ok) {
+      throw new Error('Failed to fetch operators from database');
+    }
+
+    const operatorsData = await operatorsResponse.json();
+
+    // Filter for FL and CA operators
+    const flCaOperators = operatorsData.data.filter(op =>
+      op.faa_state === 'FL' || op.faa_state === 'CA'
+    );
+
+    if (flCaOperators.length === 0) {
+      throw new Error('No operators found with FAA state FL or CA');
+    }
+
+    console.log(`Found ${flCaOperators.length} operators to verify (FL & CA)`);
+
+    // Show modal with initial state
+    modal.style.display = 'block';
+
+    // Step 2: Process each operator sequentially
+    for (let i = 0; i < flCaOperators.length; i++) {
+      const operator = flCaOperators[i];
+      processedCount = i + 1;
+
+      try {
+        // Update button text
+        batchVerifyBtn.textContent = `⏳ Verifying ${processedCount}/${flCaOperators.length}...`;
+
+        console.log(`\n[${processedCount}/${flCaOperators.length}] Processing: ${operator.company} (${operator.faa_state})`);
+
+        // Validate faa_state
+        if (!operator.faa_state || operator.faa_state.trim() === '') {
+          throw new Error('FAA state not available for this operator');
+        }
+
+        // Create Browserbase session
+        modalBody.innerHTML = `
+          <div style="padding: 40px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🔄</div>
+            <h2 style="margin-bottom: 16px;">Batch Verification Progress</h2>
+            <p style="color: #6b7280; margin-bottom: 24px;">
+              Processing operator ${processedCount} of ${flCaOperators.length}
+            </p>
+            <div style="font-weight: bold; font-size: 18px; margin-bottom: 16px;">${escapeHtml(operator.company)}</div>
+            <div class="loading-modal">Creating Browserbase session...</div>
+            <div style="margin-top: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; text-align: left;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>✓ Completed:</span>
+                <span style="color: #16a34a; font-weight: bold;">${successCount}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>✗ Failed:</span>
+                <span style="color: #dc2626; font-weight: bold;">${failCount}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>⏳ Remaining:</span>
+                <span style="color: #6b7280; font-weight: bold;">${flCaOperators.length - processedCount}</span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const sessionResponse = await fetch(
+          `${BACKEND_API_URL}/scoring/start-session?operator_name=${encodeURIComponent(operator.company)}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+        );
+
+        if (!sessionResponse.ok) {
+          throw new Error('Failed to create Browserbase session');
+        }
+
+        const sessionData = await sessionResponse.json();
+
+        // Show split-screen with Browserbase live view
+        modalBody.innerHTML = `
+          <div style="padding: 20px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+              <h2 style="margin-bottom: 8px;">Batch Verification Progress (${processedCount}/${flCaOperators.length})</h2>
+              <div style="font-weight: bold; font-size: 18px; color: #2563eb;">${escapeHtml(operator.company)} (${operator.faa_state})</div>
+            </div>
+
+            <div style="display: flex; gap: 16px; height: 70vh; min-height: 500px;">
+              <!-- Left: Browserbase Live View -->
+              <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                <div style="padding: 12px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border-radius: 8px 8px 0 0; font-weight: 600; text-align: center;">
+                  🎥 Live Browser Session
+                </div>
+                <iframe
+                  src="${sessionData.live_view_url}"
+                  sandbox="allow-same-origin allow-scripts"
+                  allow="clipboard-read; clipboard-write"
+                  style="flex: 1; border: 2px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; background: white;"
+                ></iframe>
+              </div>
+
+              <!-- Right: Progress & Stats -->
+              <div style="flex: 1; display: flex; flex-direction: column; overflow-y: auto; min-width: 0;" id="progressPanel">
+                <div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+                  <h3 style="margin-bottom: 16px;">Progress Summary</h3>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div style="padding: 16px; background: #f0fdf4; border: 2px solid #86efac; border-radius: 8px; text-align: center;">
+                      <div style="font-size: 24px; font-weight: bold; color: #16a34a;">${successCount}</div>
+                      <div style="color: #166534; font-size: 14px;">Successful</div>
+                    </div>
+                    <div style="padding: 16px; background: #fef2f2; border: 2px solid #fca5a5; border-radius: 8px; text-align: center;">
+                      <div style="font-size: 24px; font-weight: bold; color: #dc2626;">${failCount}</div>
+                      <div style="color: #991b1b; font-size: 14px;">Failed</div>
+                    </div>
+                  </div>
+
+                  <div class="loading-modal" style="margin-top: 16px;">
+                    Running verification...<br>
+                    <small style="opacity: 0.8; margin-top: 12px; display: block;">👀 Watch the live browser!</small>
+                    <br>
+                    <small style="opacity: 0.8;">Step 1: Querying NTSB...</small>
+                    <br>
+                    <small style="opacity: 0.8;">Step 2: Verifying UCC filings...</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Run verification with the session
+        const scoreResponse = await fetch(
+          `${BACKEND_API_URL}/scoring/full-scoring-flow?operator_name=${encodeURIComponent(operator.company)}&faa_state=${encodeURIComponent(operator.faa_state)}&session_id=${sessionData.session_id}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+        );
+
+        if (!scoreResponse.ok) {
+          const errorData = await scoreResponse.json().catch(() => ({ detail: 'Verification failed' }));
+          throw new Error(errorData.detail || 'Verification failed');
+        }
+
+        const scoreData = await scoreResponse.json();
+
+        // Success
+        successCount++;
+        results.push({
+          operator_name: operator.company,
+          faa_state: operator.faa_state,
+          status: 'success',
+          trust_score: scoreData.trust_score?.trust_score,
+          ntsb_score: scoreData.ntsb?.score,
+          total_incidents: scoreData.ntsb?.total_incidents
+        });
+
+        console.log(`✓ Success: ${operator.company} - TrustScore: ${scoreData.trust_score?.trust_score}`);
+
+      } catch (error) {
+        // Failure
+        failCount++;
+        results.push({
+          operator_name: operator.company,
+          faa_state: operator.faa_state,
+          status: 'failed',
+          error: error.message
+        });
+
+        console.error(`✗ Failed: ${operator.company} - ${error.message}`);
+      }
+
+      // Brief pause between operators
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // Show final results
+    const successfulOps = results.filter(r => r.status === 'success');
+    const failedOps = results.filter(r => r.status === 'failed');
+
+    modalBody.innerHTML = `
+      <div style="padding: 40px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">✓</div>
+          <h2 style="margin-bottom: 8px;">Batch Verification Complete!</h2>
+          <p style="color: #6b7280;">Processed ${flCaOperators.length} operators</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px;">
+          <div style="padding: 20px; background: #f0fdf4; border: 2px solid #86efac; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; font-weight: bold; color: #16a34a;">${successCount}</div>
+            <div style="color: #166534; margin-top: 4px;">Successful</div>
+          </div>
+          <div style="padding: 20px; background: #fef2f2; border: 2px solid #fca5a5; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; font-weight: bold; color: #dc2626;">${failCount}</div>
+            <div style="color: #991b1b; margin-top: 4px;">Failed</div>
+          </div>
+        </div>
+
+        ${successfulOps.length > 0 ? `
+          <div style="margin-bottom: 24px;">
+            <h3 style="margin-bottom: 12px; color: #16a34a;">✓ Successfully Verified</h3>
+            <div style="max-height: 250px; overflow-y: auto; background: #f9fafb; border-radius: 8px; padding: 12px;">
+              ${successfulOps.map(op => `
+                <div style="padding: 8px; margin-bottom: 8px; background: white; border-left: 4px solid #16a34a; border-radius: 4px;">
+                  <strong>${escapeHtml(op.operator_name)}</strong>
+                  <span style="color: #6b7280; font-size: 14px; margin-left: 8px;">(${op.faa_state})</span>
+                  ${op.trust_score ? `<span style="float: right; color: #16a34a;">TrustScore: ${Math.round(op.trust_score)}</span>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${failedOps.length > 0 ? `
+          <div>
+            <h3 style="margin-bottom: 12px; color: #dc2626;">✗ Failed</h3>
+            <div style="max-height: 250px; overflow-y: auto; background: #f9fafb; border-radius: 8px; padding: 12px;">
+              ${failedOps.map(op => `
+                <div style="padding: 8px; margin-bottom: 8px; background: white; border-left: 4px solid #dc2626; border-radius: 4px;">
+                  <strong>${escapeHtml(op.operator_name)}</strong>
+                  <span style="color: #6b7280; font-size: 14px; margin-left: 8px;">(${op.faa_state})</span>
+                  ${op.error ? `<div style="font-size: 12px; color: #dc2626; margin-top: 4px;">${escapeHtml(op.error)}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div style="margin-top: 32px; text-align: center;">
+          <button onclick="modal.style.display='none'" style="padding: 12px 32px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">Close</button>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    console.error('Batch verification error:', error);
+    modalBody.innerHTML = `
+      <div style="padding: 40px; text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 20px; color: #dc2626;">✗</div>
+        <h2 style="margin-bottom: 16px; color: #dc2626;">Batch Verification Failed</h2>
+        <p style="color: #6b7280; margin-bottom: 24px;">${escapeHtml(error.message)}</p>
+        <button onclick="modal.style.display='none'" style="padding: 12px 32px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">Close</button>
+      </div>
+    `;
+  } finally {
+    // Re-enable button
+    batchVerifyBtn.disabled = false;
+    batchVerifyBtn.innerHTML = '▶ Batch Verify All';
+  }
+}
+
+// Add event listener for batch verify button
+document.addEventListener('DOMContentLoaded', function() {
+  const batchVerifyBtn = document.getElementById('batchVerifyBtn');
+  if (batchVerifyBtn) {
+    batchVerifyBtn.addEventListener('click', runBatchVerify);
+  }
+});

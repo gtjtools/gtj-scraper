@@ -181,3 +181,56 @@ export const checkScoringHealth = async (): Promise<{
     throw error;
   }
 };
+
+export interface BatchVerificationResult {
+  operator_name: string;
+  faa_state: string;
+  status: 'success' | 'failed';
+  ntsb_score?: number;
+  trust_score?: number;
+  total_incidents?: number;
+  ucc_states_processed?: number;
+  saved_file?: string;
+  error?: string;
+}
+
+export interface BatchVerificationResponse {
+  status: string;
+  message: string;
+  total_operators: number;
+  successful: number;
+  failed: number;
+  results: BatchVerificationResult[];
+}
+
+/**
+ * Run batch verification for all operators
+ * @returns Batch verification results with summary statistics
+ * @throws Error if the API request fails
+ */
+export const runBatchVerification = async (): Promise<BatchVerificationResponse> => {
+  try {
+    const response = await axios.post<BatchVerificationResponse>(
+      `${API_BASE_URL}/scoring/batch-verify-by-states`,
+      {},
+      {
+        timeout: 600000, // 10 minute timeout for batch verification
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Batch verification timed out. Please try again or reduce the number of operators.');
+      }
+      const errorDetail = error.response?.data?.detail || error.message;
+      console.error('Error running batch verification:', errorDetail);
+      throw new Error(errorDetail);
+    }
+    console.error('Unexpected error running batch verification:', error);
+    throw error;
+  }
+};

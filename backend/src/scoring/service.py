@@ -1,9 +1,14 @@
 # src/scoring/service.py
 import httpx
+import os
+import sys
+import requests
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pydantic import UUID4
 from sqlalchemy.orm import Session
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 from src.common.models import Operator
 from src.scoring.schemas import (
     NTSBIncident,
@@ -19,6 +24,117 @@ NTSB_TIMEOUT = 30.0  # seconds
 
 class NTSBService:
     """Service for interacting with NTSB API"""
+
+    @staticmethod
+    def download_ntsb_pdf(accident_number: str, output_folder: str, operator_name: str) -> bool:
+        """
+        Download NTSB accident report PDF.
+
+        Note: The NTSB API generates reports on-demand, which can take
+        30 seconds to several minutes.
+
+        Args:
+            accident_number: The NTSB accident number (Mkey value)
+            output_folder: Folder path where PDF will be saved
+            operator_name: Name of the operator for logging
+
+        Returns:
+            True if download successful, False otherwise
+        """
+        url = f"https://data.ntsb.gov/carol-repgen/api/Aviation/ReportMain/GenerateNewestReport/{accident_number}/pdf"
+
+        # Create output folder if it doesn't exist
+        os.makedirs(output_folder, exist_ok=True)
+
+        output_filename = os.path.join(output_folder, f"ntsb_report_{accident_number}.pdf")
+
+        print(f"Downloading PDF from: {url}")
+        print(f"Saving to: {output_filename}")
+        print(f"Note: The NTSB server generates reports on-demand. This may take 30 seconds to several minutes.")
+
+        # Configure session with retries
+        session = requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504]
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+
+        try:
+            # Use a longer timeout - 5 minutes should be enough
+            # timeout = (connect_timeout, read_timeout)
+            response = session.get(url, timeout=(30, 300), stream=True)
+            response.raise_for_status()
+
+            # Write to file with progress indicator
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded = 0
+
+            with open(output_filename, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size:
+                            percent = (downloaded / total_size) * 100
+                            sys.stdout.write(f"\rProgress: {percent:.1f}% ({downloaded:,} / {total_size:,} bytes)")
+                            sys.stdout.flush()
+                        else:
+                            sys.stdout.write(f"\rDownloaded: {downloaded:,} bytes")
+                            sys.stdout.flush()
+
+            file_size = os.path.getsize(output_filename)
+            print(f"\n\nDownload complete! File size: {file_size:,} bytes")
+            print(f"Saved to: {output_filename}")
+            return True
+
+        except requests.exceptions.Timeout:
+            print(f"\nError: Request timed out. The NTSB server may be overloaded or the report is very large.")
+            return False
+        except requests.exceptions.RequestException as e:
+            print(f"\nError downloading PDF: {e}")
+            return False
+
+    @staticmethod
+    def _download_incident_pdfs(raw_data: Dict[str, Any], operator_name: str) -> None:
+        """
+        Download PDFs for all incidents in the NTSB response.
+
+        Args:
+            raw_data: Raw response from NTSB API
+            operator_name: Name of the operator
+        """
+        if not isinstance(raw_data, dict) or "Results" not in raw_data:
+            return
+
+        # Create folder name with format: operator_name_YYYYMMDD
+        timestamp = datetime.now().strftime("%Y%m%d")
+        safe_operator_name = "".join(c if c.isalnum() else "_" for c in operator_name)
+        folder_name = f"{safe_operator_name}_{timestamp}"
+
+        # Get the project root directory and create temp folder path
+        # Assuming the backend/src/scoring directory structure
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+        temp_folder = os.path.join(project_root, "backend/data/temp", folder_name)
+
+        print(f"\nDownloading NTSB PDFs to: {temp_folder}")
+
+        # Extract Mkey (accident number) from each result
+        for result in raw_data.get("Results", []):
+            fields = result.get("Fields", [])
+
+            # Find the Mkey field
+            for field in fields:
+                if field.get("FieldName") == "Mkey":
+                    values = field.get("Values", [])
+                    if values:
+                        accident_number = values[0]
+                        print(f"\nProcessing accident number: {accident_number}")
+                        NTSBService.download_ntsb_pdf(accident_number, temp_folder, operator_name)
 
     @staticmethod
     async def query_ntsb_incidents(operator_name: str) -> Dict[str, Any]:
@@ -75,7 +191,12 @@ class NTSBService:
             async with httpx.AsyncClient(timeout=NTSB_TIMEOUT) as client:
                 response = await client.post(NTSB_API_URL, json=payload)
                 response.raise_for_status()
-                return response.json()
+                raw_data = response.json()
+
+                # Download PDFs for each incident
+                NTSBService._download_incident_pdfs(raw_data, operator_name)
+
+                return raw_data
         except httpx.TimeoutException:
             raise HTTPError(
                 detail=f"NTSB API request timed out after {NTSB_TIMEOUT} seconds"

@@ -1,6 +1,7 @@
 # src/scoring/router.py
 import os
 import json
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import UUID4
@@ -405,8 +406,16 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
         # Save combined verification result to single JSON file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_operator_name = "".join(c if c.isalnum() else "_" for c in operator_name)
+
+        # Create operator-specific folder: operator_name_YYYYMMDD
+        date_only = datetime.now().strftime("%Y%m%d")
+        folder_name = f"{safe_operator_name}_{date_only}"
+        operator_folder = os.path.join(VERIFICATION_RESULTS_DIR, folder_name)
+        os.makedirs(operator_folder, exist_ok=True)
+
+        # Save verification result in the operator folder
         filename = f"verification_result_{safe_operator_name}_{timestamp}.json"
-        filepath = os.path.join(VERIFICATION_RESULTS_DIR, filename)
+        filepath = os.path.join(operator_folder, filename)
 
         with open(filepath, 'w') as f:
             json.dump(result, f, indent=2, default=str)
@@ -429,3 +438,250 @@ async def full_scoring_flow(operator_name: str, faa_state: str, state: str = Non
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Scoring flow failed: {str(e)}")
+
+
+@scoring_router.post(
+    "/scoring/batch-verify-by-states",
+    summary="Batch verify operators by FAA states (NTSB + UCC)",
+    description="Run full verification flow for all operators from database",
+    tags=["scoring"]
+)
+async def batch_verify_by_states():
+    """
+    Run batch verification for all operators.
+
+    This endpoint:
+    1. Queries database for all operators with faa_state FL or CA
+    2. Runs full scoring flow (NTSB + UCC) for each operator
+    3. Returns summary of results
+
+    Returns:
+        Batch verification results with summary statistics
+    """
+    try:
+        from src.operator.charter_service import get_charter_operators
+        from src.scoring.service import NTSBService
+
+        # Hardcoded states - FL and CA
+        states = ['FL', 'CA']
+
+        print(f"\n{'='*80}")
+        print(f"BATCH VERIFICATION FOR STATES: {states}")
+        print(f"{'='*80}\n")
+
+        # Step 1: Get all operators from database
+        print("Step 1: Fetching operators from database...")
+        operators_response = await get_charter_operators(skip=0, limit=None, search=None)
+        all_operators = operators_response.data
+
+        print(f"✓ Found {len(all_operators)} total operators in database")
+
+        # Step 2: Filter operators with specified faa_states
+        filtered_operators = [
+            op for op in all_operators
+            if op.faa_state in states
+        ]
+
+        print(f"✓ Filtered to {len(filtered_operators)} operators with faa_state in {states}")
+
+        if not filtered_operators:
+            return {
+                "status": "completed",
+                "message": f"No operators found with faa_state in {states}",
+                "total_operators": 0,
+                "successful": 0,
+                "failed": 0,
+                "results": []
+            }
+
+        # Step 3: Run verification for each operator
+        results = []
+        successful = 0
+        failed = 0
+
+        for idx, operator in enumerate(filtered_operators, 1):
+            print(f"\n{'='*60}")
+            print(f"Processing operator {idx}/{len(filtered_operators)}: {operator.company}")
+            print(f"FAA State: {operator.faa_state}")
+            print(f"{'='*60}")
+
+            try:
+                # Run NTSB query
+                print(f"  → Querying NTSB for {operator.company}...")
+                ntsb_data = await NTSBService.query_ntsb_incidents(operator.company)
+                incidents = NTSBService.parse_ntsb_response(ntsb_data)
+                total_incidents = len(incidents)
+                ntsb_score = max(0, 100 - (total_incidents * 5))
+
+                print(f"  ✓ NTSB: {total_incidents} incidents, score: {ntsb_score}")
+
+                # Run UCC verification
+                print(f"  → Verifying UCC filings...")
+                ucc_service = UCCVerificationService()
+                ntsb_results = ntsb_data.get("Results", [])
+                ucc_data = await ucc_service.verify_ucc_filings(
+                    operator.company,
+                    ntsb_results,
+                    operator.faa_state
+                )
+
+                print(f"  ✓ UCC: {ucc_data.get('status')}")
+
+                # Calculate TrustScore
+                print(f"  → Calculating TrustScore...")
+
+                # Extract UCC filings
+                ucc_filings = []
+                visited_states = ucc_data.get("visited_states", [])
+                for state_result in visited_states:
+                    if state_result.get("flow_used") and state_result.get("flow_result"):
+                        flow_result = state_result["flow_result"]
+                        normalized_filings = flow_result.get("normalized_filings", [])
+                        for filing in normalized_filings:
+                            ucc_filings.append({
+                                "file_number": filing.get("file_number", "Unknown"),
+                                "status": filing.get("status", "Unknown"),
+                                "filing_date": filing.get("filing_date", "Unknown"),
+                                "lapse_date": filing.get("lapse_date", "Unknown"),
+                                "lien_type": filing.get("lien_type", "Unknown"),
+                                "debtor": filing.get("debtor", "Unknown"),
+                                "secured_party": filing.get("secured_party", None),
+                                "collateral": filing.get("collateral", None),
+                                "state": state_result.get("state", "Unknown")
+                            })
+
+                # Convert incidents to dict format
+                fleet_events = [incident.dict() for incident in incidents]
+
+                # Fetch operator age from database
+                from src.common.models import Operator
+                from src.common.config import SessionLocal
+
+                operator_age_years = 10.0
+                fleet_size = 1
+                argus_rating = None
+                wyvern_rating = None
+
+                try:
+                    db = SessionLocal()
+                    db_operator = db.query(Operator).filter(Operator.name == operator.company).first()
+
+                    if db_operator and db_operator.business_started_date:
+                        years_diff = (datetime.now() - db_operator.business_started_date).days / 365.25
+                        operator_age_years = round(years_diff, 1)
+
+                    if db_operator:
+                        argus_rating = db_operator.argus_rating
+                        wyvern_rating = db_operator.wyvern_rating
+
+                    db.close()
+                except Exception as e:
+                    print(f"  ⚠️  Could not fetch operator data from gtj.operators: {e}")
+
+                # Create FleetScoreData
+                fleet_data = FleetScoreData(
+                    operator_name=operator.company,
+                    operator_age_years=operator_age_years,
+                    fleet_size=fleet_size,
+                    fleet_events=fleet_events,
+                    ucc_filings=ucc_filings,
+                    argus_rating=argus_rating,
+                    wyvern_rating=wyvern_rating,
+                    bankruptcy_history=None
+                )
+
+                # Create TailScoreData
+                tail_data = TailScoreData(
+                    aircraft_age_years=5.0,
+                    operator_name=operator.company,
+                    registered_owner=operator.company,
+                    fractional_owner=False,
+                    tail_events=fleet_events
+                )
+
+                # Calculate TrustScore
+                try:
+                    llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
+                    calculator = TrustScoreCalculator(llm_client=llm_client)
+                except Exception:
+                    calculator = TrustScoreCalculator(llm_client=None)
+
+                trust_score_result = await calculator.calculate_trust_score(fleet_data, tail_data)
+                print(f"  ✓ TrustScore: {trust_score_result['trust_score']}")
+
+                # Save result
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                safe_operator_name = "".join(c if c.isalnum() else "_" for c in operator.company)
+                date_only = datetime.now().strftime("%Y%m%d")
+                folder_name = f"{safe_operator_name}_{date_only}"
+                operator_folder = os.path.join(VERIFICATION_RESULTS_DIR, folder_name)
+                os.makedirs(operator_folder, exist_ok=True)
+
+                result_data = {
+                    "operator_name": operator.company,
+                    "faa_state": operator.faa_state,
+                    "verification_date": datetime.now().isoformat(),
+                    "ntsb": {
+                        "score": ntsb_score,
+                        "total_incidents": total_incidents,
+                        "incidents": fleet_events,
+                        "raw_response": ntsb_data,
+                    },
+                    "ucc": ucc_data,
+                    "trust_score": trust_score_result,
+                    "combined_score": trust_score_result["trust_score"],
+                    "status": "completed"
+                }
+
+                filename = f"verification_result_{safe_operator_name}_{timestamp}.json"
+                filepath = os.path.join(operator_folder, filename)
+
+                with open(filepath, 'w') as f:
+                    json.dump(result_data, f, indent=2, default=str)
+
+                print(f"  ✓ Saved: {filename}")
+
+                results.append({
+                    "operator_name": operator.company,
+                    "faa_state": operator.faa_state,
+                    "status": "success",
+                    "ntsb_score": ntsb_score,
+                    "trust_score": trust_score_result["trust_score"],
+                    "total_incidents": total_incidents,
+                    "ucc_states_processed": ucc_data.get("states_processed", 0),
+                    "saved_file": filename
+                })
+
+                successful += 1
+                print(f"  ✓ Successfully verified {operator.company}")
+
+            except Exception as e:
+                print(f"  ❌ Error verifying {operator.company}: {str(e)}")
+                results.append({
+                    "operator_name": operator.company,
+                    "faa_state": operator.faa_state,
+                    "status": "failed",
+                    "error": str(e)
+                })
+                failed += 1
+
+        # Summary
+        print(f"\n{'='*80}")
+        print(f"BATCH VERIFICATION COMPLETED")
+        print(f"Total: {len(filtered_operators)}, Successful: {successful}, Failed: {failed}")
+        print(f"{'='*80}\n")
+
+        return {
+            "status": "completed",
+            "message": f"Batch verification completed for {len(filtered_operators)} operators",
+            "total_operators": len(filtered_operators),
+            "successful": successful,
+            "failed": failed,
+            "results": results
+        }
+
+    except Exception as e:
+        print(f"❌ Batch verification error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Batch verification failed: {str(e)}")
