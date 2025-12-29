@@ -24,3 +24,5 @@ data/temp/
 
 helper_scripts
 
+# Large FAA data files (exceed GitHub 100MB limit)
+ReleasableAircraft/
