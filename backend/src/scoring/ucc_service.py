@@ -429,10 +429,7 @@ class UCCVerificationService:
             state_options = self._load_ucc_state_options()
 
             if not search_results:
-                print("⚠️  No NTSB incidents found for this operator")
-                return self._create_error_response(
-                    operator_name, "No NTSB incidents found for this operator"
-                )
+                print("⚠️  No NTSB incidents found for this operator - will use FAA state only")
 
             if not state_options:
                 print("⚠️  No state options found")
@@ -440,7 +437,8 @@ class UCCVerificationService:
                     operator_name, "No state options found"
                 )
 
-            print(f"✓ Found {len(search_results)} NTSB incidents from API")
+            if search_results:
+                print(f"✓ Found {len(search_results)} NTSB incidents from API")
             print(f"✓ Loaded {len(state_options)} state options")
 
             # Use Playwright to connect to the Browserbase session
@@ -650,10 +648,7 @@ class UCCVerificationService:
             state_options = self._load_ucc_state_options()
 
             if not search_results:
-                print("⚠️  No NTSB incidents found for this operator")
-                return self._create_error_response(
-                    operator_name, "No NTSB incidents found for this operator"
-                )
+                print("⚠️  No NTSB incidents found for this operator - will use FAA state only")
 
             if not state_options:
                 print("⚠️  No state options found")
@@ -661,7 +656,8 @@ class UCCVerificationService:
                     operator_name, "No state options found"
                 )
 
-            print(f"✓ Found {len(search_results)} NTSB incidents from API")
+            if search_results:
+                print(f"✓ Found {len(search_results)} NTSB incidents from API")
             print(f"✓ Loaded {len(state_options)} state options")
 
             # Use Playwright to connect to the Browserbase session
