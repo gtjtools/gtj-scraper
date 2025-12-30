@@ -26,7 +26,9 @@ class NTSBService:
     """Service for interacting with NTSB API"""
 
     @staticmethod
-    def download_ntsb_pdf(accident_number: str, output_folder: str, operator_name: str) -> bool:
+    def download_ntsb_pdf(
+        accident_number: str, output_folder: str, operator_name: str
+    ) -> bool:
         """
         Download NTSB accident report PDF.
 
@@ -46,22 +48,22 @@ class NTSBService:
         # Create output folder if it doesn't exist
         os.makedirs(output_folder, exist_ok=True)
 
-        output_filename = os.path.join(output_folder, f"ntsb_report_{accident_number}.pdf")
+        output_filename = os.path.join(
+            output_folder, f"ntsb_report_{accident_number}.pdf"
+        )
 
         print(f"Downloading PDF from: {url}")
         print(f"Saving to: {output_filename}")
-        print(f"Note: The NTSB server generates reports on-demand. This may take 30 seconds to several minutes.")
+        print(
+            f"Note: The NTSB server generates reports on-demand. This may take 30 seconds to several minutes."
+        )
 
         # Configure session with retries
         session = requests.Session()
-        retry = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[500, 502, 503, 504]
-        )
+        retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
         adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
 
         try:
             # Use a longer timeout - 5 minutes should be enough
@@ -70,17 +72,19 @@ class NTSBService:
             response.raise_for_status()
 
             # Write to file with progress indicator
-            total_size = int(response.headers.get('content-length', 0))
+            total_size = int(response.headers.get("content-length", 0))
             downloaded = 0
 
-            with open(output_filename, 'wb') as f:
+            with open(output_filename, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
                         if total_size:
                             percent = (downloaded / total_size) * 100
-                            sys.stdout.write(f"\rProgress: {percent:.1f}% ({downloaded:,} / {total_size:,} bytes)")
+                            sys.stdout.write(
+                                f"\rProgress: {percent:.1f}% ({downloaded:,} / {total_size:,} bytes)"
+                            )
                             sys.stdout.flush()
                         else:
                             sys.stdout.write(f"\rDownloaded: {downloaded:,} bytes")
@@ -92,7 +96,9 @@ class NTSBService:
             return True
 
         except requests.exceptions.Timeout:
-            print(f"\nError: Request timed out. The NTSB server may be overloaded or the report is very large.")
+            print(
+                f"\nError: Request timed out. The NTSB server may be overloaded or the report is very large."
+            )
             return False
         except requests.exceptions.RequestException as e:
             print(f"\nError downloading PDF: {e}")
@@ -134,7 +140,9 @@ class NTSBService:
                     if values:
                         accident_number = values[0]
                         print(f"\nProcessing accident number: {accident_number}")
-                        NTSBService.download_ntsb_pdf(accident_number, temp_folder, operator_name)
+                        NTSBService.download_ntsb_pdf(
+                            accident_number, temp_folder, operator_name
+                        )
 
     @staticmethod
     async def query_ntsb_incidents(operator_name: str) -> Dict[str, Any]:
@@ -150,6 +158,7 @@ class NTSBService:
         Raises:
             HTTPError: If the NTSB API request fails
         """
+        print("FROM query_ntsb_incidents")
         payload = {
             "ResultSetSize": 50,
             "ResultSetOffset": 0,
@@ -184,7 +193,7 @@ class NTSBService:
             "SortColumn": None,
             "SortDescending": True,
             "TargetCollection": "cases",
-            "SessionId": 146165,
+            "SessionId": 1171,
         }
 
         try:

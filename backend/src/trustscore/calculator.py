@@ -334,7 +334,7 @@ class TrustScoreCalculator:
         if bankruptcy_history:
             five_years_ago = datetime.now(timezone.utc) - timedelta(days=5 * 365)
             for record in bankruptcy_history:
-                status = record.get("status", "").lower()
+                status = (record.get("status") or "").lower()
                 record_date = self._parse_date(record.get("date"))
 
                 # If active or filed within last 5 years
@@ -357,7 +357,7 @@ class TrustScoreCalculator:
             if not filing_date or filing_date < five_years_ago:
                 continue
 
-            status = filing.get("status", "").lower()
+            status = (filing.get("status") or "").lower()
 
             # Check if resolved (satisfied, released, terminated)
             is_resolved = any(keyword in status for keyword in ["satisfied", "released", "terminated", "lapsed"])
@@ -388,8 +388,32 @@ class TrustScoreCalculator:
         Returns:
             Certification points (0-10)
         """
-        argus_points = self.ARGUS_POINTS.get(argus_rating or "None", 0)
-        wyvern_points = self.WYVERN_POINTS.get(wyvern_rating or "None", 0)
+        # Normalize ratings to match dictionary keys (case-insensitive)
+        argus_points = 0
+        if argus_rating:
+            # Try exact match first
+            if argus_rating in self.ARGUS_POINTS:
+                argus_points = self.ARGUS_POINTS[argus_rating]
+            else:
+                # Try case-insensitive match
+                argus_lower = argus_rating.lower()
+                for key, value in self.ARGUS_POINTS.items():
+                    if key.lower() == argus_lower:
+                        argus_points = value
+                        break
+
+        wyvern_points = 0
+        if wyvern_rating:
+            # Try exact match first
+            if wyvern_rating in self.WYVERN_POINTS:
+                wyvern_points = self.WYVERN_POINTS[wyvern_rating]
+            else:
+                # Try case-insensitive and partial match
+                wyvern_lower = wyvern_rating.lower()
+                for key, value in self.WYVERN_POINTS.items():
+                    if key.lower() == wyvern_lower or wyvern_lower in key.lower():
+                        wyvern_points = value
+                        break
 
         # Return the highest score
         return max(argus_points, wyvern_points)
@@ -441,6 +465,10 @@ class TrustScoreCalculator:
             Ownership status points (0, 5, or 10)
         """
         # Check if operator owns the tail
+        # Handle None values defensively
+        if not operator_name or not registered_owner:
+            return 0
+
         operator_owns = operator_name.lower() in registered_owner.lower()
 
         if operator_owns and not fractional_owner:
@@ -506,8 +534,10 @@ class TrustScoreCalculator:
         Returns:
             Severity score
         """
-        event_type = event.get("event_type", "").lower()
-        injury_level = event.get("injury_level", "").lower()
+        # Handle None values by using 'or ""' to ensure we have a string
+        event_type = (event.get("event_type") or "").lower()
+        injury_level = (event.get("injury_level") or "").lower()
+        severity = (event.get("severity") or "").lower()
 
         # Determine severity based on event type and injury level
         if "accident" in event_type:
@@ -517,7 +547,7 @@ class TrustScoreCalculator:
                 return 25
         elif "serious" in event_type or "serious" in injury_level:
             return 15
-        elif "major" in event_type or "major" in event.get("severity", "").lower():
+        elif "major" in event_type or "major" in severity:
             return 10
         else:
             return 5

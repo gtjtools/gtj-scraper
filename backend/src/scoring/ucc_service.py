@@ -82,72 +82,6 @@ class UCCVerificationService:
         if last_error:
             raise last_error
 
-    async def _query_ntsb_incidents(self, operator_name: str) -> List[Dict[str, Any]]:
-        """
-        Query NTSB database for incidents related to an operator.
-
-        Args:
-            operator_name: The name of the operator to search for
-
-        Returns:
-            List of results from NTSB API
-        """
-        payload = {
-            "ResultSetSize": 50,
-            "ResultSetOffset": 0,
-            "QueryGroups": [
-                {
-                    "QueryRules": [
-                        {
-                            "RuleType": "Simple",
-                            "Values": [operator_name],
-                            "Columns": ["AviationOperation.OperatorName"],
-                            "Operator": "ResultSetSize",
-                            "overrideColumn": "",
-                            "selectedOption": {
-                                "FieldName": "OperatorName",
-                                "DisplayText": "Operator name",
-                                "Columns": ["AviationOperation.OperatorName"],
-                                "Selectable": True,
-                                "InputType": "Text",
-                                "RuleType": 0,
-                                "Options": None,
-                                "TargetCollection": "cases",
-                                "UnderDevelopment": False,
-                            },
-                        }
-                    ],
-                    "AndOr": "and",
-                    "inLastSearch": False,
-                    "editedSinceLastSearch": False,
-                }
-            ],
-            "AndOr": "and",
-            "SortColumn": None,
-            "SortDescending": True,
-            "TargetCollection": "cases",
-            "SessionId": 146165,
-        }
-
-        try:
-            print(f"🔍 Querying NTSB API for operator: {operator_name}")
-            async with httpx.AsyncClient(timeout=self.NTSB_TIMEOUT) as client:
-                response = await client.post(self.NTSB_API_URL, json=payload)
-                response.raise_for_status()
-                data = response.json()
-                results = data.get("Results", [])
-                print(f"✓ Found {len(results)} NTSB incidents for {operator_name}")
-                return results
-        except httpx.TimeoutException:
-            print(f"⚠️  NTSB API request timed out after {self.NTSB_TIMEOUT} seconds")
-            return []
-        except httpx.HTTPStatusError as e:
-            print(f"⚠️  NTSB API returned error: {e.response.status_code}")
-            return []
-        except Exception as e:
-            print(f"⚠️  Error querying NTSB API: {str(e)}")
-            return []
-
     def _load_ucc_state_options(self) -> List[Dict[str, str]]:
         """Load UCC state options from JSON file"""
         data_path = os.path.join(
@@ -186,7 +120,7 @@ class UCCVerificationService:
                 return {
                     "name": option.get("text"),
                     "abbreviation": option.get("abbreviation"),
-                    "url": option.get("value", "").strip()
+                    "url": option.get("value", "").strip(),
                 }
 
         # Fallback: try matching by full state name (for NTSB results)
@@ -195,7 +129,7 @@ class UCCVerificationService:
                 return {
                     "name": option.get("text"),
                     "abbreviation": option.get("abbreviation"),
-                    "url": option.get("value", "").strip()
+                    "url": option.get("value", "").strip(),
                 }
 
         return None
@@ -373,7 +307,7 @@ class UCCVerificationService:
         operator_name: str,
         ntsb_results: List[Dict[str, Any]],
         faa_state: str,
-        state: Optional[str] = None
+        state: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Verify UCC filings for an operator using Browserbase
@@ -424,12 +358,16 @@ class UCCVerificationService:
             print(f"\n🎥 Open this URL to watch: {debug_url}\n")
 
             # Use NTSB results from previous step and load state options
-            print(f"✓ Using NTSB results from previous step ({len(ntsb_results)} incidents)")
+            print(
+                f"✓ Using NTSB results from previous step ({len(ntsb_results)} incidents)"
+            )
             search_results = ntsb_results
             state_options = self._load_ucc_state_options()
 
             if not search_results:
-                print("⚠️  No NTSB incidents found for this operator - will use FAA state only")
+                print(
+                    "⚠️  No NTSB incidents found for this operator - will use FAA state only"
+                )
 
             if not state_options:
                 print("⚠️  No state options found")
@@ -485,11 +423,11 @@ class UCCVerificationService:
                             # Only add if not already in the list
                             if faa_state_full_name not in states_to_process:
                                 states_to_process.append(faa_state_full_name)
-                                print(f"📍 Adding FAA state to queue: {faa_state_full_name} ({faa_state})")
+                                print(
+                                    f"📍 Adding FAA state to queue: {faa_state_full_name} ({faa_state})"
+                                )
 
-                    print(
-                        f"📍 Processing states: {states_to_process}"
-                    )
+                    print(f"📍 Processing states: {states_to_process}")
 
                 for idx, state_name in enumerate(states_to_process):
                     if not state_name:
@@ -612,10 +550,17 @@ class UCCVerificationService:
             )
         else:
             # Fallback to creating new session
-            return await self.verify_ucc_filings(operator_name, ntsb_results, faa_state, state)
+            return await self.verify_ucc_filings(
+                operator_name, ntsb_results, faa_state, state
+            )
 
     async def _run_ucc_automation(
-        self, operator_name: str, ntsb_results: List[Dict[str, Any]], faa_state: str, state: Optional[str], session_id: str
+        self,
+        operator_name: str,
+        ntsb_results: List[Dict[str, Any]],
+        faa_state: str,
+        state: Optional[str],
+        session_id: str,
     ) -> Dict[str, Any]:
         """
         Run the UCC automation using an existing session
@@ -643,12 +588,16 @@ class UCCVerificationService:
                 print("State: Will be determined from NTSB results")
 
             # Use NTSB results from previous step and load state options
-            print(f"✓ Using NTSB results from previous step ({len(ntsb_results)} incidents)")
+            print(
+                f"✓ Using NTSB results from previous step ({len(ntsb_results)} incidents)"
+            )
             search_results = ntsb_results
             state_options = self._load_ucc_state_options()
 
             if not search_results:
-                print("⚠️  No NTSB incidents found for this operator - will use FAA state only")
+                print(
+                    "⚠️  No NTSB incidents found for this operator - will use FAA state only"
+                )
 
             if not state_options:
                 print("⚠️  No state options found")
@@ -704,11 +653,11 @@ class UCCVerificationService:
                             # Only add if not already in the list
                             if faa_state_full_name not in states_to_process:
                                 states_to_process.append(faa_state_full_name)
-                                print(f"📍 Adding FAA state to queue: {faa_state_full_name} ({faa_state})")
+                                print(
+                                    f"📍 Adding FAA state to queue: {faa_state_full_name} ({faa_state})"
+                                )
 
-                    print(
-                        f"📍 Processing states: {states_to_process}"
-                    )
+                    print(f"📍 Processing states: {states_to_process}")
 
                 for idx, state_name in enumerate(states_to_process):
                     if not state_name:
@@ -821,7 +770,10 @@ class UCCVerificationService:
 
 # Synchronous wrapper for FastAPI
 def verify_ucc_filings_sync(
-    operator_name: str, ntsb_results: List[Dict[str, Any]], faa_state: str, state: Optional[str] = None
+    operator_name: str,
+    ntsb_results: List[Dict[str, Any]],
+    faa_state: str,
+    state: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Synchronous wrapper for UCC verification
