@@ -191,6 +191,8 @@ export interface BatchVerificationResult {
   total_incidents?: number;
   ucc_states_processed?: number;
   saved_file?: string;
+  live_view_url?: string;
+  session_id?: string;
   error?: string;
 }
 

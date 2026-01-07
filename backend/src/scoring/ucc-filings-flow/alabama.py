@@ -14,6 +14,7 @@ IMPORTANT NOTES:
 URL: https://www.sos.alabama.gov/business-services/ucc-home
 Search Portal: https://www.alabamainteractive.org/ucc_filing/
 """
+
 from typing import Dict, Any
 from playwright.async_api import Page
 from base_flow import BaseUCCFlow
@@ -51,17 +52,23 @@ class AlabamaFlow(BaseUCCFlow):
             # This is for public (non-subscriber) access
             try:
                 # Try to find and click the continue link
-                continue_link = await page.query_selector('a:has-text("Continue to Filing & Search System")')
+                continue_link = await page.query_selector(
+                    'a:has-text("Continue to Filing & Search System")'
+                )
                 if continue_link:
                     print("✓ Found 'Continue to Filing & Search System' link")
                     await continue_link.click()
-                    await page.wait_for_load_state('networkidle', timeout=10000)
+                    await page.wait_for_load_state("networkidle", timeout=100000)
                     await page.wait_for_timeout(2000)
                     await self.take_screenshot(page, "alabama_search_system.png")
                 else:
-                    print("⚠️  Could not find continue link, may already be on search page")
+                    print(
+                        "⚠️  Could not find continue link, may already be on search page"
+                    )
             except Exception as nav_error:
-                print(f"⚠️  Navigation click error (may already be on correct page): {str(nav_error)}")
+                print(
+                    f"⚠️  Navigation click error (may already be on correct page): {str(nav_error)}"
+                )
 
             return True
         except Exception as e:
@@ -185,8 +192,8 @@ class AlabamaFlow(BaseUCCFlow):
 
             # Try to detect if we're on a results page (unlikely without payment)
             # Check for common result indicators
-            has_results_table = await page.query_selector('table')
-            has_results_list = await page.query_selector('ul.results, div.results')
+            has_results_table = await page.query_selector("table")
+            has_results_list = await page.query_selector("ul.results, div.results")
 
             if has_results_table or has_results_list:
                 print("✓ Detected possible results container on page")
@@ -194,7 +201,8 @@ class AlabamaFlow(BaseUCCFlow):
                 # Attempt to extract using generic selectors
                 # This would need to be customized based on actual results page structure
                 try:
-                    filings = await page.evaluate("""() => {
+                    filings = await page.evaluate(
+                        """() => {
                         const results = [];
                         // Look for table rows
                         const rows = document.querySelectorAll('table tr');
@@ -207,7 +215,8 @@ class AlabamaFlow(BaseUCCFlow):
                             }
                         }
                         return results;
-                    }""")
+                    }"""
+                    )
                     print(f"✓ Extracted {len(filings)} potential result rows")
                 except Exception as extract_error:
                     print(f"⚠️  Could not extract table data: {str(extract_error)}")
@@ -222,7 +231,7 @@ class AlabamaFlow(BaseUCCFlow):
                 "implementation_status": "navigation_only",
                 "payment_required": True,
                 "search_cost": "$15.00 per search + $1.00 per page",
-                "notes": "Cannot complete search without payment credentials. Flow demonstrates navigation to search interface."
+                "notes": "Cannot complete search without payment credentials. Flow demonstrates navigation to search interface.",
             }
         except Exception as e:
             print(f"❌ Alabama extraction error: {str(e)}")
@@ -230,5 +239,5 @@ class AlabamaFlow(BaseUCCFlow):
                 "filings": [],
                 "total_count": 0,
                 "error": str(e),
-                "payment_required": True
+                "payment_required": True,
             }

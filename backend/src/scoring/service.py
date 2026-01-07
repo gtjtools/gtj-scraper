@@ -3,8 +3,9 @@ import httpx
 import os
 import sys
 import requests
+import math
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 from requests.adapters import HTTPAdapter
@@ -169,7 +170,8 @@ class NTSBService:
                             "RuleType": "Simple",
                             "Values": [operator_name],
                             "Columns": ["AviationOperation.OperatorName"],
-                            "Operator": "contains",
+                            # "Operator": "contains",
+                            "Operator": "is",
                             "overrideColumn": "",
                             "selectedOption": {
                                 "FieldName": "OperatorName",

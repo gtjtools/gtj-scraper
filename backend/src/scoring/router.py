@@ -493,7 +493,7 @@ async def batch_verify_by_states():
         from src.scoring.service import NTSBService
 
         # Hardcoded states - FL and CA
-        states = ["FL", "CA"]
+        states = ["CA"]
 
         print(f"\n{'='*80}")
         print(f"BATCH VERIFICATION FOR STATES: {states}")
@@ -699,6 +699,8 @@ async def batch_verify_by_states():
                         "total_incidents": total_incidents,
                         "ucc_states_processed": ucc_data.get("states_processed", 0),
                         "saved_file": filename,
+                        "live_view_url": ucc_data.get("live_view_url"),
+                        "session_id": ucc_data.get("session_id"),
                     }
                 )
 
