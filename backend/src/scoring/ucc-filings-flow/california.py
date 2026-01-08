@@ -49,7 +49,7 @@ class CaliforniaFlow(BaseUCCFlow):
                 search_input = page.locator(
                     '//input[@placeholder="Search by name or file number"]'
                 )
-                await search_input.wait_for(state="visible", timeout=10000)
+                await search_input.wait_for(state="visible", timeout=100000)
                 print("   ✓ Found search input field")
 
                 await search_input.fill(search_query)
@@ -67,7 +67,7 @@ class CaliforniaFlow(BaseUCCFlow):
                 search_button = page.locator(
                     '//button[contains(@class,"search-button")]'
                 )
-                await search_button.wait_for(state="visible", timeout=10000)
+                await search_button.wait_for(state="visible", timeout=100000)
                 print("   ✓ Found advanced search button")
 
                 await search_button.click()
@@ -122,7 +122,9 @@ class CaliforniaFlow(BaseUCCFlow):
                 print("   Looking for result table rows...")
 
                 # Use XPath to find tbody rows in the div-table
-                rows = page.locator('//tbody[@class="div-table-body"]/tr[@class="div-table-row  "]')
+                rows = page.locator(
+                    '//tbody[@class="div-table-body"]/tr[@class="div-table-row  "]'
+                )
                 row_count = await rows.count()
                 print(f"   Found {row_count} filing rows")
 
@@ -141,25 +143,37 @@ class CaliforniaFlow(BaseUCCFlow):
                         # 6: Lapse Date
 
                         # Get all td cells in the row
-                        cells = row.locator('xpath=.//td[@class="div-table-cell  interactive"]')
+                        cells = row.locator(
+                            'xpath=.//td[@class="div-table-cell  interactive"]'
+                        )
                         cell_count = await cells.count()
 
                         if cell_count >= 7:
                             # Extract text from each cell (handles nested spans/divs)
                             filing_record = {
                                 "ucc_type": (await cells.nth(0).inner_text()).strip(),
-                                "debtor_name": (await cells.nth(1).inner_text()).strip(),
-                                "file_number": (await cells.nth(2).inner_text()).strip(),
-                                "secured_party": (await cells.nth(3).inner_text()).strip(),
+                                "debtor_name": (
+                                    await cells.nth(1).inner_text()
+                                ).strip(),
+                                "file_number": (
+                                    await cells.nth(2).inner_text()
+                                ).strip(),
+                                "secured_party": (
+                                    await cells.nth(3).inner_text()
+                                ).strip(),
                                 "status": (await cells.nth(4).inner_text()).strip(),
-                                "filing_date": (await cells.nth(5).inner_text()).strip(),
+                                "filing_date": (
+                                    await cells.nth(5).inner_text()
+                                ).strip(),
                                 "lapse_date": (await cells.nth(6).inner_text()).strip(),
                             }
 
                             filings.append(filing_record)
                             print(f"   Row {i + 1}: {filing_record}")
                         else:
-                            print(f"   ⚠️  Row {i + 1} has only {cell_count} cells, expected 7")
+                            print(
+                                f"   ⚠️  Row {i + 1} has only {cell_count} cells, expected 7"
+                            )
 
                     except Exception as row_error:
                         print(f"   ⚠️  Error processing row {i + 1}: {str(row_error)}")

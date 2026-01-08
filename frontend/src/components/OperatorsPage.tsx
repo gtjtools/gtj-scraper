@@ -5,11 +5,12 @@ import {
   MapPin,
   Search,
   Shield,
+  Play,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { loadCharterOperators } from '../services/operator.service';
-import { runFullScoringFlow } from '../services/scoring.service';
+import { runFullScoringFlow, runBatchVerification } from '../services/scoring.service';
 import { CharterOperator, ScoreResult } from '../types/operator';
 import { ScoreResultModal } from './ScoreResultModal';
 import { Badge } from './ui/badge';
@@ -32,6 +33,9 @@ export function OperatorsPage() {
   const [scoreLoading, setScoreLoading] = useState(false);
   const [scoreError, setScoreError] = useState<string | null>(null);
   const [scoringOperatorName, setScoringOperatorName] = useState<string>('');
+
+  // Batch verification state
+  const [isBatchVerifying, setIsBatchVerifying] = useState(false);
 
   // Load operators on mount
   useEffect(() => {
@@ -124,6 +128,81 @@ export function OperatorsPage() {
     }
   };
 
+  const handleBatchVerify = async () => {
+    try {
+      setIsBatchVerifying(true);
+
+      toast.info('Starting batch verification for all operators...', {
+        duration: 5000,
+      });
+
+      // Run batch verification (backend has FL and CA hardcoded)
+      const result = await runBatchVerification();
+
+      // Show success message
+      toast.success(
+        `Batch verification completed! ${result.successful} succeeded, ${result.failed} failed.`,
+        { duration: 10000 }
+      );
+
+      // Log results to console for review
+      console.log('Batch Verification Results:', result);
+
+      // Show detailed results in a toast
+      if (result.results.length > 0) {
+        const successfulOps = result.results.filter(r => r.status === 'success');
+        const failedOps = result.results.filter(r => r.status === 'failed');
+
+        if (successfulOps.length > 0) {
+          toast.success(
+            `Successfully verified: ${successfulOps.map(r => r.operator_name).join(', ')}`,
+            { duration: 8000 }
+          );
+        }
+
+        if (failedOps.length > 0) {
+          toast.error(
+            `Failed to verify: ${failedOps.map(r => r.operator_name).join(', ')}`,
+            { duration: 8000 }
+          );
+        }
+
+        // Open browserbase live view URLs in new tabs/windows
+        const operatorsWithLiveView = successfulOps.filter(op => op.live_view_url);
+
+        if (operatorsWithLiveView.length > 0) {
+          console.log('\n🎥 Browserbase Live Sessions:');
+          operatorsWithLiveView.forEach((op, index) => {
+            console.log(`${index + 1}. ${op.operator_name}:`);
+            console.log(`   Live View: ${op.live_view_url}`);
+            console.log(`   Session ID: ${op.session_id || 'N/A'}`);
+
+            // Open first live view automatically
+            if (index === 0) {
+              window.open(op.live_view_url, '_blank');
+              toast.info(`Opening live browser session for ${op.operator_name}`, {
+                duration: 5000,
+              });
+            }
+          });
+
+          if (operatorsWithLiveView.length > 1) {
+            toast.info(
+              `${operatorsWithLiveView.length} live browser sessions available. Check console for all URLs.`,
+              { duration: 8000 }
+            );
+          }
+        }
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || 'Batch verification failed';
+      toast.error(errorMessage);
+      console.error('Batch verification error:', err);
+    } finally {
+      setIsBatchVerifying(false);
+    }
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 150) return 'bg-green-600 text-white';
     if (score >= 100) return 'bg-yellow-600 text-white';
@@ -165,9 +244,19 @@ export function OperatorsPage() {
             Browse and score charter operators from the database
           </p>
         </div>
-        <Button variant="outline" onClick={loadOperators} disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Refresh'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="default"
+            onClick={handleBatchVerify}
+            disabled={isBatchVerifying || isLoading}
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {isBatchVerifying ? 'Verifying All...' : 'Batch Verify All'}
+          </Button>
+          <Button variant="outline" onClick={loadOperators} disabled={isLoading}>
+            {isLoading ? 'Loading...' : 'Refresh'}
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

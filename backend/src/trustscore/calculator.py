@@ -1,6 +1,15 @@
 """
-TrustScore Calculator Service - Algorithm v3
-Calculates TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
+TrustScore Calculator Service - Algorithm v3 Refined
+Calculates TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
+FleetScore = (50 + 0.5*OS) * CS
+where:
+  OS (Operator Score) = 100 - ORF + FSF - CSF
+  TS (Tail Score) = 100 - MRT + OST - 5*IHT
+  CS = Confidence Score
+
+NOTE: CSF uses INVERSE scoring - better certifications have LOWER values
+  - Platinum Elite (ARGUS) = 0 points (best, no penalty)
+  - None = 10 points (worst, maximum penalty)
 """
 
 import math
@@ -36,24 +45,33 @@ class TailScoreData:
 
 class TrustScoreCalculator:
     """
-    Main TrustScore calculation service - Algorithm v3
-    TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
+    Main TrustScore calculation service - Algorithm v3 Refined
+    TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
+    FleetScore = (50 + 0.5*OS) * CS
+    where:
+      OS (Operator Score) = 100 - ORF + FSF - CSF
+      TS (Tail Score) = 100 - MRT + OST - 5*IHT
+      CS = Confidence Score
+
+    NOTE: CSF uses INVERSE scoring (better cert = lower penalty)
     """
 
-    # Certification points (CSF Component)
+    # Certification penalty points (CSF Component)
+    # INVERSE SCORING: Better certifications = LOWER values = LESS penalty
+    # These values are SUBTRACTED from the Operator Score
     ARGUS_POINTS = {
-        "Platinum Elite": 10,
-        "Platinum": 8,
-        "Gold Plus": 6,
-        "Gold": 4,
-        "None": 0,
+        "Platinum Elite": 0,   # Best - no penalty
+        "Platinum": 2,
+        "Gold Plus": 4,
+        "Gold": 6,
+        "None": 10,           # Worst - maximum penalty
     }
 
     WYVERN_POINTS = {
-        "Wingman PRO": 8,
-        "Wingman": 6,
-        "Registered Operator": 4,
-        "None": 0,
+        "Wingman PRO": 2,      # Equivalent to ARGUS Platinum
+        "Wingman": 4,          # Equivalent to ARGUS Gold Plus
+        "Registered Operator": 6,  # Equivalent to ARGUS Gold
+        "None": 10,           # Worst - maximum penalty
     }
 
     # Time decay constant: k = ln(2) / 5
@@ -70,8 +88,8 @@ class TrustScoreCalculator:
 
     def calculate_confidence_score(self, operator_age_years: float) -> float:
         """
-        Calculate Confidence Score (CS)
-        CS = 1 - e^(-0.3y) where y = Years Since Operator Business Registration
+        Calculate Confidence Score (CS) - Algorithm v3 Refined
+        CS = 1 - e^(-0.384y) where y = Years Since Operator Business Registration
 
         This penalizes youth and rewards experience, ensuring new operators
         cannot achieve scores near 100.
@@ -82,14 +100,15 @@ class TrustScoreCalculator:
         Returns:
             Confidence score between 0 and 1
         """
-        return 1 - math.exp(-0.3 * operator_age_years)
+        return 1 - math.exp(-0.384 * operator_age_years)
 
     async def calculate_trust_score(
         self, fleet_data: FleetScoreData, tail_data: TailScoreData
     ) -> Dict[str, Any]:
         """
-        Calculate the complete TrustScore (Algorithm v3)
-        TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
+        Calculate the complete TrustScore (Algorithm v3 - Refined)
+        TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
+        FleetScore = (50 + 0.5*OS) * CS
 
         Args:
             fleet_data: Data for FleetScore calculation
@@ -98,13 +117,16 @@ class TrustScoreCalculator:
         Returns:
             Dictionary containing TrustScore, FleetScore, TailScore, and breakdowns
         """
-        fleet_score, fleet_breakdown = await self.calculate_fleet_score(fleet_data)
+        operator_score, fleet_breakdown = await self.calculate_fleet_score(fleet_data)
         tail_score, tail_breakdown = await self.calculate_tail_score(tail_data)
         confidence_score = self.calculate_confidence_score(fleet_data.operator_age_years)
 
-        # TrustScore = (0.6 × FleetScore + 0.4 × TailScore) × Confidence Score
-        raw_score = (0.6 * fleet_score) + (0.4 * tail_score)
-        trust_score = raw_score * confidence_score
+        # TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
+        raw_combined = 0.6 * operator_score + 0.4 * tail_score
+        trust_score = (50 + (0.5 * raw_combined)) * confidence_score
+
+        # FleetScore = (50 + 0.5*OS) * CS
+        fleet_score = (50 + 0.5 * operator_score) * confidence_score
 
         # Generate AI insights if LLM client is available
         ai_insights = None
@@ -117,9 +139,10 @@ class TrustScoreCalculator:
         result = {
             "trust_score": round(trust_score, 2),
             "fleet_score": round(fleet_score, 2),
+            "operator_score": round(operator_score, 2),
             "tail_score": round(tail_score, 2),
             "confidence_score": round(confidence_score, 4),
-            "raw_score": round(raw_score, 2),
+            "raw_combined_score": round(raw_combined, 2),
             "fleet_breakdown": fleet_breakdown,
             "tail_breakdown": tail_breakdown,
             "calculated_at": datetime.now(timezone.utc).isoformat(),
@@ -134,8 +157,12 @@ class TrustScoreCalculator:
         self, data: FleetScoreData
     ) -> Tuple[float, Dict[str, Any]]:
         """
-        Calculate FleetScore (out of 100) - Algorithm v3
-        FS = 100 - ORF + FSF - CSF
+        Calculate FleetScore (out of 100) - Algorithm v3 Refined
+        OS = 100 - ORF + FSF - CSF
+
+        NOTE: CSF uses INVERSE scoring:
+        - Better certifications = LOWER CSF value = LESS penalty = HIGHER score
+        - No certification = CSF of 10 = maximum penalty = LOWER score
 
         Args:
             data: FleetScoreData object with all required information
@@ -167,12 +194,13 @@ class TrustScoreCalculator:
         csf = self._calculate_fleet_certification_score(
             data.argus_rating, data.wyvern_rating
         )
+        cert_desc = f"{data.argus_rating or 'None'} ARGUS, {data.wyvern_rating or 'None'} WYVERN"
         components["CSF"] = {
             "value": csf,
-            "description": f"Fleet Certification Score - points awarded for {data.argus_rating or 'No'} ARGUS and {data.wyvern_rating or 'No'} WYVERN rating"
+            "description": f"Fleet Certification Penalty - {cert_desc} (lower is better, 0=best, 10=worst)"
         }
 
-        # FS = 100 - ORF + FSF - CSF
+        # OS = 100 - ORF + FSF - CSF (CSF is SUBTRACTED as penalty)
         fleet_score = 100 - orf + fsf - csf
 
         # Clamp score between 0 and 100
@@ -312,9 +340,10 @@ class TrustScoreCalculator:
         self, ucc_filings: List[Dict[str, Any]], bankruptcy_history: Optional[List[Dict[str, Any]]]
     ) -> float:
         """
-        Calculate Fleet Financial Score (FSF)
+        Calculate Fleet Financial Score (FSF) - Algorithm v3 Refined
 
         If active Chapter 11/7 bankruptcy or filed within last 5 years: FSF = 0
+        If no UCC data is available: FSF = 5
 
         Otherwise:
         FSF = ∑(e^(-0.15*Δr)) - ∑(5 * e^(-0.15*Δf))
@@ -334,15 +363,16 @@ class TrustScoreCalculator:
         if bankruptcy_history:
             five_years_ago = datetime.now(timezone.utc) - timedelta(days=5 * 365)
             for record in bankruptcy_history:
-                status = record.get("status", "").lower()
+                status = (record.get("status") or "").lower()
                 record_date = self._parse_date(record.get("date"))
 
                 # If active or filed within last 5 years
                 if status == "active" or (record_date and record_date > five_years_ago):
                     return 0.0
 
+        # If no UCC data is available, return default score of 5
         if not ucc_filings:
-            return 0.0
+            return 5.0
 
         current_date = datetime.now(timezone.utc)
         five_years_ago = current_date - timedelta(days=5 * 365)
@@ -357,7 +387,7 @@ class TrustScoreCalculator:
             if not filing_date or filing_date < five_years_ago:
                 continue
 
-            status = filing.get("status", "").lower()
+            status = (filing.get("status") or "").lower()
 
             # Check if resolved (satisfied, released, terminated)
             is_resolved = any(keyword in status for keyword in ["satisfied", "released", "terminated", "lapsed"])
@@ -379,20 +409,61 @@ class TrustScoreCalculator:
     ) -> int:
         """
         Calculate Fleet Certification Status (CSF)
-        Returns the highest points from ARGUS or WYVERN ratings
+
+        INVERSE SCORING: Better certifications have LOWER penalty values
+        - Platinum Elite = 0 (no penalty, best score)
+        - None = 10 (maximum penalty, worst score)
+
+        Returns the MINIMUM penalty from ARGUS or WYVERN ratings
+        (operator gets credit for their best certification)
 
         Args:
-            argus_rating: ARGUS rating
-            wyvern_rating: WYVERN rating
+            argus_rating: ARGUS rating (e.g., "Platinum Elite", "No", "None")
+            wyvern_rating: WYVERN rating (e.g., "Wingman PRO", "No", "None")
 
         Returns:
-            Certification points (0-10)
+            Certification penalty points (0-10, lower is better)
         """
-        argus_points = self.ARGUS_POINTS.get(argus_rating or "None", 0)
-        wyvern_points = self.WYVERN_POINTS.get(wyvern_rating or "None", 0)
+        # Default to maximum penalty (no certification)
+        argus_points = 10
+        wyvern_points = 10
 
-        # Return the highest score
-        return max(argus_points, wyvern_points)
+        # Handle ARGUS rating
+        if argus_rating:
+            # Normalize "No" to "None"
+            if argus_rating.lower() in ["no", ""]:
+                argus_rating = "None"
+
+            # Try exact match first
+            if argus_rating in self.ARGUS_POINTS:
+                argus_points = self.ARGUS_POINTS[argus_rating]
+            else:
+                # Try case-insensitive match
+                argus_lower = argus_rating.lower()
+                for key, value in self.ARGUS_POINTS.items():
+                    if key.lower() == argus_lower:
+                        argus_points = value
+                        break
+
+        # Handle WYVERN rating
+        if wyvern_rating:
+            # Normalize "No" to "None"
+            if wyvern_rating.lower() in ["no", ""]:
+                wyvern_rating = "None"
+
+            # Try exact match first
+            if wyvern_rating in self.WYVERN_POINTS:
+                wyvern_points = self.WYVERN_POINTS[wyvern_rating]
+            else:
+                # Try case-insensitive and partial match
+                wyvern_lower = wyvern_rating.lower()
+                for key, value in self.WYVERN_POINTS.items():
+                    if key.lower() == wyvern_lower or wyvern_lower in key.lower():
+                        wyvern_points = value
+                        break
+
+        # Return the MINIMUM penalty (operators get credit for their BEST certification)
+        return min(argus_points, wyvern_points)
 
     def _calculate_tail_maintenance_risk(self, aircraft_age_years: float) -> float:
         """
@@ -441,6 +512,10 @@ class TrustScoreCalculator:
             Ownership status points (0, 5, or 10)
         """
         # Check if operator owns the tail
+        # Handle None values defensively
+        if not operator_name or not registered_owner:
+            return 0
+
         operator_owns = operator_name.lower() in registered_owner.lower()
 
         if operator_owns and not fractional_owner:
@@ -506,8 +581,10 @@ class TrustScoreCalculator:
         Returns:
             Severity score
         """
-        event_type = event.get("event_type", "").lower()
-        injury_level = event.get("injury_level", "").lower()
+        # Handle None values by using 'or ""' to ensure we have a string
+        event_type = (event.get("event_type") or "").lower()
+        injury_level = (event.get("injury_level") or "").lower()
+        severity = (event.get("severity") or "").lower()
 
         # Determine severity based on event type and injury level
         if "accident" in event_type:
@@ -517,7 +594,7 @@ class TrustScoreCalculator:
                 return 25
         elif "serious" in event_type or "serious" in injury_level:
             return 15
-        elif "major" in event_type or "major" in event.get("severity", "").lower():
+        elif "major" in event_type or "major" in severity:
             return 10
         else:
             return 5
