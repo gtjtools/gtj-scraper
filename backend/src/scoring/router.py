@@ -280,132 +280,176 @@ async def full_scoring_flow(
 
         # Step 1: Query NTSB
         print("Step 1: Querying NTSB database...")
-        ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
-        incidents = NTSBService.parse_ntsb_response(ntsb_data)
-        total_incidents = len(incidents)
-        ntsb_score = max(0, 100 - (total_incidents * 5))
-
-        print(
-            f"✓ NTSB check complete: {total_incidents} incidents found, score: {ntsb_score}"
-        )
+        ntsb_error = None
+        try:
+            ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+            incidents = NTSBService.parse_ntsb_response(ntsb_data)
+            total_incidents = len(incidents)
+            ntsb_score = max(0, 100 - (total_incidents * 5))
+            print(
+                f"✓ NTSB check complete: {total_incidents} incidents found, score: {ntsb_score}"
+            )
+        except Exception as e:
+            ntsb_error = str(e)
+            print(f"⚠️  NTSB check failed: {ntsb_error}")
+            print("  → Continuing with default values (no incidents, score: 100)")
+            ntsb_data = {"Results": []}
+            incidents = []
+            total_incidents = 0
+            ntsb_score = 100.0
 
         # Step 2: Verify UCC filings
         print("\nStep 2: Verifying UCC filings with Browserbase...")
-        ucc_service = UCCVerificationService()
-        # Pass raw NTSB results (Results array) to UCC service, not parsed incidents
-        ntsb_results = ntsb_data.get("Results", [])
-        ucc_data = await ucc_service.verify_ucc_filings_with_session(
-            operator_name, ntsb_results, faa_state, state, session_id
-        )
-
-        print(f"✓ UCC check complete: {ucc_data.get('status')}")
+        ucc_error = None
+        try:
+            ucc_service = UCCVerificationService()
+            # Pass raw NTSB results (Results array) to UCC service, not parsed incidents
+            ntsb_results = ntsb_data.get("Results", [])
+            ucc_data = await ucc_service.verify_ucc_filings_with_session(
+                operator_name, ntsb_results, faa_state, state, session_id
+            )
+            print(f"✓ UCC check complete: {ucc_data.get('status')}")
+        except Exception as e:
+            ucc_error = str(e)
+            print(f"⚠️  UCC check failed: {ucc_error}")
+            print("  → Continuing with default values (no UCC data)")
+            ucc_data = {
+                "status": "failed",
+                "error": ucc_error,
+                "visited_states": [],
+                "states_processed": 0,
+            }
 
         # Step 3: Calculate TrustScore using gathered data
         print("\nStep 3: Calculating TrustScore...")
-
-        # Extract UCC filings from the verification result
-        ucc_filings = []
-        visited_states = ucc_data.get("visited_states", [])
-        for state_result in visited_states:
-            if state_result.get("flow_used") and state_result.get("flow_result"):
-                flow_result = state_result["flow_result"]
-                # Use normalized_filings instead of raw filings
-                normalized_filings = flow_result.get("normalized_filings", [])
-                for filing in normalized_filings:
-                    ucc_filings.append(
-                        {
-                            "file_number": filing.get("file_number", "Unknown"),
-                            "status": filing.get("status", "Unknown"),
-                            "filing_date": filing.get("filing_date", "Unknown"),
-                            "lapse_date": filing.get("lapse_date", "Unknown"),
-                            "lien_type": filing.get("lien_type", "Unknown"),
-                            "debtor": filing.get("debtor", "Unknown"),
-                            "secured_party": filing.get("secured_party", None),
-                            "collateral": filing.get("collateral", None),
-                            "state": state_result.get("state", "Unknown"),
-                        }
-                    )
-
-        # Convert NTSB incidents to dict format for TrustScore calculator (Algorithm v3)
-        fleet_events = [incident.dict() for incident in incidents]
-        ntsb_incidents_dict = fleet_events  # Keep reference for result output
-
-        # Fetch operator data from database to get business_started_date
-        from src.common.models import Operator
-        from src.common.config import SessionLocal
-
-        operator_age_years = 10.0  # Default fallback
-        fleet_size = 1  # Default fallback
-        argus_rating = None  # Default fallback
-        wyvern_rating = None  # Default fallback
+        trust_score_error = None
 
         try:
-            db = SessionLocal()
-            operator = db.query(Operator).filter(Operator.name == operator_name).first()
+            # Extract UCC filings from the verification result
+            ucc_filings = []
+            visited_states = ucc_data.get("visited_states", [])
+            for state_result in visited_states:
+                if state_result.get("flow_used") and state_result.get("flow_result"):
+                    flow_result = state_result["flow_result"]
+                    # Use normalized_filings instead of raw filings
+                    normalized_filings = flow_result.get("normalized_filings", [])
+                    for filing in normalized_filings:
+                        ucc_filings.append(
+                            {
+                                "file_number": filing.get("file_number", "Unknown"),
+                                "status": filing.get("status", "Unknown"),
+                                "filing_date": filing.get("filing_date", "Unknown"),
+                                "lapse_date": filing.get("lapse_date", "Unknown"),
+                                "lien_type": filing.get("lien_type", "Unknown"),
+                                "debtor": filing.get("debtor", "Unknown"),
+                                "secured_party": filing.get("secured_party", None),
+                                "collateral": filing.get("collateral", None),
+                                "state": state_result.get("state", "Unknown"),
+                            }
+                        )
 
-            if operator:
-                # Calculate operator age in years from business_started_date
-                if operator.business_started_date:
-                    years_diff = (
-                        datetime.now() - operator.business_started_date
-                    ).days / 365.25
-                    operator_age_years = round(years_diff, 1)
+            # Convert NTSB incidents to dict format for TrustScore calculator (Algorithm v3)
+            fleet_events = [incident.dict() for incident in incidents]
+            ntsb_incidents_dict = fleet_events  # Keep reference for result output
+
+            # Fetch operator data from database to get business_started_date
+            from src.common.models import Operator
+            from src.common.config import SessionLocal
+
+            operator_age_years = 10.0  # Default fallback
+            fleet_size = 1  # Default fallback
+            argus_rating = None  # Default fallback
+            wyvern_rating = None  # Default fallback
+
+            try:
+                db = SessionLocal()
+                operator = db.query(Operator).filter(Operator.name == operator_name).first()
+
+                if operator:
+                    # Calculate operator age in years from business_started_date
+                    if operator.business_started_date:
+                        years_diff = (
+                            datetime.now() - operator.business_started_date
+                        ).days / 365.25
+                        operator_age_years = round(years_diff, 1)
+                        print(
+                            f"✓ Operator age calculated: {operator_age_years} years (started: {operator.business_started_date})"
+                        )
+                    else:
+                        print(
+                            f"⚠️  No business_started_date found for operator, using default: {operator_age_years} years"
+                        )
+
+                    # Fetch ARGUS and Wyvern ratings
+                    argus_rating = operator.argus_rating
+                    wyvern_rating = operator.wyvern_rating
                     print(
-                        f"✓ Operator age calculated: {operator_age_years} years (started: {operator.business_started_date})"
+                        f"✓ ARGUS rating: {argus_rating or 'None'}, Wyvern rating: {wyvern_rating or 'None'}"
                     )
                 else:
-                    print(
-                        f"⚠️  No business_started_date found for operator, using default: {operator_age_years} years"
-                    )
+                    print(f"⚠️  Operator not found in database, using default values")
 
-                # Fetch ARGUS and Wyvern ratings
-                argus_rating = operator.argus_rating
-                wyvern_rating = operator.wyvern_rating
-                print(
-                    f"✓ ARGUS rating: {argus_rating or 'None'}, Wyvern rating: {wyvern_rating or 'None'}"
-                )
-            else:
-                print(f"⚠️  Operator not found in database, using default values")
+                db.close()
+            except Exception as e:
+                print(f"⚠️  Error fetching operator data: {e}, using default values")
 
-            db.close()
+            # Create FleetScoreData (Algorithm v3)
+            fleet_data = FleetScoreData(
+                operator_name=operator_name,
+                operator_age_years=operator_age_years,
+                fleet_size=fleet_size,  # Default - would need to be fetched from operator data
+                fleet_events=fleet_events,  # All fleet-wide events (NTSB + FAA)
+                ucc_filings=ucc_filings,
+                argus_rating=argus_rating,
+                wyvern_rating=wyvern_rating,
+                bankruptcy_history=None,
+            )
+
+            # Create TailScoreData (placeholder - would need aircraft-specific data)
+            tail_data = TailScoreData(
+                aircraft_age_years=5.0,  # Default placeholder
+                operator_name=operator_name,
+                registered_owner=operator_name,  # Assume same as operator
+                fractional_owner=False,
+                tail_events=fleet_events,  # Tail-specific events
+            )
+
+            # Initialize calculator with LLM for AI insights
+            try:
+                llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
+                calculator = TrustScoreCalculator(llm_client=llm_client)
+                print("✓ Using LLM for AI insights")
+            except Exception as e:
+                print(f"⚠️  LLM unavailable, using calculator without AI insights: {e}")
+                calculator = TrustScoreCalculator(llm_client=None)
+
+            # Calculate TrustScore
+            trust_score_result = await calculator.calculate_trust_score(
+                fleet_data, tail_data
+            )
+            print(f"✓ TrustScore calculated: {trust_score_result['trust_score']}")
+
         except Exception as e:
-            print(f"⚠️  Error fetching operator data: {e}, using default values")
+            trust_score_error = str(e)
+            print(f"⚠️  TrustScore calculation failed: {trust_score_error}")
+            print(f"  → Using fallback calculation based on NTSB score: {ntsb_score}")
+            # Set default values
+            ntsb_incidents_dict = [incident.dict() for incident in incidents] if incidents else []
+            argus_rating = None
+            wyvern_rating = None
+            # Use NTSB score as fallback trust score if available
+            fallback_score = ntsb_score if ntsb_score is not None else 50.0
+            trust_score_result = {
+                "trust_score": fallback_score,
+                "fleet_score": fallback_score,
+                "tail_score": fallback_score,
+                "error": trust_score_error,
+                "fallback": True,
+            }
 
-        # Create FleetScoreData (Algorithm v3)
-        fleet_data = FleetScoreData(
-            operator_name=operator_name,
-            operator_age_years=operator_age_years,
-            fleet_size=fleet_size,  # Default - would need to be fetched from operator data
-            fleet_events=fleet_events,  # All fleet-wide events (NTSB + FAA)
-            ucc_filings=ucc_filings,
-            argus_rating=argus_rating,
-            wyvern_rating=wyvern_rating,
-            bankruptcy_history=None,
-        )
-
-        # Create TailScoreData (placeholder - would need aircraft-specific data)
-        tail_data = TailScoreData(
-            aircraft_age_years=5.0,  # Default placeholder
-            operator_name=operator_name,
-            registered_owner=operator_name,  # Assume same as operator
-            fractional_owner=False,
-            tail_events=fleet_events,  # Tail-specific events
-        )
-
-        # Initialize calculator with LLM for AI insights
-        try:
-            llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
-            calculator = TrustScoreCalculator(llm_client=llm_client)
-            print("✓ Using LLM for AI insights")
-        except Exception as e:
-            print(f"⚠️  LLM unavailable, using calculator without AI insights: {e}")
-            calculator = TrustScoreCalculator(llm_client=None)
-
-        # Calculate TrustScore
-        trust_score_result = await calculator.calculate_trust_score(
-            fleet_data, tail_data
-        )
-        print(f"✓ TrustScore calculated: {trust_score_result['trust_score']}")
+        # Determine overall status
+        has_errors = any([ntsb_error, ucc_error, trust_score_error])
+        overall_status = "completed_with_errors" if has_errors else "completed"
 
         # Combine results
         result = {
@@ -417,6 +461,7 @@ async def full_scoring_flow(
                 "total_incidents": total_incidents,
                 "incidents": ntsb_incidents_dict,
                 "raw_response": ntsb_data,
+                "error": ntsb_error,  # Will be None if successful
             },
             # UCC Results
             "ucc": ucc_data,
@@ -427,7 +472,13 @@ async def full_scoring_flow(
             # Certification ratings
             "argus_rating": argus_rating,
             "wyvern_rating": wyvern_rating,
-            "status": "completed",
+            # Status and errors
+            "status": overall_status,
+            "errors": {
+                "ntsb": ntsb_error,
+                "ucc": ucc_error,
+                "trust_score": trust_score_error,
+            },
         }
 
         # Save combined verification result to single JSON file
@@ -452,7 +503,15 @@ async def full_scoring_flow(
         result["saved_file"] = filename
 
         print(f"\n{'='*80}")
-        print(f"FULL SCORING FLOW COMPLETED")
+        print(f"FULL SCORING FLOW COMPLETED - Status: {overall_status.upper()}")
+        if has_errors:
+            print(f"⚠️  Some steps encountered errors but flow completed:")
+            if ntsb_error:
+                print(f"  - NTSB: {ntsb_error}")
+            if ucc_error:
+                print(f"  - UCC: {ucc_error}")
+            if trust_score_error:
+                print(f"  - TrustScore: {trust_score_error}")
         print(f"NTSB Score: {ntsb_score}, UCC Status: {ucc_data.get('status')}")
         print(
             f"TrustScore: {trust_score_result['trust_score']} (Fleet: {trust_score_result['fleet_score']}, Tail: {trust_score_result['tail_score']})"
@@ -541,116 +600,155 @@ async def batch_verify_by_states():
             try:
                 # Run NTSB query
                 print(f"  → Querying NTSB for {operator.company}...")
-                ntsb_data = await NTSBService.query_ntsb_incidents(operator.company)
-                incidents = NTSBService.parse_ntsb_response(ntsb_data)
-                total_incidents = len(incidents)
-                ntsb_score = max(0, 100 - (total_incidents * 5))
-
-                print(f"  ✓ NTSB: {total_incidents} incidents, score: {ntsb_score}")
+                ntsb_error = None
+                try:
+                    ntsb_data = await NTSBService.query_ntsb_incidents(operator.company)
+                    incidents = NTSBService.parse_ntsb_response(ntsb_data)
+                    total_incidents = len(incidents)
+                    ntsb_score = max(0, 100 - (total_incidents * 5))
+                    print(f"  ✓ NTSB: {total_incidents} incidents, score: {ntsb_score}")
+                except Exception as e:
+                    ntsb_error = str(e)
+                    print(f"  ⚠️  NTSB failed: {ntsb_error}")
+                    print("  → Continuing with default values")
+                    ntsb_data = {"Results": []}
+                    incidents = []
+                    total_incidents = 0
+                    ntsb_score = 100.0
 
                 # Run UCC verification
                 print(f"  → Verifying UCC filings...")
-                ucc_service = UCCVerificationService()
-                ntsb_results = ntsb_data.get("Results", [])
-                ucc_data = await ucc_service.verify_ucc_filings(
-                    operator.company, ntsb_results, operator.faa_state
-                )
-
-                print(f"  ✓ UCC: {ucc_data.get('status')}")
+                ucc_error = None
+                try:
+                    ucc_service = UCCVerificationService()
+                    ntsb_results = ntsb_data.get("Results", [])
+                    ucc_data = await ucc_service.verify_ucc_filings(
+                        operator.company, ntsb_results, operator.faa_state
+                    )
+                    print(f"  ✓ UCC: {ucc_data.get('status')}")
+                except Exception as e:
+                    ucc_error = str(e)
+                    print(f"  ⚠️  UCC failed: {ucc_error}")
+                    print("  → Continuing with default values")
+                    ucc_data = {
+                        "status": "failed",
+                        "error": ucc_error,
+                        "visited_states": [],
+                        "states_processed": 0,
+                    }
 
                 # Calculate TrustScore
                 print(f"  → Calculating TrustScore...")
-
-                # Extract UCC filings
-                ucc_filings = []
-                visited_states = ucc_data.get("visited_states", [])
-                for state_result in visited_states:
-                    if state_result.get("flow_used") and state_result.get(
-                        "flow_result"
-                    ):
-                        flow_result = state_result["flow_result"]
-                        normalized_filings = flow_result.get("normalized_filings", [])
-                        for filing in normalized_filings:
-                            ucc_filings.append(
-                                {
-                                    "file_number": filing.get("file_number", "Unknown"),
-                                    "status": filing.get("status", "Unknown"),
-                                    "filing_date": filing.get("filing_date", "Unknown"),
-                                    "lapse_date": filing.get("lapse_date", "Unknown"),
-                                    "lien_type": filing.get("lien_type", "Unknown"),
-                                    "debtor": filing.get("debtor", "Unknown"),
-                                    "secured_party": filing.get("secured_party", None),
-                                    "collateral": filing.get("collateral", None),
-                                    "state": state_result.get("state", "Unknown"),
-                                }
-                            )
-
-                # Convert incidents to dict format
-                fleet_events = [incident.dict() for incident in incidents]
-
-                # Fetch operator age from database
-                from src.common.models import Operator
-                from src.common.config import SessionLocal
-
-                operator_age_years = 10.0
-                fleet_size = 1
-                argus_rating = None
-                wyvern_rating = None
+                trust_score_error = None
 
                 try:
-                    db = SessionLocal()
-                    db_operator = (
-                        db.query(Operator)
-                        .filter(Operator.name == operator.company)
-                        .first()
+                    # Extract UCC filings
+                    ucc_filings = []
+                    visited_states = ucc_data.get("visited_states", [])
+                    for state_result in visited_states:
+                        if state_result.get("flow_used") and state_result.get(
+                            "flow_result"
+                        ):
+                            flow_result = state_result["flow_result"]
+                            normalized_filings = flow_result.get("normalized_filings", [])
+                            for filing in normalized_filings:
+                                ucc_filings.append(
+                                    {
+                                        "file_number": filing.get("file_number", "Unknown"),
+                                        "status": filing.get("status", "Unknown"),
+                                        "filing_date": filing.get("filing_date", "Unknown"),
+                                        "lapse_date": filing.get("lapse_date", "Unknown"),
+                                        "lien_type": filing.get("lien_type", "Unknown"),
+                                        "debtor": filing.get("debtor", "Unknown"),
+                                        "secured_party": filing.get("secured_party", None),
+                                        "collateral": filing.get("collateral", None),
+                                        "state": state_result.get("state", "Unknown"),
+                                    }
+                                )
+
+                    # Convert incidents to dict format
+                    fleet_events = [incident.dict() for incident in incidents]
+
+                    # Fetch operator age from database
+                    from src.common.models import Operator
+                    from src.common.config import SessionLocal
+
+                    operator_age_years = 10.0
+                    fleet_size = 1
+                    argus_rating = None
+                    wyvern_rating = None
+
+                    try:
+                        db = SessionLocal()
+                        db_operator = (
+                            db.query(Operator)
+                            .filter(Operator.name == operator.company)
+                            .first()
+                        )
+
+                        if db_operator and db_operator.business_started_date:
+                            years_diff = (
+                                datetime.now() - db_operator.business_started_date
+                            ).days / 365.25
+                            operator_age_years = round(years_diff, 1)
+
+                        if db_operator:
+                            argus_rating = db_operator.argus_rating
+                            wyvern_rating = db_operator.wyvern_rating
+
+                        db.close()
+                    except Exception as e:
+                        print(f"  ⚠️  Could not fetch operator data from gtj.operators: {e}")
+
+                    # Create FleetScoreData
+                    fleet_data = FleetScoreData(
+                        operator_name=operator.company,
+                        operator_age_years=operator_age_years,
+                        fleet_size=fleet_size,
+                        fleet_events=fleet_events,
+                        ucc_filings=ucc_filings,
+                        argus_rating=argus_rating,
+                        wyvern_rating=wyvern_rating,
+                        bankruptcy_history=None,
                     )
 
-                    if db_operator and db_operator.business_started_date:
-                        years_diff = (
-                            datetime.now() - db_operator.business_started_date
-                        ).days / 365.25
-                        operator_age_years = round(years_diff, 1)
+                    # Create TailScoreData
+                    tail_data = TailScoreData(
+                        aircraft_age_years=5.0,
+                        operator_name=operator.company,
+                        registered_owner=operator.company,
+                        fractional_owner=False,
+                        tail_events=fleet_events,
+                    )
 
-                    if db_operator:
-                        argus_rating = db_operator.argus_rating
-                        wyvern_rating = db_operator.wyvern_rating
+                    # Calculate TrustScore
+                    try:
+                        llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
+                        calculator = TrustScoreCalculator(llm_client=llm_client)
+                    except Exception:
+                        calculator = TrustScoreCalculator(llm_client=None)
 
-                    db.close()
+                    trust_score_result = await calculator.calculate_trust_score(
+                        fleet_data, tail_data
+                    )
+                    print(f"  ✓ TrustScore: {trust_score_result['trust_score']}")
+
                 except Exception as e:
-                    print(f"  ⚠️  Could not fetch operator data from gtj.operators: {e}")
-
-                # Create FleetScoreData
-                fleet_data = FleetScoreData(
-                    operator_name=operator.company,
-                    operator_age_years=operator_age_years,
-                    fleet_size=fleet_size,
-                    fleet_events=fleet_events,
-                    ucc_filings=ucc_filings,
-                    argus_rating=argus_rating,
-                    wyvern_rating=wyvern_rating,
-                    bankruptcy_history=None,
-                )
-
-                # Create TailScoreData
-                tail_data = TailScoreData(
-                    aircraft_age_years=5.0,
-                    operator_name=operator.company,
-                    registered_owner=operator.company,
-                    fractional_owner=False,
-                    tail_events=fleet_events,
-                )
-
-                # Calculate TrustScore
-                try:
-                    llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
-                    calculator = TrustScoreCalculator(llm_client=llm_client)
-                except Exception:
-                    calculator = TrustScoreCalculator(llm_client=None)
-
-                trust_score_result = await calculator.calculate_trust_score(
-                    fleet_data, tail_data
-                )
-                print(f"  ✓ TrustScore: {trust_score_result['trust_score']}")
+                    trust_score_error = str(e)
+                    print(f"  ⚠️  TrustScore calculation failed: {trust_score_error}")
+                    print(f"  → Using fallback calculation based on NTSB score: {ntsb_score}")
+                    fleet_events = [incident.dict() for incident in incidents] if incidents else []
+                    argus_rating = None
+                    wyvern_rating = None
+                    # Use NTSB score as fallback trust score if available
+                    fallback_score = ntsb_score if ntsb_score is not None else 50.0
+                    trust_score_result = {
+                        "trust_score": fallback_score,
+                        "fleet_score": fallback_score,
+                        "tail_score": fallback_score,
+                        "error": trust_score_error,
+                        "fallback": True,
+                    }
 
                 # Save result
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -662,6 +760,10 @@ async def batch_verify_by_states():
                 operator_folder = os.path.join(VERIFICATION_RESULTS_DIR, folder_name)
                 os.makedirs(operator_folder, exist_ok=True)
 
+                # Determine status for this operator
+                has_errors = any([ntsb_error, ucc_error, trust_score_error])
+                operator_status = "completed_with_errors" if has_errors else "completed"
+
                 result_data = {
                     "operator_name": operator.company,
                     "faa_state": operator.faa_state,
@@ -671,6 +773,7 @@ async def batch_verify_by_states():
                         "total_incidents": total_incidents,
                         "incidents": fleet_events,
                         "raw_response": ntsb_data,
+                        "error": ntsb_error,
                     },
                     "ucc": ucc_data,
                     "trust_score": trust_score_result,
@@ -678,7 +781,13 @@ async def batch_verify_by_states():
                     # Certification ratings
                     "argus_rating": argus_rating,
                     "wyvern_rating": wyvern_rating,
-                    "status": "completed",
+                    # Status and errors
+                    "status": operator_status,
+                    "errors": {
+                        "ntsb": ntsb_error,
+                        "ucc": ucc_error,
+                        "trust_score": trust_score_error,
+                    },
                 }
 
                 filename = f"verification_result_{safe_operator_name}_{timestamp}.json"
@@ -693,7 +802,7 @@ async def batch_verify_by_states():
                     {
                         "operator_name": operator.company,
                         "faa_state": operator.faa_state,
-                        "status": "success",
+                        "status": operator_status,
                         "ntsb_score": ntsb_score,
                         "trust_score": trust_score_result["trust_score"],
                         "total_incidents": total_incidents,
@@ -701,11 +810,19 @@ async def batch_verify_by_states():
                         "saved_file": filename,
                         "live_view_url": ucc_data.get("live_view_url"),
                         "session_id": ucc_data.get("session_id"),
+                        "errors": {
+                            "ntsb": ntsb_error,
+                            "ucc": ucc_error,
+                            "trust_score": trust_score_error,
+                        },
                     }
                 )
 
                 successful += 1
-                print(f"  ✓ Successfully verified {operator.company}")
+                if has_errors:
+                    print(f"  ✓ Verified {operator.company} (with errors in some steps)")
+                else:
+                    print(f"  ✓ Successfully verified {operator.company}")
 
             except Exception as e:
                 print(f"  ❌ Error verifying {operator.company}: {str(e)}")
