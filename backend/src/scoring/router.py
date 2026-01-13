@@ -434,9 +434,9 @@ async def full_scoring_flow(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_operator_name = "".join(c if c.isalnum() else "_" for c in operator_name)
 
-        # Create operator-specific folder: operator_name_YYYYMMDD
+        # Create operator-specific folder: YYYYMMDD/operator_name
         date_only = datetime.now().strftime("%Y%m%d")
-        folder_name = f"{safe_operator_name}_{date_only}"
+        folder_name = f"{date_only}/{safe_operator_name}"
         operator_folder = os.path.join(VERIFICATION_RESULTS_DIR, folder_name)
         os.makedirs(operator_folder, exist_ok=True)
 
@@ -658,7 +658,7 @@ async def batch_verify_by_states():
                     c if c.isalnum() else "_" for c in operator.company
                 )
                 date_only = datetime.now().strftime("%Y%m%d")
-                folder_name = f"{safe_operator_name}_{date_only}"
+                folder_name = f"{date_only}/{safe_operator_name}"
                 operator_folder = os.path.join(VERIFICATION_RESULTS_DIR, folder_name)
                 os.makedirs(operator_folder, exist_ok=True)
 

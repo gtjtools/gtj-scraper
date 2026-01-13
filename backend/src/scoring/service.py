@@ -117,10 +117,10 @@ class NTSBService:
         if not isinstance(raw_data, dict) or "Results" not in raw_data:
             return
 
-        # Create folder name with format: operator_name_YYYYMMDD
+        # Create folder name with format: YYYYMMDD/operator_name
         timestamp = datetime.now().strftime("%Y%m%d")
         safe_operator_name = "".join(c if c.isalnum() else "_" for c in operator_name)
-        folder_name = f"{safe_operator_name}_{timestamp}"
+        folder_name = f"{timestamp}/{safe_operator_name}"
 
         # Get the project root directory and create temp folder path
         # Assuming the backend/src/scoring directory structure
