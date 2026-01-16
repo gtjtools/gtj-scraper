@@ -308,6 +308,7 @@ class UCCVerificationService:
         ntsb_results: List[Dict[str, Any]],
         faa_state: str,
         state: Optional[str] = None,
+        ucc_ready_states: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Verify UCC filings for an operator using Browserbase
@@ -317,6 +318,7 @@ class UCCVerificationService:
             ntsb_results: NTSB results from previous NTSB check (required)
             faa_state: FAA state code (2-letter abbreviation) - used as fallback if no filings found in NTSB states
             state: Optional state code for targeted search
+            ucc_ready_states: List of state abbreviations with UCC scrapers ready (e.g., ["CA", "FL"])
 
         Returns:
             Dictionary containing UCC verification results
@@ -429,6 +431,20 @@ class UCCVerificationService:
 
                     print(f"📍 Processing states: {states_to_process}")
 
+                # Use UCC ready states list if provided
+                if ucc_ready_states:
+                    # Convert abbreviations to full names
+                    ready_full_names = []
+                    for abbr in ucc_ready_states:
+                        state_info = self._get_state_info(abbr, state_options)
+                        if state_info:
+                            ready_full_names.append(state_info["name"])
+
+                    # Use ready states as the processing list (ignore other states)
+                    if ready_full_names:
+                        print(f"📍 Using UCC ready states: {ready_full_names}")
+                        states_to_process = ready_full_names
+
                 for idx, state_name in enumerate(states_to_process):
                     if not state_name:
                         print(f"⚠️  Invalid state in list")
@@ -531,6 +547,7 @@ class UCCVerificationService:
         faa_state: str,
         state: Optional[str] = None,
         existing_session_id: Optional[str] = None,
+        ucc_ready_states: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Verify UCC filings using an existing Browserbase session.
@@ -542,16 +559,17 @@ class UCCVerificationService:
             faa_state: FAA state code (2-letter abbreviation) - used as fallback if no filings found
             state: Optional state code for targeted search
             existing_session_id: Optional existing Browserbase session ID
+            ucc_ready_states: List of state abbreviations with UCC scrapers ready (e.g., ["CA", "FL"])
         """
         if existing_session_id:
             print(f"Using existing Browserbase session: {existing_session_id}")
             return await self._run_ucc_automation(
-                operator_name, ntsb_results, faa_state, state, existing_session_id
+                operator_name, ntsb_results, faa_state, state, existing_session_id, ucc_ready_states
             )
         else:
             # Fallback to creating new session
             return await self.verify_ucc_filings(
-                operator_name, ntsb_results, faa_state, state
+                operator_name, ntsb_results, faa_state, state, ucc_ready_states
             )
 
     async def _run_ucc_automation(
@@ -561,6 +579,7 @@ class UCCVerificationService:
         faa_state: str,
         state: Optional[str],
         session_id: str,
+        ucc_ready_states: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Run the UCC automation using an existing session
@@ -571,6 +590,7 @@ class UCCVerificationService:
             faa_state: FAA state code (2-letter abbreviation) - used as fallback if no filings found
             state: Optional state code for targeted search
             session_id: Browserbase session ID
+            ucc_ready_states: List of state abbreviations with UCC scrapers ready (e.g., ["CA", "FL"])
         """
         try:
             # Get session info
@@ -658,6 +678,20 @@ class UCCVerificationService:
                                 )
 
                     print(f"📍 Processing states: {states_to_process}")
+
+                # Use UCC ready states list if provided
+                if ucc_ready_states:
+                    # Convert abbreviations to full names
+                    ready_full_names = []
+                    for abbr in ucc_ready_states:
+                        state_info = self._get_state_info(abbr, state_options)
+                        if state_info:
+                            ready_full_names.append(state_info["name"])
+
+                    # Use ready states as the processing list (ignore other states)
+                    if ready_full_names:
+                        print(f"📍 Using UCC ready states: {ready_full_names}")
+                        states_to_process = ready_full_names
 
                 for idx, state_name in enumerate(states_to_process):
                     if not state_name:

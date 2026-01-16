@@ -30,6 +30,16 @@ OPERATOR_STATE_OVERRIDES = {
     "Aero Air LLC": "Oregon",
 }
 
+# States with UCC scraper ready - UCC flow will only scrape these states
+# Add more states here as scrapers become available (e.g., ["CA", "FL"])
+UCC_READY_STATES = ["CA"]
+
+# Test filter for batch verification - only process these operators
+# Set to None or empty list to process all operators matching state filter
+# Example: ["GO FLY LLC.", "Another Operator"]
+# BATCH_TEST_OPERATORS = ["GO FLY LLC."]  # Set to None to disable filter
+BATCH_TEST_OPERATORS = None
+
 
 @scoring_router.post(
     "/scoring/run-score/{operator_id}",
@@ -306,7 +316,12 @@ async def full_scoring_flow(
             # Pass raw NTSB results (Results array) to UCC service, not parsed incidents
             ntsb_results = ntsb_data.get("Results", [])
             ucc_data = await ucc_service.verify_ucc_filings_with_session(
-                operator_name, ntsb_results, faa_state, state, session_id
+                operator_name,
+                ntsb_results,
+                faa_state,
+                state,
+                session_id,
+                UCC_READY_STATES,
             )
             print(f"✓ UCC check complete: {ucc_data.get('status')}")
         except Exception as e:
@@ -363,7 +378,9 @@ async def full_scoring_flow(
 
             try:
                 db = SessionLocal()
-                operator = db.query(Operator).filter(Operator.name == operator_name).first()
+                operator = (
+                    db.query(Operator).filter(Operator.name == operator_name).first()
+                )
 
                 if operator:
                     # Calculate operator age in years from business_started_date
@@ -434,7 +451,9 @@ async def full_scoring_flow(
             print(f"⚠️  TrustScore calculation failed: {trust_score_error}")
             print(f"  → Using fallback calculation based on NTSB score: {ntsb_score}")
             # Set default values
-            ntsb_incidents_dict = [incident.dict() for incident in incidents] if incidents else []
+            ntsb_incidents_dict = (
+                [incident.dict() for incident in incidents] if incidents else []
+            )
             argus_rating = None
             wyvern_rating = None
             # Use NTSB score as fallback trust score if available
@@ -535,7 +554,7 @@ async def full_scoring_flow(
     description="Run full verification flow for all operators from database",
     tags=["scoring"],
 )
-async def batch_verify_by_states():
+async def batch_verify_by_states(session_id: str = None):
     """
     Run batch verification for all operators.
 
@@ -551,28 +570,46 @@ async def batch_verify_by_states():
         from src.operator.charter_service import get_charter_operators
         from src.scoring.service import NTSBService
 
-        # Hardcoded states - FL and CA
-        states = ["CA"]
+        # Filter by states - set to None or empty list to process all operators
+        states = None
 
         print(f"\n{'='*80}")
-        print(f"BATCH VERIFICATION FOR STATES: {states}")
+        print(f"BATCH VERIFICATION FOR STATES: {states if states else 'ALL'}")
         print(f"{'='*80}\n")
 
-        # Step 1: Get all operators from database
+        # Step 1: Get operators from database
         print("Step 1: Fetching operators from database...")
-        operators_response = await get_charter_operators(
-            skip=0, limit=None, search=None
-        )
-        all_operators = operators_response.data
 
-        print(f"✓ Found {len(all_operators)} total operators in database")
+        # If BATCH_TEST_OPERATORS is set, only query those specific operators
+        if BATCH_TEST_OPERATORS:
+            print(f"📍 Test filter active - querying only: {BATCH_TEST_OPERATORS}")
+            filtered_operators = []
+            for operator_name in BATCH_TEST_OPERATORS:
+                operators_response = await get_charter_operators(
+                    skip=0, limit=None, search=operator_name
+                )
+                for op in operators_response.data:
+                    # Exact match check (search might return partial matches)
+                    if op.company == operator_name:
+                        filtered_operators.append(op)
+            print(f"✓ Found {len(filtered_operators)} operator(s) matching test filter")
+        else:
+            # Query all operators
+            operators_response = await get_charter_operators(
+                skip=0, limit=None, search=None
+            )
+            all_operators = operators_response.data
+            print(f"✓ Found {len(all_operators)} total operators in database")
 
-        # Step 2: Filter operators with specified faa_states
-        filtered_operators = [op for op in all_operators if op.faa_state in states]
-
-        print(
-            f"✓ Filtered to {len(filtered_operators)} operators with faa_state in {states}"
-        )
+            # Filter by states only if states list is specified
+            if states:
+                filtered_operators = [op for op in all_operators if op.faa_state in states]
+                print(
+                    f"✓ Filtered to {len(filtered_operators)} operators with faa_state in {states}"
+                )
+            else:
+                filtered_operators = all_operators
+                print(f"✓ Processing all {len(filtered_operators)} operators (no state filter)")
 
         if not filtered_operators:
             return {
@@ -622,8 +659,13 @@ async def batch_verify_by_states():
                 try:
                     ucc_service = UCCVerificationService()
                     ntsb_results = ntsb_data.get("Results", [])
-                    ucc_data = await ucc_service.verify_ucc_filings(
-                        operator.company, ntsb_results, operator.faa_state
+                    ucc_data = await ucc_service.verify_ucc_filings_with_session(
+                        operator.company,
+                        ntsb_results,
+                        operator.faa_state,
+                        None,
+                        session_id,
+                        UCC_READY_STATES,
                     )
                     print(f"  ✓ UCC: {ucc_data.get('status')}")
                 except Exception as e:
@@ -650,17 +692,27 @@ async def batch_verify_by_states():
                             "flow_result"
                         ):
                             flow_result = state_result["flow_result"]
-                            normalized_filings = flow_result.get("normalized_filings", [])
+                            normalized_filings = flow_result.get(
+                                "normalized_filings", []
+                            )
                             for filing in normalized_filings:
                                 ucc_filings.append(
                                     {
-                                        "file_number": filing.get("file_number", "Unknown"),
+                                        "file_number": filing.get(
+                                            "file_number", "Unknown"
+                                        ),
                                         "status": filing.get("status", "Unknown"),
-                                        "filing_date": filing.get("filing_date", "Unknown"),
-                                        "lapse_date": filing.get("lapse_date", "Unknown"),
+                                        "filing_date": filing.get(
+                                            "filing_date", "Unknown"
+                                        ),
+                                        "lapse_date": filing.get(
+                                            "lapse_date", "Unknown"
+                                        ),
                                         "lien_type": filing.get("lien_type", "Unknown"),
                                         "debtor": filing.get("debtor", "Unknown"),
-                                        "secured_party": filing.get("secured_party", None),
+                                        "secured_party": filing.get(
+                                            "secured_party", None
+                                        ),
                                         "collateral": filing.get("collateral", None),
                                         "state": state_result.get("state", "Unknown"),
                                     }
@@ -698,7 +750,9 @@ async def batch_verify_by_states():
 
                         db.close()
                     except Exception as e:
-                        print(f"  ⚠️  Could not fetch operator data from gtj.operators: {e}")
+                        print(
+                            f"  ⚠️  Could not fetch operator data from gtj.operators: {e}"
+                        )
 
                     # Create FleetScoreData
                     fleet_data = FleetScoreData(
@@ -736,8 +790,12 @@ async def batch_verify_by_states():
                 except Exception as e:
                     trust_score_error = str(e)
                     print(f"  ⚠️  TrustScore calculation failed: {trust_score_error}")
-                    print(f"  → Using fallback calculation based on NTSB score: {ntsb_score}")
-                    fleet_events = [incident.dict() for incident in incidents] if incidents else []
+                    print(
+                        f"  → Using fallback calculation based on NTSB score: {ntsb_score}"
+                    )
+                    fleet_events = (
+                        [incident.dict() for incident in incidents] if incidents else []
+                    )
                     argus_rating = None
                     wyvern_rating = None
                     # Use NTSB score as fallback trust score if available
@@ -820,7 +878,9 @@ async def batch_verify_by_states():
 
                 successful += 1
                 if has_errors:
-                    print(f"  ✓ Verified {operator.company} (with errors in some steps)")
+                    print(
+                        f"  ✓ Verified {operator.company} (with errors in some steps)"
+                    )
                 else:
                     print(f"  ✓ Successfully verified {operator.company}")
 
