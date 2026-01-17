@@ -166,6 +166,33 @@ export function OperatorsPage() {
             { duration: 8000 }
           );
         }
+
+        // Open browserbase live view URLs in new tabs/windows
+        const operatorsWithLiveView = successfulOps.filter(op => op.live_view_url);
+
+        if (operatorsWithLiveView.length > 0) {
+          console.log('\n🎥 Browserbase Live Sessions:');
+          operatorsWithLiveView.forEach((op, index) => {
+            console.log(`${index + 1}. ${op.operator_name}:`);
+            console.log(`   Live View: ${op.live_view_url}`);
+            console.log(`   Session ID: ${op.session_id || 'N/A'}`);
+
+            // Open first live view automatically
+            if (index === 0) {
+              window.open(op.live_view_url, '_blank');
+              toast.info(`Opening live browser session for ${op.operator_name}`, {
+                duration: 5000,
+              });
+            }
+          });
+
+          if (operatorsWithLiveView.length > 1) {
+            toast.info(
+              `${operatorsWithLiveView.length} live browser sessions available. Check console for all URLs.`,
+              { duration: 8000 }
+            );
+          }
+        }
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Batch verification failed';

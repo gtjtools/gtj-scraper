@@ -75,6 +75,45 @@ export function ScoreResultModal({
                 </p>
               </div>
 
+              {/* Browserbase Live View */}
+              {scoreData.live_view_url && (
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-1">
+                  <div className="bg-white rounded-xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 text-white font-semibold flex items-center gap-2">
+                      <span className="text-lg">🎥</span>
+                      <span>Live Browser Session</span>
+                      {scoreData.session_id && (
+                        <span className="ml-auto text-xs text-blue-100">
+                          Session: {scoreData.session_id.substring(0, 8)}...
+                        </span>
+                      )}
+                    </div>
+                    <div className="bg-white p-4">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Watch the live browser automation in action. This shows the real-time UCC verification process.
+                      </p>
+                      <iframe
+                        src={scoreData.live_view_url}
+                        className="w-full h-[400px] border-2 border-gray-200 rounded-lg"
+                        sandbox="allow-same-origin allow-scripts"
+                        allow="clipboard-read; clipboard-write"
+                        title="Browserbase Live View"
+                      />
+                      <div className="mt-3 flex gap-2">
+                        <a
+                          href={scoreData.live_view_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          Open in new window →
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Score Display */}
               <div className={`bg-gradient-to-br ${getScoreBgGradient(scoreData.ntsb_score)} rounded-2xl p-8 text-white`}>
                 <div className="text-center">

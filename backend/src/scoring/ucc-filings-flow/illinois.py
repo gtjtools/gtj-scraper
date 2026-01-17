@@ -44,40 +44,40 @@ class IllinoisFlow(BaseUCCFlow):
             # Step 1: Click searchType radio button with value="U"
             print("   Step 1: Clicking searchType radio button (U)...")
             search_type_xpath = '//input[@id="searchType" and @value="U"]'
-            await page.wait_for_selector(f'xpath={search_type_xpath}', timeout=10000)
-            await page.click(f'xpath={search_type_xpath}')
+            await page.wait_for_selector(f"xpath={search_type_xpath}", timeout=100000)
+            await page.click(f"xpath={search_type_xpath}")
             await page.wait_for_timeout(1000)
             print("   ✓ SearchType (U) clicked")
 
             # Step 2: Click uccSearch radio button with value="B"
             print("   Step 2: Clicking uccSearch radio button (B)...")
             ucc_search_xpath = '//input[@id="uccSearch" and @value="B"]'
-            await page.wait_for_selector(f'xpath={ucc_search_xpath}', timeout=10000)
-            await page.click(f'xpath={ucc_search_xpath}')
+            await page.wait_for_selector(f"xpath={ucc_search_xpath}", timeout=100000)
+            await page.click(f"xpath={ucc_search_xpath}")
             await page.wait_for_timeout(1000)
             print("   ✓ UccSearch (B) clicked")
 
             # Step 3: Click raType radio button with value="R"
             print("   Step 3: Clicking raType radio button (R)...")
             ra_type_xpath = '//input[@id="raType" and @value="R"]'
-            await page.wait_for_selector(f'xpath={ra_type_xpath}', timeout=10000)
-            await page.click(f'xpath={ra_type_xpath}')
+            await page.wait_for_selector(f"xpath={ra_type_xpath}", timeout=100000)
+            await page.click(f"xpath={ra_type_xpath}")
             await page.wait_for_timeout(1000)
             print("   ✓ RaType (R) clicked")
 
             # Step 4: Fill organization name in orgName input
             print("   Step 4: Filling organization name...")
             org_name_xpath = '//input[@id="orgName"]'
-            await page.wait_for_selector(f'xpath={org_name_xpath}', timeout=10000)
-            await page.fill(f'xpath={org_name_xpath}', search_query)
+            await page.wait_for_selector(f"xpath={org_name_xpath}", timeout=100000)
+            await page.fill(f"xpath={org_name_xpath}", search_query)
             await page.wait_for_timeout(1000)
             print(f"   ✓ Organization name entered: {search_query}")
 
             # Step 5: Click submit button
             print("   Step 5: Clicking submit button...")
             submit_button_xpath = '//input[@name="submitIt"]'
-            await page.wait_for_selector(f'xpath={submit_button_xpath}', timeout=10000)
-            await page.click(f'xpath={submit_button_xpath}')
+            await page.wait_for_selector(f"xpath={submit_button_xpath}", timeout=100000)
+            await page.click(f"xpath={submit_button_xpath}")
             print("   ✓ Submit button clicked")
 
             # Step 6: Wait for results to discover
@@ -122,13 +122,13 @@ class IllinoisFlow(BaseUCCFlow):
             try:
                 # Find all table rows
                 print("   Looking for result tables...")
-                tables = page.locator('table')
+                tables = page.locator("table")
                 table_count = await tables.count()
                 print(f"   Found {table_count} tables")
 
                 if table_count > 0:
                     # Try to extract from the main results table
-                    rows = page.locator('table tr')
+                    rows = page.locator("table tr")
                     row_count = await rows.count()
                     print(f"   Found {row_count} rows in tables")
 
@@ -137,7 +137,7 @@ class IllinoisFlow(BaseUCCFlow):
                         row = rows.nth(i)
                         try:
                             # Extract all cells
-                            cells = row.locator('td')
+                            cells = row.locator("td")
                             cell_count = await cells.count()
 
                             if cell_count > 0:
@@ -146,15 +146,25 @@ class IllinoisFlow(BaseUCCFlow):
 
                                 # Typically: File Number, Debtor, Filing Date, Status, etc.
                                 if cell_count >= 1:
-                                    filing_record['file_number'] = (await cells.nth(0).inner_text()).strip()
+                                    filing_record["file_number"] = (
+                                        await cells.nth(0).inner_text()
+                                    ).strip()
                                 if cell_count >= 2:
-                                    filing_record['debtor_name'] = (await cells.nth(1).inner_text()).strip()
+                                    filing_record["debtor_name"] = (
+                                        await cells.nth(1).inner_text()
+                                    ).strip()
                                 if cell_count >= 3:
-                                    filing_record['filing_date'] = (await cells.nth(2).inner_text()).strip()
+                                    filing_record["filing_date"] = (
+                                        await cells.nth(2).inner_text()
+                                    ).strip()
                                 if cell_count >= 4:
-                                    filing_record['status'] = (await cells.nth(3).inner_text()).strip()
+                                    filing_record["status"] = (
+                                        await cells.nth(3).inner_text()
+                                    ).strip()
 
-                                if filing_record.get('file_number') or filing_record.get('debtor_name'):
+                                if filing_record.get(
+                                    "file_number"
+                                ) or filing_record.get("debtor_name"):
                                     filings.append(filing_record)
                                     print(f"   Row {i}: {filing_record}")
                         except Exception as row_error:

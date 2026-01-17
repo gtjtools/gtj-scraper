@@ -66,6 +66,8 @@ export interface ScoreResult {
   total_incidents: number;
   incidents: NTSBIncident[];
   calculated_at: string;
+  live_view_url?: string;
+  session_id?: string;
 }
 
 export interface NTSBIncident {

@@ -18,9 +18,7 @@ class MichiganFlow(BaseUCCFlow):
         try:
             michigan_url = "https://ucc.michigan.gov/ucc-search"
             print(f"📍 Navigating to Michigan UCC page: {michigan_url}")
-            await page.goto(
-                michigan_url, wait_until="domcontentloaded", timeout=30000
-            )
+            await page.goto(michigan_url, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(2000)
 
             print("✓ Successfully navigated to Michigan UCC page")
@@ -48,7 +46,7 @@ class MichiganFlow(BaseUCCFlow):
             print("   Step 1: Looking for organization name input...")
             try:
                 input_field = page.locator('xpath=//input[@id="organizationName"]')
-                await input_field.wait_for(state="visible", timeout=10000)
+                await input_field.wait_for(state="visible", timeout=100000)
                 await input_field.fill(search_query)
                 await page.wait_for_timeout(1000)
                 print(f"   ✓ Organization name entered: {search_query}")
@@ -61,7 +59,7 @@ class MichiganFlow(BaseUCCFlow):
             print("   Step 2: Clicking search button...")
             try:
                 search_button = page.locator('xpath=//span[text()="Search"]')
-                await search_button.wait_for(state="visible", timeout=10000)
+                await search_button.wait_for(state="visible", timeout=100000)
                 await search_button.click()
                 print("   ✓ Search button clicked")
             except Exception as e:
@@ -102,7 +100,9 @@ class MichiganFlow(BaseUCCFlow):
         """
         try:
             # Import the normalizer using importlib to handle package name with hyphens
-            normalizer = importlib.import_module('.ucc_normalizer', package='src.scoring.ucc-filings-flow')
+            normalizer = importlib.import_module(
+                ".ucc_normalizer", package="src.scoring.ucc-filings-flow"
+            )
             return normalizer.normalize_ucc_filings(flow_result, "Michigan")
         except Exception as e:
             print(f"⚠️ Error normalizing Michigan filings: {str(e)}")
@@ -128,13 +128,13 @@ class MichiganFlow(BaseUCCFlow):
         """
         try:
             # Split by newlines and clean up
-            lines = [line.strip() for line in row_text.split('\n') if line.strip()]
+            lines = [line.strip() for line in row_text.split("\n") if line.strip()]
 
             # Create a dict by pairing labels with values
             data = {}
             i = 0
             while i < len(lines) - 1:
-                label = lines[i].lower().replace(' ', '_')
+                label = lines[i].lower().replace(" ", "_")
                 value = lines[i + 1]
                 data[label] = value
                 i += 2
@@ -146,7 +146,9 @@ class MichiganFlow(BaseUCCFlow):
                 "lapse_date": data.get("lapse_date", "Unknown"),
                 "status": data.get("status", "Unknown"),
                 "lien_type": data.get("lien_type", "Unknown"),
-                "debtor": getattr(self, 'search_query', 'Unknown')  # Use the operator name we searched for
+                "debtor": getattr(
+                    self, "search_query", "Unknown"
+                ),  # Use the operator name we searched for
             }
 
             return filing
@@ -179,7 +181,7 @@ class MichiganFlow(BaseUCCFlow):
             try:
                 # Find all mat-table rows using XPath
                 print("   Looking for mat-table rows...")
-                mat_rows = page.locator('xpath=//mat-table//mat-row')
+                mat_rows = page.locator("xpath=//mat-table//mat-row")
 
                 try:
                     # Wait for results to appear (with timeout)
@@ -193,26 +195,36 @@ class MichiganFlow(BaseUCCFlow):
                         try:
                             # Get the full text content of the row
                             row_text = await row.inner_text()
-                            print(f"   Row {i + 1} raw text: {row_text[:100]}...")  # Print first 100 chars
+                            print(
+                                f"   Row {i + 1} raw text: {row_text[:100]}..."
+                            )  # Print first 100 chars
 
                             # Parse the row text into structured data
                             parsed_filing = self._parse_mat_row_text(row_text)
 
                             if parsed_filing.get("file_number") != "Unknown":
                                 filings.append(parsed_filing)
-                                print(f"   ✓ Row {i + 1} parsed: {parsed_filing.get('file_number')} - {parsed_filing.get('status')}")
+                                print(
+                                    f"   ✓ Row {i + 1} parsed: {parsed_filing.get('file_number')} - {parsed_filing.get('status')}"
+                                )
                             else:
                                 print(f"   ⚠️  Row {i + 1} could not be parsed properly")
 
                         except Exception as row_error:
-                            print(f"   ⚠️  Error processing row {i + 1}: {str(row_error)}")
+                            print(
+                                f"   ⚠️  Error processing row {i + 1}: {str(row_error)}"
+                            )
                             continue
 
                     print(f"\n✓ Extracted {len(filings)} filing records")
 
                 except Exception as wait_error:
-                    print(f"   ℹ️  No results found or results took too long to load: {str(wait_error)}")
-                    print("   This may indicate no UCC filings were found for this operator")
+                    print(
+                        f"   ℹ️  No results found or results took too long to load: {str(wait_error)}"
+                    )
+                    print(
+                        "   This may indicate no UCC filings were found for this operator"
+                    )
 
             except Exception as e:
                 print(f"⚠️  Could not extract mat-table data: {str(e)}")
@@ -224,7 +236,7 @@ class MichiganFlow(BaseUCCFlow):
                 "page_title": page_title,
                 "page_url": page_url,
                 "filings": filings,
-                "total_count": len(filings)
+                "total_count": len(filings),
             }
 
             # Build flow result (matching Florida's structure)

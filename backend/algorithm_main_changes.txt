@@ -1,0 +1,42 @@
+1. Main TrustScore Formula (Major Change)
+
+  Original:
+  TrustScore = (0.6(FleetScore) + 0.4(Tail Score)) x Confidence Score
+
+  Refined:
+  TrustScore = (50+ (0.5*(0.6*OS + 0.4*TS))) * CS
+
+  The refined version adds a baseline of 50 and scales the operator/tail score contribution by 0.5, which compresses the range and ensures a higher minimum score.
+
+  2. FleetScore Display Formula (New Addition)
+
+  Refined version adds:
+  FleetScore = (50+0.5*OS) * CS
+
+  This separate formula is explicitly defined for displaying FleetScores to users.
+
+  3. Confidence Score Exponent
+
+  Original:
+  CS = 1-(e^-0.3y)
+
+  Refined:
+  CS = 1-(e^-0.384y)
+
+  The exponent increased from 0.3 to 0.384, making the confidence score grow faster with operator age.
+
+  4. Terminology Change
+
+  Original: "FleetScore" (FS)
+  Refined: "Raw OperatorScore" (OS)
+
+  The naming was changed to better reflect that it measures the operator, not just the fleet.
+
+  5. Financial Score Default Case (New Addition)
+
+  Refined version adds:
+  If no UCC data is available, FSF = 5.
+
+  This provides a default score when financial data is unavailable, rather than leaving it undefined.
+
+  The refined version primarily adjusts the scoring ranges to be less harsh (baseline of 50 with compressed scaling) and provides better handling of edge cases (missing UCC data).

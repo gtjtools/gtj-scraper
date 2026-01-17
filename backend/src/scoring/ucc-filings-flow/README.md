@@ -79,7 +79,7 @@ async def navigate_to_search(self, page: Page) -> bool:
         await page.goto(self.state_url, wait_until="domcontentloaded", timeout=30000)
 
         # Wait for search button to appear
-        await page.wait_for_selector('button.search-btn', timeout=10000)
+        await page.wait_for_selector('button.search-btn', timeout=100000)
 
         return True
     except Exception as e:
@@ -175,7 +175,7 @@ print(f"Screenshot saved: {screenshot_path}")
 
 3. **Add Waits**: Wait for elements to load:
    ```python
-   await page.wait_for_selector('.results', timeout=10000)
+   await page.wait_for_selector('.results', timeout=100000)
    ```
 
 4. **Handle Errors**: Wrap operations in try-catch blocks
