@@ -1,0 +1,452 @@
+2026-01-17 22:08:11,335 - INFO - Logging to: out/scoring_flow_20260117_220811.log
+2026-01-17 22:08:11,902 - INFO - select pg_catalog.version()
+2026-01-17 22:08:11,902 - INFO - [raw sql] {}
+2026-01-17 22:08:12,003 - INFO - select current_schema()
+2026-01-17 22:08:12,003 - INFO - [raw sql] {}
+2026-01-17 22:08:12,104 - INFO - show standard_conforming_strings
+2026-01-17 22:08:12,104 - INFO - [raw sql] {}
+2026-01-17 22:08:12,205 - INFO - BEGIN (implicit)
+2026-01-17 22:08:12,209 - INFO - SELECT gtj.operators.operator_id AS gtj_operators_operator_id, gtj.operators.name AS gtj_operators_name, gtj.operators.dba_name AS gtj_operators_dba_name, gtj.operators.certificate_number AS gtj_operators_certificate_number, gtj.operators.ops_specs AS gtj_operators_ops_specs, gtj.operators.base_airport AS gtj_operators_base_airport, gtj.operators.trust_score AS gtj_operators_trust_score, gtj.operators.trust_score_updated_at AS gtj_operators_trust_score_updated_at, gtj.operators.financial_health_score AS gtj_operators_financial_health_score, gtj.operators.regulatory_status AS gtj_operators_regulatory_status, gtj.operators.is_verified AS gtj_operators_is_verified, gtj.operators.business_started_date AS gtj_operators_business_started_date, gtj.operators.argus_rating AS gtj_operators_argus_rating, gtj.operators.wyvern_rating AS gtj_operators_wyvern_rating, gtj.operators.created_at AS gtj_operators_created_at 
+FROM gtj.operators 
+WHERE SUBSTRING(gtj.operators.certificate_number FROM %(substring_1)s FOR %(substring_2)s) BETWEEN %(substring_3)s AND %(substring_4)s ORDER BY gtj.operators.name
+2026-01-17 22:08:12,209 - INFO - [generated in 0.00023s] {'substring_1': 1, 'substring_2': 1, 'substring_3': 'K', 'substring_4': 'O'}
+2026-01-17 22:08:12,364 - INFO - ROLLBACK
+2026-01-17 22:08:12,415 - INFO - Loaded 130 operators from database (certificate filter: K to O)
+2026-01-17 22:08:12,415 - INFO - ======================================================================
+2026-01-17 22:08:12,415 - INFO - Full Scoring Flow - Batch Processing (Database Source)
+2026-01-17 22:08:12,415 - INFO - ======================================================================
+2026-01-17 22:08:12,415 - INFO - Operators: 130
+2026-01-17 22:08:12,415 - INFO - Output directory: out
+2026-01-17 22:08:12,415 - INFO - Browserbase: Enabled
+2026-01-17 22:08:12,415 - INFO - Concurrency: 5
+2026-01-17 22:08:12,415 - INFO - Certificate filter: K to O
+2026-01-17 22:08:12,415 - INFO - ======================================================================
+2026-01-17 22:08:12,420 - INFO - ================================================================================
+2026-01-17 22:08:12,420 - INFO - FULL SCORING FLOW FOR: 5 State Helicopters, Inc. (ID: 32dd03f7-19d0-4d63-96ca-d27c9372f603)
+2026-01-17 22:08:12,420 - INFO - ================================================================================
+2026-01-17 22:08:12,420 - INFO - [5 State Helicopters, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,490 - INFO - ================================================================================
+2026-01-17 22:08:12,490 - INFO - FULL SCORING FLOW FOR: Above It All, Inc. (ID: 7e7a9483-0eb7-43b0-b58c-1355d0f078db)
+2026-01-17 22:08:12,490 - INFO - ================================================================================
+2026-01-17 22:08:12,490 - INFO - [Above It All, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,521 - INFO - ================================================================================
+2026-01-17 22:08:12,521 - INFO - FULL SCORING FLOW FOR: Accessair Charters And Management, Llc. (ID: 9646bcd5-144e-42cb-a27d-ba245b0e9291)
+2026-01-17 22:08:12,522 - INFO - ================================================================================
+2026-01-17 22:08:12,522 - INFO - [Accessair Charters And Management, Llc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,552 - INFO - ================================================================================
+2026-01-17 22:08:12,552 - INFO - FULL SCORING FLOW FOR: Aero Air Llc (ID: 5ff7a3af-e33f-4cc7-96e8-60bf3854d519)
+2026-01-17 22:08:12,553 - INFO - ================================================================================
+2026-01-17 22:08:12,553 - INFO - [Aero Air Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,583 - INFO - ================================================================================
+2026-01-17 22:08:12,584 - INFO - FULL SCORING FLOW FOR: Aero-Tech Services Inc (ID: 0366c90a-6226-4c3e-8a6d-4f91b0141616)
+2026-01-17 22:08:12,584 - INFO - ================================================================================
+2026-01-17 22:08:12,584 - INFO - [Aero-Tech Services Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,868 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:12,869 - ERROR - [Accessair Charters And Management, Llc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:12,870 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:12,871 - INFO - ================================================================================
+2026-01-17 22:08:12,871 - INFO - FULL SCORING FLOW FOR: Aerocapital Flight Services, Llc (ID: 7ef9059d-d6ef-4537-a161-cd4f39039912)
+2026-01-17 22:08:12,871 - INFO - ================================================================================
+2026-01-17 22:08:12,871 - INFO - [Aerocapital Flight Services, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,903 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:12,904 - ERROR - [5 State Helicopters, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:12,905 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:12,905 - INFO - ================================================================================
+2026-01-17 22:08:12,905 - INFO - FULL SCORING FLOW FOR: Aerodynamic Jets, Llc (ID: 1145f041-f321-4d89-a235-e0721276b167)
+2026-01-17 22:08:12,905 - INFO - ================================================================================
+2026-01-17 22:08:12,905 - INFO - [Aerodynamic Jets, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,167 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,168 - ERROR - [Aerodynamic Jets, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,169 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,169 - INFO - ================================================================================
+2026-01-17 22:08:13,169 - INFO - FULL SCORING FLOW FOR: Air 1st Aviation Companies Of Oklahoma Inc (ID: 029f71bc-0ea7-4ba0-8f01-28af06bd1ac5)
+2026-01-17 22:08:13,169 - INFO - ================================================================================
+2026-01-17 22:08:13,169 - INFO - [Air 1st Aviation Companies Of Oklahoma Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,201 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,202 - ERROR - [Aerocapital Flight Services, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,203 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,203 - INFO - ================================================================================
+2026-01-17 22:08:13,203 - INFO - FULL SCORING FLOW FOR: Air Carriage, Inc (ID: 495f93a2-1a3d-417b-9f61-359048b34c3c)
+2026-01-17 22:08:13,203 - INFO - ================================================================================
+2026-01-17 22:08:13,203 - INFO - [Air Carriage, Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,361 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,362 - ERROR - [Air Carriage, Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,363 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,363 - INFO - ================================================================================
+2026-01-17 22:08:13,363 - INFO - FULL SCORING FLOW FOR: Air Center Helicopters, Inc. (ID: 8d886f03-1f3d-44df-a9f5-e04d4ed38185)
+2026-01-17 22:08:13,363 - INFO - ================================================================================
+2026-01-17 22:08:13,363 - INFO - [Air Center Helicopters, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,395 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,396 - ERROR - [Air 1st Aviation Companies Of Oklahoma Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,396 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,397 - INFO - ================================================================================
+2026-01-17 22:08:13,397 - INFO - FULL SCORING FLOW FOR: Air Rutter International, Llc (ID: 1c55ad16-bb8c-4a59-ac7e-1d753d3c9f35)
+2026-01-17 22:08:13,397 - INFO - ================================================================================
+2026-01-17 22:08:13,397 - INFO - [Air Rutter International, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,552 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,553 - ERROR - [Air Center Helicopters, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,553 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,554 - INFO - ================================================================================
+2026-01-17 22:08:13,554 - INFO - FULL SCORING FLOW FOR: Airmed International, Llc (ID: 1d48ee7d-fa55-4208-a11d-4e4cf9b10646)
+2026-01-17 22:08:13,554 - INFO - ================================================================================
+2026-01-17 22:08:13,554 - INFO - [Airmed International, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,665 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,666 - ERROR - [Air Rutter International, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,666 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,667 - INFO - ================================================================================
+2026-01-17 22:08:13,667 - INFO - FULL SCORING FLOW FOR: Aitheras Aviation Group Llc (ID: cbdc5928-d9fb-4145-a79b-80fe8b8c6d56)
+2026-01-17 22:08:13,667 - INFO - ================================================================================
+2026-01-17 22:08:13,667 - INFO - [Aitheras Aviation Group Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,708 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,709 - ERROR - [Airmed International, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,709 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,709 - INFO - ================================================================================
+2026-01-17 22:08:13,709 - INFO - FULL SCORING FLOW FOR: Alaska Skyways Inc (ID: 25a7a6b6-53fb-4b92-b746-a6266a6ce25b)
+2026-01-17 22:08:13,709 - INFO - ================================================================================
+2026-01-17 22:08:13,709 - INFO - [Alaska Skyways Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,853 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,854 - ERROR - [Aitheras Aviation Group Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,854 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,854 - INFO - ================================================================================
+2026-01-17 22:08:13,855 - INFO - FULL SCORING FLOW FOR: Alaska West Air, Inc (ID: e67a8936-2850-4b0c-85e3-d6b645bf7ba4)
+2026-01-17 22:08:13,855 - INFO - ================================================================================
+2026-01-17 22:08:13,855 - INFO - [Alaska West Air, Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,886 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,887 - ERROR - [Alaska Skyways Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,888 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:13,888 - INFO - ================================================================================
+2026-01-17 22:08:13,888 - INFO - FULL SCORING FLOW FOR: Aloft Aviation Services Llc (ID: 2585ae34-7959-4b82-92cf-566941567b68)
+2026-01-17 22:08:13,888 - INFO - ================================================================================
+2026-01-17 22:08:13,888 - INFO - [Aloft Aviation Services Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,046 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,047 - ERROR - [Aloft Aviation Services Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,048 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:14,048 - INFO - ================================================================================
+2026-01-17 22:08:14,048 - INFO - FULL SCORING FLOW FOR: Aris, Inc. (ID: 9e63fed3-641b-4283-9a53-b8a818885430)
+2026-01-17 22:08:14,048 - INFO - ================================================================================
+2026-01-17 22:08:14,048 - INFO - [Aris, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,169 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,170 - ERROR - [Alaska West Air, Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,170 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:14,171 - INFO - ================================================================================
+2026-01-17 22:08:14,171 - INFO - FULL SCORING FLOW FOR: Arrow West Aviation (ID: 49f31a02-2d4f-4956-8c11-220b95f81ba8)
+2026-01-17 22:08:14,171 - INFO - ================================================================================
+2026-01-17 22:08:14,171 - INFO - [Arrow West Aviation] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,225 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,226 - ERROR - [Aris, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,227 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:14,227 - INFO - ================================================================================
+2026-01-17 22:08:14,227 - INFO - FULL SCORING FLOW FOR: Aurora Aviation Services Inc (ID: 3d9cccc8-9f7a-41c4-96a8-4b13ca0cd284)
+2026-01-17 22:08:14,227 - INFO - ================================================================================
+2026-01-17 22:08:14,227 - INFO - [Aurora Aviation Services Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,375 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,376 - ERROR - [Arrow West Aviation] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,377 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:14,377 - INFO - ================================================================================
+2026-01-17 22:08:14,377 - INFO - FULL SCORING FLOW FOR: Blue Ash Charters, Llc. (ID: ae6da4fc-4999-42a3-9212-1e88f97a3c23)
+2026-01-17 22:08:14,377 - INFO - ================================================================================
+2026-01-17 22:08:14,377 - INFO - [Blue Ash Charters, Llc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,409 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,410 - ERROR - [Aurora Aviation Services Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,410 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:08:14,411 - INFO - ================================================================================
+2026-01-17 22:08:14,411 - INFO - FULL SCORING FLOW FOR: Boomerang, Llc (ID: 533579d8-74ed-4203-b091-a97ef03b3fa7)
+2026-01-17 22:08:14,411 - INFO - ================================================================================
+2026-01-17 22:08:14,411 - INFO - [Boomerang, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,458 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:08:19,851 - INFO - [Above It All, Inc.] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:08:19,852 - INFO - [Above It All, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:20,059 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:20,059 - INFO - Retrying request to /v1/sessions in 0.448238 seconds
+2026-01-17 22:08:20,649 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:20,650 - INFO - Retrying request to /v1/sessions in 0.820548 seconds
+2026-01-17 22:08:21,578 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:21,578 - INFO - [Above It All, Inc.] UCC check complete: error
+2026-01-17 22:08:21,578 - INFO - [Above It All, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:08:22,111 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:08:22,112 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:08:38,911 - INFO - [Aero Air Llc] NTSB check complete: 2 incidents found, score: 90
+2026-01-17 22:08:38,911 - INFO - [Aero Air Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:39,178 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:39,178 - INFO - Retrying request to /v1/sessions in 0.392207 seconds
+2026-01-17 22:08:39,679 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:39,680 - INFO - Retrying request to /v1/sessions in 0.785493 seconds
+2026-01-17 22:08:40,580 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:40,580 - INFO - [Aero Air Llc] UCC check complete: error
+2026-01-17 22:08:40,580 - INFO - [Aero Air Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:08:40,613 - INFO - [Aero-Tech Services Inc] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:08:40,613 - INFO - [Aero-Tech Services Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:40,830 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:40,830 - INFO - Retrying request to /v1/sessions in 0.472792 seconds

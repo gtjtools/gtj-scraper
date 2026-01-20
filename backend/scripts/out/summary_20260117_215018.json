@@ -1,0 +1,1131 @@
+{
+  "metadata": {
+    "start_time": "2026-01-17T21:50:19.347032",
+    "end_time": "2026-01-17T22:05:11.957455",
+    "total_operators": 176,
+    "successful": 159,
+    "failed": 17,
+    "browserbase_enabled": true,
+    "source": "database",
+    "status": "completed",
+    "cert_filter": {
+      "start": "A",
+      "end": "E"
+    }
+  },
+  "processed_operators": [
+    {
+      "operator_id": "a3eaedd3-a18a-4fc3-b80a-e60486c5ee0e",
+      "operator_name": "A and P Helicopters, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "aae5fe86-01fc-4bbf-b77c-b894e1373466",
+      "operator_name": "A B FLIGHT SERVICES INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "88583eda-8d6e-4604-b29f-6b1408573420",
+      "operator_name": "AB Jets, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "b98e0cc5-73e6-4bd3-be73-33a809e557f2",
+      "operator_name": "AMBROSINI HELICOPTERS INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "458fa14c-d278-4139-a6e4-f60c59844a5c",
+      "operator_name": "American Jet International Corporation",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "5111019a-3797-43c0-86d6-4b1b43800f38",
+      "operator_name": "American Winds Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "f4d7dd6d-b2f3-4bc1-8006-5fea866778bc",
+      "operator_name": "ANALAR CO",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "5083374a-e663-4c57-afde-bc02074682df",
+      "operator_name": "ARIS HELICOPTERS",
+      "combined_score": 94.65,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "975800ee-341c-4cdf-ac90-4378888bb7a9",
+      "operator_name": "Arizona Heliservices Inc.",
+      "combined_score": 96.3,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "72e747a2-6b93-4acc-b3c4-98e4a68a2e7e",
+      "operator_name": "ARNE AVIATION LLC",
+      "combined_score": 71.82,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "e8639bae-b0b8-4556-8abd-9d089b6929d8",
+      "operator_name": "Associated Aircraft Group, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "666a608a-3a0a-436e-ab38-346c5bd47859",
+      "operator_name": "AUGUSTA AVIATION INC",
+      "combined_score": 86.59,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "40ea3ca3-88d4-4e8a-98b9-3c672d6bcf1d",
+      "operator_name": "AVALON AIR LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "43040e30-52f7-4c2d-8805-df2e430b8a76",
+      "operator_name": "Aviation Charter Inc",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "cde7ddd5-3a71-41b8-95d8-0ee096260722",
+      "operator_name": "Avion Jet Charter, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "02a2a128-7743-4021-af9d-6c31618a96f7",
+      "operator_name": "aXcess Air LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "0fc99c93-598a-4ea9-9da4-df1c3cc1f9d9",
+      "operator_name": "AZIMUTH AVIATION LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "0df19630-4114-4c69-ae71-b54789fccf6d",
+      "operator_name": "BASE CAMP AVIATION LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "76e34d82-f0af-40ec-bf01-303c6f5e527d",
+      "operator_name": "Bemidji Aviation Services, Inc.",
+      "combined_score": 83.65,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "f13bf333-5b1c-4613-9501-f5e46dfd8494",
+      "operator_name": "Bighorn Airways, Inc.",
+      "combined_score": 96.33,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "2433ea9f-c5db-413d-99d4-1f19c8394e75",
+      "operator_name": "Billings Flying Service, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "bc861b48-e3b7-4e99-8232-b5b4302ac145",
+      "operator_name": "BIMINI BAY AIR LEASING LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "d87162fe-2ebd-412b-b81f-59926ed96fa0",
+      "operator_name": "Blatti Aviation, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "397ff272-0e45-4d82-9f00-6dc23fb4e47a",
+      "operator_name": "BRAINERD HELICOPTER SERVICE INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "0ec0cbde-1f0f-4ba8-b2d4-31bb59ffe221",
+      "operator_name": "Brazos Valley Air Charter LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "4955c4e0-7ffa-4502-8ace-52d23c962017",
+      "operator_name": "BRIM EQUIPMENT LEASING, LLC",
+      "combined_score": 72.26,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "edda175c-e474-4834-8116-13ca559d7995",
+      "operator_name": "BULL MOUNTAIN AVIATION LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "d9c8f5f5-71d9-4b80-9e4b-b236e7953e96",
+      "operator_name": "BUSINESS AVIATION COURIER, INC.",
+      "combined_score": 95.68,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "073a34eb-5a9a-4ff3-b6db-dac8361553b7",
+      "operator_name": "Business Aviators, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "e628f816-f048-4d2f-8d40-a25fab3d3c9a",
+      "operator_name": "Byerly Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "55e3a0c5-2146-4411-aa02-82dece4d536f",
+      "operator_name": "CAPITAL JET CHARTER CORPORATION",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "1c5f85dc-16f7-463e-8101-c8b7fdf8172a",
+      "operator_name": "CAPITAL JETS, INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "cab8c095-ac73-49b5-bd30-7f5e85281940",
+      "operator_name": "CASTLE AVIATION INC",
+      "combined_score": 73.35,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "70f3484a-6c99-41d7-984b-ba40d4e7ea19",
+      "operator_name": "Catalina Aerospace Corporation",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "3ab01713-c693-49fa-a704-582105f6e619",
+      "operator_name": "CAUSEY AVIATION SERVICE, INC.",
+      "combined_score": 96.28,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "80a966a3-6262-42be-b0cb-01b79790d92e",
+      "operator_name": "CEDAR RIDGE AVIATION, LLC",
+      "combined_score": 85.4,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "c8aa1795-16ee-4972-b216-f0889f1d8a7b",
+      "operator_name": "CENTER FOR EMERGENCY MEDICINE OF WESTERN PA INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "7c474ee9-dd2c-43d8-a485-efb21331991e",
+      "operator_name": "Central American Airways Flying Service",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "15119a6a-361f-4ea6-8f28-8476ee890a15",
+      "operator_name": "Central Aviation Service, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "e071c0ee-c97d-449f-9718-01583aaa08bc",
+      "operator_name": "Centurion Flight Services Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "a4d1821f-0f11-48fc-be70-70c3040ae765",
+      "operator_name": "Charles City Aeronautics, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "df486d18-d39d-4bdd-93d6-f21f3f131a18",
+      "operator_name": "Charter Air, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "2457a1ed-b3dc-47d7-956c-b38d57b6ede1",
+      "operator_name": "Charter Airlines, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "21e5bc0b-fe5f-4f89-84a7-80fe6db75ebc",
+      "operator_name": "Cherokee Helicopter Service, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "df84e0c9-60cc-4131-ad49-87e54b2c5a0c",
+      "operator_name": "Chrysler Aviation Inc",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "32145b2f-8b35-4fc9-9ef2-7eeda5bc1267",
+      "operator_name": "Civic Helicopters Inc",
+      "combined_score": 75.99,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "5ef733f5-4c3d-4a8d-81d5-1251ccd4abce",
+      "operator_name": "CLAUSEN AVIATION, L.L.C.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "7c9974d3-f118-4889-bdd9-09835f50adb5",
+      "operator_name": "Clay Lacy Aviation, Inc.",
+      "combined_score": 72.14,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "6fa79702-b581-4f0f-8e43-0d30eafaa5ba",
+      "operator_name": "CLEMSON AIR CHARTER LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "5dbce29f-73a3-46e8-97a4-3f7f0256bc89",
+      "operator_name": "COASTAL Air Service, INC.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ee85961e-dfbe-403c-836f-aef54e21a7b7",
+      "operator_name": "Cobb Aviation Services Incorporated",
+      "combined_score": 91.51,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "20059c08-7c32-4d59-8498-e3b568741ba6",
+      "operator_name": "Collier County Helicopter Operations",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "70af1f5b-d223-4dbb-befe-b7397404ee49",
+      "operator_name": "Corporate Air Charters, LLC",
+      "combined_score": 75.97,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "48ce6eab-eee1-47d4-ae18-0e14a1e5335d",
+      "operator_name": "Corporate Air Travel, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "b0f4594e-bbec-4133-8d9f-55b6ae63c569",
+      "operator_name": "Corporate Flight, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "099c2657-292d-4fd4-9974-d0763f5c3591",
+      "operator_name": "Crosswind Aviation, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "39770c94-96ae-45ec-9668-e022877aff54",
+      "operator_name": "Crow Executive Air, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "70e0e8ae-16c3-4cad-b25b-dfaf4d920dc5",
+      "operator_name": "Cutter Flight Management Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "9cf37194-27ae-4ec0-9b7a-3a686d404cd9",
+      "operator_name": "D and D Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "1fb24591-1a7a-42f8-a550-63119979aae3",
+      "operator_name": "D H Helicopter, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "10292b42-c111-49a6-be04-c7c256689c9b",
+      "operator_name": "DAE AVIATION ENTERPRISES CORP",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "2f33565c-5bd4-4ecc-a496-3b31f4006d24",
+      "operator_name": "Davis Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "d3a0d66a-75a7-4ce4-b9cb-17cfcd2fbfd8",
+      "operator_name": "DAVONAIR INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "f5ca58e2-d366-414d-8539-b5ac4b40d75b",
+      "operator_name": "Deer Horn Aviation",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "9d1358b6-1f3b-4d73-9c53-70e55dec4e99",
+      "operator_name": "DENALI AIR INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "e93b1aeb-30df-4691-8072-c13f80fd8f86",
+      "operator_name": "Denver Helicopter Services, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ca91c059-d536-4b62-a330-4257ceba2ed5",
+      "operator_name": "Diamond Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "d8fa9a3c-85aa-4f6e-9eaf-8c94951b34cd",
+      "operator_name": "DIRECT JET CHARTER, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "6637e4d0-45e6-4e72-a1ee-e2774fc0c988",
+      "operator_name": "DORATO JETS LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "d6ebacc2-5057-4c8d-80eb-062c98890a3c",
+      "operator_name": "DoubleDay Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "068d6a7b-1ee3-41bd-b2e6-5451d0280d04",
+      "operator_name": "DOUPE SERVICES LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "405da9d2-50fc-4d60-8242-3763c4d3141c",
+      "operator_name": "East Coast Flight Services Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "e084e7b4-6648-4923-aeb0-e0ff98e7627f",
+      "operator_name": "East Coast Jets, Inc",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "3b872c63-8276-4e8b-9126-9fbc7d13707e",
+      "operator_name": "Eastway Aviation, LLC.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "2731f66f-2ddc-4e17-9eeb-2c4fc90c4fa3",
+      "operator_name": "ELEVAGE FLIGHT TRAVEL, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "7d5c7457-6358-4308-8c22-ab40b9c4ba38",
+      "operator_name": "Elite Air, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "90611c75-df7f-4e25-bf19-c01860fade13",
+      "operator_name": "ELITE ROTORCRAFT LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "c63565e6-e975-433b-8a95-4886a57587aa",
+      "operator_name": "Emerald Air Service, Inc",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "1edb6058-fbe5-4e0f-9c5c-e01e5cf89263",
+      "operator_name": "EMERALD COAST AIR CHARTERS INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "b326fa2d-37c0-4617-ba96-09f24e92e5da",
+      "operator_name": "ENGLISH AIR SERVICE, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "cf0ff610-84f1-4994-a4df-6e57a31f63c0",
+      "operator_name": "EPPS AIR SERVICE, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ff7ecd65-aabb-44e5-9c2b-851ae067685f",
+      "operator_name": "Exec Air Montana LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "0ce93761-7301-4ce9-83de-7fcdd35c76a8",
+      "operator_name": "ExecuJet Charter Service, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "16fdac9b-6213-434d-aaba-3134a593724d",
+      "operator_name": "EXECUTIVE AIR SERVICES, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "279508b4-ee1c-4f90-9aae-f032edc3e83d",
+      "operator_name": "Executive Air Taxi Corporation",
+      "combined_score": 79.83,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "041d5658-4778-4b7d-9d30-00b00bae9f3f",
+      "operator_name": "Executive Aircraft Services, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "d7771182-4f7c-4036-92f8-1e1866f8bdc4",
+      "operator_name": "EXECUTIVE AVIATION CORPORATION",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "b175a452-2f49-4cf0-ba82-6023590d58f6",
+      "operator_name": "EXECUTIVE AVIATION SERVICES Mgmt, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "0c21e20b-7bd3-4314-a422-3303bfeb4c28",
+      "operator_name": "Executive Fliteways, Inc.",
+      "combined_score": 96.36,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "8d7529dd-48dc-47f0-974a-6b4f5ae03435",
+      "operator_name": "Executive Helijet Charters, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "a00dfea5-c598-4928-a1d8-24a9360fb813",
+      "operator_name": "Executive Jet Management, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "898e3a72-a70b-48e5-ae6a-4ecdabc2e774",
+      "operator_name": "EXTRAORDINAIR JETS, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "6a897fe9-b6fd-42ed-819e-59d04edccbc0",
+      "operator_name": "Fargo Jet Center LLC",
+      "combined_score": 81.59,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "2e7b9d85-8d44-411a-8534-c4d1d53963b6",
+      "operator_name": "Flight Level Aviation, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "3e78172e-efcb-4531-aa82-3c8a897a0f6b",
+      "operator_name": "FLY DENALI INC",
+      "combined_score": 78.47,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "df27fd53-bf43-4093-880d-72d5df5699fe",
+      "operator_name": "Freedom Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "85c671c4-3bce-4747-8f7b-6de3d3920f2a",
+      "operator_name": "Hap's Air Service",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "2dce6373-0f9f-4852-a7dd-aa48e6fabba0",
+      "operator_name": "Heartland Aviation, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "e6fbb8ce-011d-472d-8323-23ff01cf7deb",
+      "operator_name": "Helicopters Inc.",
+      "combined_score": 96.18,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "02e92deb-ddad-4544-90ae-508c77c51ded",
+      "operator_name": "Hughes Flying Service, Inc",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "992e7889-97f3-46ca-802e-0a1d622f24b9",
+      "operator_name": "IFL Group, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ce9cdf98-d7a0-4b0b-80c6-60d12810fa5b",
+      "operator_name": "ILIAMNA AIR TAXI INC",
+      "combined_score": 85.74,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "7a240856-0dcc-48b6-9384-cb567800b9ce",
+      "operator_name": "Image Air Charter LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "deb0c0de-41d7-44e2-bf15-3b731ca22fa1",
+      "operator_name": "International Jet Aviation Services Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "7c562b1a-c113-404a-bcec-ee43fb8ec8b2",
+      "operator_name": "Jack Harter Helicopters, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "31059403-fd7e-48b0-ba49-39e22e03f4f2",
+      "operator_name": "Jet Air LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ed5b0141-4617-49ed-94e2-d59e1552e371",
+      "operator_name": "KATMAI AIR, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "b79d7ef0-bbd1-4ff3-8bb8-50205460ecd0",
+      "operator_name": "Kenai Aviation Operations, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "d9d1c390-af52-40f6-b985-8dac9412b798",
+      "operator_name": "Kingdom Air Charters, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "62198073-fab8-4e41-81f7-26b6e0399050",
+      "operator_name": "Kingfisher Air Services Air Safari",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "635eaa07-c660-4499-a890-1ab04ba26407",
+      "operator_name": "KMR Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "6155a60b-812d-4d0f-bf35-011cc9d5be8b",
+      "operator_name": "Lake Placid Airways Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "0c4e4027-88c1-407a-919f-b7d61869a863",
+      "operator_name": "LOWE AVIATION CO INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ad4a241b-ef3f-4933-84f4-307804bd35cb",
+      "operator_name": "Mach One Air Charters, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "8d28ee6d-c611-4c78-bbde-89cdbae37ba9",
+      "operator_name": "MAINE INSTRUMENT FLIGHT",
+      "combined_score": 82.61,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "bcf34281-5ac0-45e9-87ef-8487040d524c",
+      "operator_name": "Maritime Helicopters, Inc",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "cb5e9be9-259c-49f8-b0d3-0ad865f3a1c7",
+      "operator_name": "MAYO AVIATION LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "60de4d3f-9793-49ac-866b-91acfa32eb78",
+      "operator_name": "McMahon Helicopter Services, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "bab701e0-7877-4c31-b70b-1a6465f2f71e",
+      "operator_name": "McPhillips Flying Service, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ae0df2c4-bfb7-437e-9184-5ea5d97f046c",
+      "operator_name": "MCS Charters",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "7cbae47d-89bc-4f1d-9b98-2e0469428a78",
+      "operator_name": "MyFlight",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "2fc7433d-5dea-41be-9899-a219c6adbf45",
+      "operator_name": "North Dallas Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "5ffb5191-9b5f-4a71-839c-b8e96cb0926c",
+      "operator_name": "Onyx Flight, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "6e8c956c-11d2-4292-83ff-d966c1adc21d",
+      "operator_name": "P.J. Helicopters, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "1e8a8ba4-0a8b-4c9a-b1a8-2b535457006b",
+      "operator_name": "Pegasus Elite Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "7fc8e650-0eac-4bce-803e-34db00982ffe",
+      "operator_name": "Peregrine Air Charters, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "730231f9-07ad-43ff-aa05-c0bb400f3b2b",
+      "operator_name": "PHOENIX AIR GROUP INC",
+      "combined_score": 71.9,
+      "ntsb_score": 90,
+      "ntsb_incidents": 2
+    },
+    {
+      "operator_id": "c697420d-bac2-4312-ab6a-da52a85c1849",
+      "operator_name": "Ponderosa Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "c6cabb7c-a73f-4231-bb9a-ef4fc82eee8e",
+      "operator_name": "Precision Air Inc",
+      "combined_score": 73.76,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "2168de95-2cce-46be-85e0-8cc4e7a891de",
+      "operator_name": "Premier Jets Inc",
+      "combined_score": 94.98,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "4e18f645-cde2-4647-aabd-ac73aaecc18a",
+      "operator_name": "Prime Jet, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "52878b5a-e10f-4d4a-ae2f-685a7811e024",
+      "operator_name": "Redding Air Service, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "e13da55f-8c29-471e-8d37-1d12e2103dfb",
+      "operator_name": "Richmor Aviation, Inc.",
+      "combined_score": 96.36,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "66ec2e22-4378-4502-ae28-e77d0ed009ea",
+      "operator_name": "RUSTS FLYING SERVICE INC",
+      "combined_score": 95.15,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "c4bbb604-af48-481b-81ee-a514718d5bff",
+      "operator_name": "Scott's Helicopter Services",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "30d5caf3-59d4-464f-963b-f05eb44fc27d",
+      "operator_name": "Skybird Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "6c4592d4-2c2d-4ff9-9395-fbd0a9caeed3",
+      "operator_name": "Skyway Aviation Services, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "3df310ca-98fc-405c-ae79-124eced8cdcc",
+      "operator_name": "SOMERSET AIR SERVICE INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "6e8a034a-a083-4406-af93-6360e100695c",
+      "operator_name": "Southeastern Ohio Air Service, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "2d227787-3fbd-4aea-a3a1-236b03af7648",
+      "operator_name": "Southwest Aircraft Charter L C",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "b3260e4d-84f8-4e8f-bcac-2df0a5bc4fb0",
+      "operator_name": "Spectrum Health Hospitals",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "ed64076a-2d4e-4ec0-9067-9e8ddb338210",
+      "operator_name": "Speed Aviation, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "5093bf82-dd02-4fc1-b0a2-79860cba03b6",
+      "operator_name": "Spring City Jet, Inc",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "4998cdaf-729c-46cf-8c86-9ac244f51b27",
+      "operator_name": "St Charles Flying Service Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "225d80ae-6839-47bd-80b3-9bf686b91080",
+      "operator_name": "Sterling Aviation, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "bbeb47c8-4b0d-4659-b8ef-245fed215ce6",
+      "operator_name": "Summit Helicopters, Inc.",
+      "combined_score": 74.08,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "6bee305e-0701-4fc1-b61f-e560c66d7ff7",
+      "operator_name": "Sunrise Airlines, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "cc44579e-d136-4992-89a8-978bbf2c878a",
+      "operator_name": "Taughannock Aviation Corp.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "a02fdfca-db26-4565-a28e-da64fe908141",
+      "operator_name": "Tavaero Jet Charter Corporation",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "b3cc5e29-e1e6-4aa9-a8c4-fb7785a6ee18",
+      "operator_name": "The FlightStar Corporation",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "aefd810d-770b-4cb1-a38d-615361c74108",
+      "operator_name": "TRANS NORTH AVIATION LTD",
+      "combined_score": 90.58,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "4fea4814-c658-4a17-b554-0c7249013aab",
+      "operator_name": "TRANS-EXEC AIR SERVICE INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "af8b946e-cb69-46c0-849e-618b2d488661",
+      "operator_name": "Travel Air Charter, LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "40e1e410-81df-4a66-98c0-587d2912d3c7",
+      "operator_name": "Tri State Charter LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "9b48dc91-feca-4a71-9ea9-6434bfac469a",
+      "operator_name": "TRYP Air Charter LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "1916484e-7232-4984-b208-a00c1863ca50",
+      "operator_name": "Ventura Air Services, Inc.",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "25408e15-0809-491e-8334-dad11bf0bfc7",
+      "operator_name": "VENTURE JETS LLC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    },
+    {
+      "operator_id": "9610b233-e1dc-4299-ba84-7c8cc94fdbc0",
+      "operator_name": "Wisconsin Aviation, Inc.",
+      "combined_score": 96.37,
+      "ntsb_score": 95,
+      "ntsb_incidents": 1
+    },
+    {
+      "operator_id": "43d5142f-fe8f-42ee-b756-6e399804175f",
+      "operator_name": "WRIGHT AERO INC",
+      "combined_score": 96.38,
+      "ntsb_score": 100,
+      "ntsb_incidents": 0
+    }
+  ]
+}

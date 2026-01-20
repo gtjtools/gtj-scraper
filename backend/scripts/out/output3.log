@@ -1,0 +1,536 @@
+nohup: ignoring input
+2026-01-17 22:08:11,335 - INFO - Logging to: out/scoring_flow_20260117_220811.log
+2026-01-17 22:08:11,902 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-01-17 22:08:11,902 - INFO - select pg_catalog.version()
+2026-01-17 22:08:11,902 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-01-17 22:08:11,902 - INFO - [raw sql] {}
+2026-01-17 22:08:12,003 INFO sqlalchemy.engine.Engine select current_schema()
+2026-01-17 22:08:12,003 - INFO - select current_schema()
+2026-01-17 22:08:12,003 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-01-17 22:08:12,003 - INFO - [raw sql] {}
+2026-01-17 22:08:12,104 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-01-17 22:08:12,104 - INFO - show standard_conforming_strings
+2026-01-17 22:08:12,104 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-01-17 22:08:12,104 - INFO - [raw sql] {}
+2026-01-17 22:08:12,205 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-01-17 22:08:12,205 - INFO - BEGIN (implicit)
+2026-01-17 22:08:12,209 INFO sqlalchemy.engine.Engine SELECT gtj.operators.operator_id AS gtj_operators_operator_id, gtj.operators.name AS gtj_operators_name, gtj.operators.dba_name AS gtj_operators_dba_name, gtj.operators.certificate_number AS gtj_operators_certificate_number, gtj.operators.ops_specs AS gtj_operators_ops_specs, gtj.operators.base_airport AS gtj_operators_base_airport, gtj.operators.trust_score AS gtj_operators_trust_score, gtj.operators.trust_score_updated_at AS gtj_operators_trust_score_updated_at, gtj.operators.financial_health_score AS gtj_operators_financial_health_score, gtj.operators.regulatory_status AS gtj_operators_regulatory_status, gtj.operators.is_verified AS gtj_operators_is_verified, gtj.operators.business_started_date AS gtj_operators_business_started_date, gtj.operators.argus_rating AS gtj_operators_argus_rating, gtj.operators.wyvern_rating AS gtj_operators_wyvern_rating, gtj.operators.created_at AS gtj_operators_created_at 
+FROM gtj.operators 
+WHERE SUBSTRING(gtj.operators.certificate_number FROM %(substring_1)s FOR %(substring_2)s) BETWEEN %(substring_3)s AND %(substring_4)s ORDER BY gtj.operators.name
+2026-01-17 22:08:12,209 - INFO - SELECT gtj.operators.operator_id AS gtj_operators_operator_id, gtj.operators.name AS gtj_operators_name, gtj.operators.dba_name AS gtj_operators_dba_name, gtj.operators.certificate_number AS gtj_operators_certificate_number, gtj.operators.ops_specs AS gtj_operators_ops_specs, gtj.operators.base_airport AS gtj_operators_base_airport, gtj.operators.trust_score AS gtj_operators_trust_score, gtj.operators.trust_score_updated_at AS gtj_operators_trust_score_updated_at, gtj.operators.financial_health_score AS gtj_operators_financial_health_score, gtj.operators.regulatory_status AS gtj_operators_regulatory_status, gtj.operators.is_verified AS gtj_operators_is_verified, gtj.operators.business_started_date AS gtj_operators_business_started_date, gtj.operators.argus_rating AS gtj_operators_argus_rating, gtj.operators.wyvern_rating AS gtj_operators_wyvern_rating, gtj.operators.created_at AS gtj_operators_created_at 
+FROM gtj.operators 
+WHERE SUBSTRING(gtj.operators.certificate_number FROM %(substring_1)s FOR %(substring_2)s) BETWEEN %(substring_3)s AND %(substring_4)s ORDER BY gtj.operators.name
+2026-01-17 22:08:12,209 INFO sqlalchemy.engine.Engine [generated in 0.00023s] {'substring_1': 1, 'substring_2': 1, 'substring_3': 'K', 'substring_4': 'O'}
+2026-01-17 22:08:12,209 - INFO - [generated in 0.00023s] {'substring_1': 1, 'substring_2': 1, 'substring_3': 'K', 'substring_4': 'O'}
+2026-01-17 22:08:12,364 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-01-17 22:08:12,364 - INFO - ROLLBACK
+2026-01-17 22:08:12,415 - INFO - Loaded 130 operators from database (certificate filter: K to O)
+2026-01-17 22:08:12,415 - INFO - ======================================================================
+2026-01-17 22:08:12,415 - INFO - Full Scoring Flow - Batch Processing (Database Source)
+2026-01-17 22:08:12,415 - INFO - ======================================================================
+2026-01-17 22:08:12,415 - INFO - Operators: 130
+2026-01-17 22:08:12,415 - INFO - Output directory: out
+2026-01-17 22:08:12,415 - INFO - Browserbase: Enabled
+2026-01-17 22:08:12,415 - INFO - Concurrency: 5
+2026-01-17 22:08:12,415 - INFO - Certificate filter: K to O
+2026-01-17 22:08:12,415 - INFO - ======================================================================
+Processing Operators:   0%|          | 0/130 [00:00<?, ?op/s]Processing Operators:   0%|          | 0/130 [00:00<?, ?op/s, Current: 5 State Helicopters,...]2026-01-17 22:08:12,420 - INFO - ================================================================================
+2026-01-17 22:08:12,420 - INFO - FULL SCORING FLOW FOR: 5 State Helicopters, Inc. (ID: 32dd03f7-19d0-4d63-96ca-d27c9372f603)
+2026-01-17 22:08:12,420 - INFO - ================================================================================
+2026-01-17 22:08:12,420 - INFO - [5 State Helicopters, Inc.] Step 1: Querying NTSB database...
+Processing Operators:   0%|          | 0/130 [00:00<?, ?op/s, Current: Above It All, Inc....]  2026-01-17 22:08:12,490 - INFO - ================================================================================
+2026-01-17 22:08:12,490 - INFO - FULL SCORING FLOW FOR: Above It All, Inc. (ID: 7e7a9483-0eb7-43b0-b58c-1355d0f078db)
+2026-01-17 22:08:12,490 - INFO - ================================================================================
+2026-01-17 22:08:12,490 - INFO - [Above It All, Inc.] Step 1: Querying NTSB database...
+Processing Operators:   0%|          | 0/130 [00:00<?, ?op/s, Current: Accessair Charters A...]2026-01-17 22:08:12,521 - INFO - ================================================================================
+2026-01-17 22:08:12,521 - INFO - FULL SCORING FLOW FOR: Accessair Charters And Management, Llc. (ID: 9646bcd5-144e-42cb-a27d-ba245b0e9291)
+2026-01-17 22:08:12,522 - INFO - ================================================================================
+2026-01-17 22:08:12,522 - INFO - [Accessair Charters And Management, Llc.] Step 1: Querying NTSB database...
+Processing Operators:   0%|          | 0/130 [00:00<?, ?op/s, Current: Aero Air Llc...]        2026-01-17 22:08:12,552 - INFO - ================================================================================
+2026-01-17 22:08:12,552 - INFO - FULL SCORING FLOW FOR: Aero Air Llc (ID: 5ff7a3af-e33f-4cc7-96e8-60bf3854d519)
+2026-01-17 22:08:12,553 - INFO - ================================================================================
+2026-01-17 22:08:12,553 - INFO - [Aero Air Llc] Step 1: Querying NTSB database...
+Processing Operators:   0%|          | 0/130 [00:00<?, ?op/s, Current: Aero-Tech Services I...]2026-01-17 22:08:12,583 - INFO - ================================================================================
+2026-01-17 22:08:12,584 - INFO - FULL SCORING FLOW FOR: Aero-Tech Services Inc (ID: 0366c90a-6226-4c3e-8a6d-4f91b0141616)
+2026-01-17 22:08:12,584 - INFO - ================================================================================
+2026-01-17 22:08:12,584 - INFO - [Aero-Tech Services Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,868 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:12,869 - ERROR - [Accessair Charters And Management, Llc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:12,870 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   1%|          | 1/130 [00:00<00:58,  2.21op/s, Current: Aero-Tech Services I...]Processing Operators:   1%|          | 1/130 [00:00<00:58,  2.21op/s, Current: Aerocapital Flight S...]2026-01-17 22:08:12,871 - INFO - ================================================================================
+2026-01-17 22:08:12,871 - INFO - FULL SCORING FLOW FOR: Aerocapital Flight Services, Llc (ID: 7ef9059d-d6ef-4537-a161-cd4f39039912)
+2026-01-17 22:08:12,871 - INFO - ================================================================================
+2026-01-17 22:08:12,871 - INFO - [Aerocapital Flight Services, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:12,903 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:12,904 - ERROR - [5 State Helicopters, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:12,905 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   2%|▏         | 2/130 [00:00<00:57,  2.21op/s, Current: Aerodynamic Jets, Ll...]2026-01-17 22:08:12,905 - INFO - ================================================================================
+2026-01-17 22:08:12,905 - INFO - FULL SCORING FLOW FOR: Aerodynamic Jets, Llc (ID: 1145f041-f321-4d89-a235-e0721276b167)
+2026-01-17 22:08:12,905 - INFO - ================================================================================
+2026-01-17 22:08:12,905 - INFO - [Aerodynamic Jets, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,167 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,168 - ERROR - [Aerodynamic Jets, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,169 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   2%|▏         | 3/130 [00:00<00:28,  4.39op/s, Current: Aerodynamic Jets, Ll...]Processing Operators:   2%|▏         | 3/130 [00:00<00:28,  4.39op/s, Current: Air 1st Aviation Com...]2026-01-17 22:08:13,169 - INFO - ================================================================================
+2026-01-17 22:08:13,169 - INFO - FULL SCORING FLOW FOR: Air 1st Aviation Companies Of Oklahoma Inc (ID: 029f71bc-0ea7-4ba0-8f01-28af06bd1ac5)
+2026-01-17 22:08:13,169 - INFO - ================================================================================
+2026-01-17 22:08:13,169 - INFO - [Air 1st Aviation Companies Of Oklahoma Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,201 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,202 - ERROR - [Aerocapital Flight Services, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,203 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   3%|▎         | 4/130 [00:00<00:28,  4.39op/s, Current: Air Carriage, Inc...]   2026-01-17 22:08:13,203 - INFO - ================================================================================
+2026-01-17 22:08:13,203 - INFO - FULL SCORING FLOW FOR: Air Carriage, Inc (ID: 495f93a2-1a3d-417b-9f61-359048b34c3c)
+2026-01-17 22:08:13,203 - INFO - ================================================================================
+2026-01-17 22:08:13,203 - INFO - [Air Carriage, Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,361 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,362 - ERROR - [Air Carriage, Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,363 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   4%|▍         | 5/130 [00:00<00:20,  6.24op/s, Current: Air Carriage, Inc...]Processing Operators:   4%|▍         | 5/130 [00:00<00:20,  6.24op/s, Current: Air Center Helicopte...]2026-01-17 22:08:13,363 - INFO - ================================================================================
+2026-01-17 22:08:13,363 - INFO - FULL SCORING FLOW FOR: Air Center Helicopters, Inc. (ID: 8d886f03-1f3d-44df-a9f5-e04d4ed38185)
+2026-01-17 22:08:13,363 - INFO - ================================================================================
+2026-01-17 22:08:13,363 - INFO - [Air Center Helicopters, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,395 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,396 - ERROR - [Air 1st Aviation Companies Of Oklahoma Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,396 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   5%|▍         | 6/130 [00:00<00:19,  6.24op/s, Current: Air Rutter Internati...]2026-01-17 22:08:13,397 - INFO - ================================================================================
+2026-01-17 22:08:13,397 - INFO - FULL SCORING FLOW FOR: Air Rutter International, Llc (ID: 1c55ad16-bb8c-4a59-ac7e-1d753d3c9f35)
+2026-01-17 22:08:13,397 - INFO - ================================================================================
+2026-01-17 22:08:13,397 - INFO - [Air Rutter International, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,552 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,553 - ERROR - [Air Center Helicopters, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,553 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   5%|▌         | 7/130 [00:01<00:16,  7.52op/s, Current: Air Rutter Internati...]Processing Operators:   5%|▌         | 7/130 [00:01<00:16,  7.52op/s, Current: Airmed International...]2026-01-17 22:08:13,554 - INFO - ================================================================================
+2026-01-17 22:08:13,554 - INFO - FULL SCORING FLOW FOR: Airmed International, Llc (ID: 1d48ee7d-fa55-4208-a11d-4e4cf9b10646)
+2026-01-17 22:08:13,554 - INFO - ================================================================================
+2026-01-17 22:08:13,554 - INFO - [Airmed International, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,665 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,666 - ERROR - [Air Rutter International, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,666 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   6%|▌         | 8/130 [00:01<00:15,  7.80op/s, Current: Airmed International...]Processing Operators:   6%|▌         | 8/130 [00:01<00:15,  7.80op/s, Current: Aitheras Aviation Gr...]2026-01-17 22:08:13,667 - INFO - ================================================================================
+2026-01-17 22:08:13,667 - INFO - FULL SCORING FLOW FOR: Aitheras Aviation Group Llc (ID: cbdc5928-d9fb-4145-a79b-80fe8b8c6d56)
+2026-01-17 22:08:13,667 - INFO - ================================================================================
+2026-01-17 22:08:13,667 - INFO - [Aitheras Aviation Group Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,708 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,709 - ERROR - [Airmed International, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,709 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   7%|▋         | 9/130 [00:01<00:15,  7.80op/s, Current: Alaska Skyways Inc...]  2026-01-17 22:08:13,709 - INFO - ================================================================================
+2026-01-17 22:08:13,709 - INFO - FULL SCORING FLOW FOR: Alaska Skyways Inc (ID: 25a7a6b6-53fb-4b92-b746-a6266a6ce25b)
+2026-01-17 22:08:13,709 - INFO - ================================================================================
+2026-01-17 22:08:13,709 - INFO - [Alaska Skyways Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,853 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,854 - ERROR - [Aitheras Aviation Group Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,854 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   8%|▊         | 10/130 [00:01<00:13,  8.73op/s, Current: Alaska Skyways Inc...]Processing Operators:   8%|▊         | 10/130 [00:01<00:13,  8.73op/s, Current: Alaska West Air, Inc...]2026-01-17 22:08:13,854 - INFO - ================================================================================
+2026-01-17 22:08:13,855 - INFO - FULL SCORING FLOW FOR: Alaska West Air, Inc (ID: e67a8936-2850-4b0c-85e3-d6b645bf7ba4)
+2026-01-17 22:08:13,855 - INFO - ================================================================================
+2026-01-17 22:08:13,855 - INFO - [Alaska West Air, Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:13,886 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:13,887 - ERROR - [Alaska Skyways Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:13,888 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   8%|▊         | 11/130 [00:01<00:13,  8.73op/s, Current: Aloft Aviation Servi...]2026-01-17 22:08:13,888 - INFO - ================================================================================
+2026-01-17 22:08:13,888 - INFO - FULL SCORING FLOW FOR: Aloft Aviation Services Llc (ID: 2585ae34-7959-4b82-92cf-566941567b68)
+2026-01-17 22:08:13,888 - INFO - ================================================================================
+2026-01-17 22:08:13,888 - INFO - [Aloft Aviation Services Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,046 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,047 - ERROR - [Aloft Aviation Services Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,048 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:   9%|▉         | 12/130 [00:01<00:12,  9.25op/s, Current: Aloft Aviation Servi...]Processing Operators:   9%|▉         | 12/130 [00:01<00:12,  9.25op/s, Current: Aris, Inc....]          2026-01-17 22:08:14,048 - INFO - ================================================================================
+2026-01-17 22:08:14,048 - INFO - FULL SCORING FLOW FOR: Aris, Inc. (ID: 9e63fed3-641b-4283-9a53-b8a818885430)
+2026-01-17 22:08:14,048 - INFO - ================================================================================
+2026-01-17 22:08:14,048 - INFO - [Aris, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,169 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,170 - ERROR - [Alaska West Air, Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,170 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:  10%|█         | 13/130 [00:01<00:13,  9.00op/s, Current: Aris, Inc....]Processing Operators:  10%|█         | 13/130 [00:01<00:13,  9.00op/s, Current: Arrow West Aviation...]2026-01-17 22:08:14,171 - INFO - ================================================================================
+2026-01-17 22:08:14,171 - INFO - FULL SCORING FLOW FOR: Arrow West Aviation (ID: 49f31a02-2d4f-4956-8c11-220b95f81ba8)
+2026-01-17 22:08:14,171 - INFO - ================================================================================
+2026-01-17 22:08:14,171 - INFO - [Arrow West Aviation] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,225 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,226 - ERROR - [Aris, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,227 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:  11%|█         | 14/130 [00:01<00:12,  9.00op/s, Current: Aurora Aviation Serv...]2026-01-17 22:08:14,227 - INFO - ================================================================================
+2026-01-17 22:08:14,227 - INFO - FULL SCORING FLOW FOR: Aurora Aviation Services Inc (ID: 3d9cccc8-9f7a-41c4-96a8-4b13ca0cd284)
+2026-01-17 22:08:14,227 - INFO - ================================================================================
+2026-01-17 22:08:14,227 - INFO - [Aurora Aviation Services Inc] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,375 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,376 - ERROR - [Arrow West Aviation] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,377 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:  12%|█▏        | 15/130 [00:01<00:12,  9.25op/s, Current: Aurora Aviation Serv...]Processing Operators:  12%|█▏        | 15/130 [00:01<00:12,  9.25op/s, Current: Blue Ash Charters, L...]2026-01-17 22:08:14,377 - INFO - ================================================================================
+2026-01-17 22:08:14,377 - INFO - FULL SCORING FLOW FOR: Blue Ash Charters, Llc. (ID: ae6da4fc-4999-42a3-9212-1e88f97a3c23)
+2026-01-17 22:08:14,377 - INFO - ================================================================================
+2026-01-17 22:08:14,377 - INFO - [Blue Ash Charters, Llc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,409 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:08:14,410 - ERROR - [Aurora Aviation Services Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:08:14,410 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+Processing Operators:  12%|█▏        | 16/130 [00:01<00:12,  9.25op/s, Current: Boomerang, Llc...]      2026-01-17 22:08:14,411 - INFO - ================================================================================
+2026-01-17 22:08:14,411 - INFO - FULL SCORING FLOW FOR: Boomerang, Llc (ID: 533579d8-74ed-4203-b091-a97ef03b3fa7)
+2026-01-17 22:08:14,411 - INFO - ================================================================================
+2026-01-17 22:08:14,411 - INFO - [Boomerang, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:14,458 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+FROM query_ntsb_incidents
+
+Downloading NTSB PDFs to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Above_It_All__Inc_
+
+Processing accident number: 68279
+Downloading PDF from: https://data.ntsb.gov/carol-repgen/api/Aviation/ReportMain/GenerateNewestReport/68279/pdf
+Saving to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Above_It_All__Inc_/ntsb_report_68279.pdf
+Note: The NTSB server generates reports on-demand. This may take 30 seconds to several minutes.
+Progress: 1.1% (8,192 / 753,886 bytes)Progress: 2.2% (16,384 / 753,886 bytes)Progress: 3.3% (24,576 / 753,886 bytes)Progress: 4.3% (32,768 / 753,886 bytes)Progress: 5.4% (40,960 / 753,886 bytes)Progress: 6.5% (49,152 / 753,886 bytes)Progress: 7.6% (57,344 / 753,886 bytes)Progress: 8.7% (65,536 / 753,886 bytes)Progress: 9.8% (73,728 / 753,886 bytes)Progress: 10.9% (81,920 / 753,886 bytes)Progress: 12.0% (90,112 / 753,886 bytes)Progress: 13.0% (98,304 / 753,886 bytes)Progress: 14.1% (106,496 / 753,886 bytes)Progress: 15.2% (114,688 / 753,886 bytes)Progress: 16.3% (122,880 / 753,886 bytes)Progress: 17.4% (131,072 / 753,886 bytes)Progress: 18.5% (139,264 / 753,886 bytes)Progress: 19.6% (147,456 / 753,886 bytes)Progress: 20.6% (155,648 / 753,886 bytes)Progress: 21.7% (163,840 / 753,886 bytes)Progress: 22.8% (172,032 / 753,886 bytes)Progress: 23.9% (180,224 / 753,886 bytes)Progress: 25.0% (188,416 / 753,886 bytes)Progress: 26.1% (196,608 / 753,886 bytes)Progress: 27.2% (204,800 / 753,886 bytes)Progress: 28.3% (212,992 / 753,886 bytes)Progress: 29.3% (221,184 / 753,886 bytes)Progress: 30.4% (229,376 / 753,886 bytes)Progress: 31.5% (237,568 / 753,886 bytes)Progress: 32.6% (245,760 / 753,886 bytes)Progress: 33.7% (253,952 / 753,886 bytes)Progress: 34.8% (262,144 / 753,886 bytes)Progress: 35.9% (270,336 / 753,886 bytes)Progress: 36.9% (278,528 / 753,886 bytes)Progress: 38.0% (286,720 / 753,886 bytes)Progress: 39.1% (294,912 / 753,886 bytes)Progress: 40.2% (303,104 / 753,886 bytes)Progress: 41.3% (311,296 / 753,886 bytes)Progress: 42.4% (319,488 / 753,886 bytes)Progress: 43.5% (327,680 / 753,886 bytes)Progress: 44.6% (335,872 / 753,886 bytes)Progress: 45.6% (344,064 / 753,886 bytes)Progress: 46.7% (352,256 / 753,886 bytes)Progress: 47.8% (360,448 / 753,886 bytes)Progress: 48.9% (368,640 / 753,886 bytes)Progress: 50.0% (376,832 / 753,886 bytes)Progress: 51.1% (385,024 / 753,886 bytes)Progress: 52.2% (393,216 / 753,886 bytes)Progress: 53.2% (401,408 / 753,886 bytes)Progress: 54.3% (409,600 / 753,886 bytes)Progress: 55.4% (417,792 / 753,886 bytes)Progress: 56.5% (425,984 / 753,886 bytes)Progress: 57.6% (434,176 / 753,886 bytes)Progress: 58.7% (442,368 / 753,886 bytes)Progress: 59.8% (450,560 / 753,886 bytes)Progress: 60.9% (458,752 / 753,886 bytes)Progress: 61.9% (466,944 / 753,886 bytes)Progress: 63.0% (475,136 / 753,886 bytes)Progress: 64.1% (483,328 / 753,886 bytes)Progress: 65.2% (491,520 / 753,886 bytes)Progress: 66.3% (499,712 / 753,886 bytes)Progress: 67.4% (507,904 / 753,886 bytes)Progress: 68.5% (516,096 / 753,886 bytes)Progress: 69.5% (524,288 / 753,886 bytes)Progress: 70.6% (532,480 / 753,886 bytes)Progress: 71.7% (540,672 / 753,886 bytes)Progress: 72.8% (548,864 / 753,886 bytes)Progress: 73.9% (557,056 / 753,886 bytes)Progress: 75.0% (565,248 / 753,886 bytes)Progress: 76.1% (573,440 / 753,886 bytes)Progress: 77.2% (581,632 / 753,886 bytes)Progress: 78.2% (589,824 / 753,886 bytes)Progress: 79.3% (598,016 / 753,886 bytes)Progress: 80.4% (606,208 / 753,886 bytes)Progress: 81.5% (614,400 / 753,886 bytes)Progress: 82.6% (622,592 / 753,886 bytes)Progress: 83.7% (630,784 / 753,886 bytes)Progress: 84.8% (638,976 / 753,886 bytes)Progress: 85.8% (647,168 / 753,886 bytes)Progress: 86.9% (655,360 / 753,886 bytes)Progress: 88.0% (663,552 / 753,886 bytes)Progress: 89.1% (671,744 / 753,886 bytes)Progress: 90.2% (679,936 / 753,886 bytes)Progress: 91.3% (688,128 / 753,886 bytes)Progress: 92.4% (696,320 / 753,886 bytes)Progress: 93.5% (704,512 / 753,886 bytes)Progress: 94.5% (712,704 / 753,886 bytes)Progress: 95.6% (720,896 / 753,886 bytes)Progress: 96.7% (729,088 / 753,886 bytes)Progress: 97.8% (737,280 / 753,886 bytes)Progress: 98.9% (745,472 / 753,886 bytes)Progress: 100.0% (753,664 / 753,886 bytes)Progress: 100.0% (753,886 / 753,886 bytes)2026-01-17 22:08:19,851 - INFO - [Above It All, Inc.] NTSB check complete: 1 incidents found, score: 95
+/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py:133: PydanticDeprecatedSince20: The `dict` method is deprecated; use `model_dump` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
+  ntsb_incidents_dict = [incident.dict() for incident in incidents]
+2026-01-17 22:08:19,852 - INFO - [Above It All, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:20,059 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:20,059 - INFO - Retrying request to /v1/sessions in 0.448238 seconds
+2026-01-17 22:08:20,649 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:20,650 - INFO - Retrying request to /v1/sessions in 0.820548 seconds
+2026-01-17 22:08:21,578 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:21,578 - INFO - [Above It All, Inc.] UCC check complete: error
+2026-01-17 22:08:21,578 - INFO - [Above It All, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:08:22,111 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:08:22,112 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+
+
+Download complete! File size: 753,886 bytes
+Saved to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Above_It_All__Inc_/ntsb_report_68279.pdf
+
+================================================================================
+VERIFYING UCC FILINGS FOR: Above It All, Inc.
+State: Will be determined from NTSB results
+================================================================================
+
+❌ UCC verification error: Error code: 429 - {'statusCode': 429, 'error': 'Too Many Requests', 'message': "You've exceeded your max concurrent sessions limit (limit 24, currently 24). Please contact support to increase your limit."}
+✓ OpenRouter client initialized
+
+Downloading NTSB PDFs to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Aero_Air_Llc
+
+Processing accident number: 193912
+Downloading PDF from: https://data.ntsb.gov/carol-repgen/api/Aviation/ReportMain/GenerateNewestReport/193912/pdf
+Saving to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Aero_Air_Llc/ntsb_report_193912.pdf
+Note: The NTSB server generates reports on-demand. This may take 30 seconds to several minutes.
+Progress: 1.1% (8,192 / 777,958 bytes)Progress: 2.1% (16,384 / 777,958 bytes)Progress: 3.2% (24,576 / 777,958 bytes)Progress: 4.2% (32,768 / 777,958 bytes)Progress: 5.3% (40,960 / 777,958 bytes)Progress: 6.3% (49,152 / 777,958 bytes)Progress: 7.4% (57,344 / 777,958 bytes)Progress: 8.4% (65,536 / 777,958 bytes)Progress: 9.5% (73,728 / 777,958 bytes)Progress: 10.5% (81,920 / 777,958 bytes)Progress: 11.6% (90,112 / 777,958 bytes)Progress: 12.6% (98,304 / 777,958 bytes)Progress: 13.7% (106,496 / 777,958 bytes)Progress: 14.7% (114,688 / 777,958 bytes)Progress: 15.8% (122,880 / 777,958 bytes)Progress: 16.8% (131,072 / 777,958 bytes)Progress: 17.9% (139,264 / 777,958 bytes)Progress: 19.0% (147,456 / 777,958 bytes)Progress: 20.0% (155,648 / 777,958 bytes)Progress: 21.1% (163,840 / 777,958 bytes)Progress: 22.1% (172,032 / 777,958 bytes)Progress: 23.2% (180,224 / 777,958 bytes)Progress: 24.2% (188,416 / 777,958 bytes)Progress: 25.3% (196,608 / 777,958 bytes)Progress: 26.3% (204,800 / 777,958 bytes)Progress: 27.4% (212,992 / 777,958 bytes)Progress: 28.4% (221,184 / 777,958 bytes)Progress: 29.5% (229,376 / 777,958 bytes)Progress: 30.5% (237,568 / 777,958 bytes)Progress: 31.6% (245,760 / 777,958 bytes)Progress: 32.6% (253,952 / 777,958 bytes)Progress: 33.7% (262,144 / 777,958 bytes)Progress: 34.7% (270,336 / 777,958 bytes)Progress: 35.8% (278,528 / 777,958 bytes)Progress: 36.9% (286,720 / 777,958 bytes)Progress: 37.9% (294,912 / 777,958 bytes)Progress: 39.0% (303,104 / 777,958 bytes)Progress: 40.0% (311,296 / 777,958 bytes)Progress: 41.1% (319,488 / 777,958 bytes)Progress: 42.1% (327,680 / 777,958 bytes)Progress: 43.2% (335,872 / 777,958 bytes)Progress: 44.2% (344,064 / 777,958 bytes)Progress: 45.3% (352,256 / 777,958 bytes)Progress: 46.3% (360,448 / 777,958 bytes)Progress: 47.4% (368,640 / 777,958 bytes)Progress: 48.4% (376,832 / 777,958 bytes)Progress: 49.5% (385,024 / 777,958 bytes)Progress: 50.5% (393,216 / 777,958 bytes)Progress: 51.6% (401,408 / 777,958 bytes)Progress: 52.7% (409,600 / 777,958 bytes)Progress: 53.7% (417,792 / 777,958 bytes)Progress: 54.8% (425,984 / 777,958 bytes)Progress: 55.8% (434,176 / 777,958 bytes)Progress: 56.9% (442,368 / 777,958 bytes)Progress: 57.9% (450,560 / 777,958 bytes)Progress: 59.0% (458,752 / 777,958 bytes)Progress: 60.0% (466,944 / 777,958 bytes)Progress: 61.1% (475,136 / 777,958 bytes)Progress: 62.1% (483,328 / 777,958 bytes)Progress: 63.2% (491,520 / 777,958 bytes)Progress: 64.2% (499,712 / 777,958 bytes)Progress: 65.3% (507,904 / 777,958 bytes)Progress: 66.3% (516,096 / 777,958 bytes)Progress: 67.4% (524,288 / 777,958 bytes)Progress: 68.4% (532,480 / 777,958 bytes)Progress: 69.5% (540,672 / 777,958 bytes)Progress: 70.6% (548,864 / 777,958 bytes)Progress: 71.6% (557,056 / 777,958 bytes)Progress: 72.7% (565,248 / 777,958 bytes)Progress: 73.7% (573,440 / 777,958 bytes)Progress: 74.8% (581,632 / 777,958 bytes)Progress: 75.8% (589,824 / 777,958 bytes)Progress: 76.9% (598,016 / 777,958 bytes)Progress: 77.9% (606,208 / 777,958 bytes)Progress: 79.0% (614,400 / 777,958 bytes)Progress: 80.0% (622,592 / 777,958 bytes)Progress: 81.1% (630,784 / 777,958 bytes)Progress: 82.1% (638,976 / 777,958 bytes)Progress: 83.2% (647,168 / 777,958 bytes)Progress: 84.2% (655,360 / 777,958 bytes)Progress: 85.3% (663,552 / 777,958 bytes)Progress: 86.3% (671,744 / 777,958 bytes)Progress: 87.4% (679,936 / 777,958 bytes)Progress: 88.5% (688,128 / 777,958 bytes)Progress: 89.5% (696,320 / 777,958 bytes)Progress: 90.6% (704,512 / 777,958 bytes)Progress: 91.6% (712,704 / 777,958 bytes)Progress: 92.7% (720,896 / 777,958 bytes)Progress: 93.7% (729,088 / 777,958 bytes)Progress: 94.8% (737,280 / 777,958 bytes)Progress: 95.8% (745,472 / 777,958 bytes)Progress: 96.9% (753,664 / 777,958 bytes)Progress: 97.9% (761,856 / 777,958 bytes)Progress: 99.0% (770,048 / 777,958 bytes)Progress: 100.0% (777,958 / 777,958 bytes)
+
+Download complete! File size: 777,958 bytes
+Saved to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Aero_Air_Llc/ntsb_report_193912.pdf
+
+Processing accident number: 83048
+Downloading PDF from: https://data.ntsb.gov/carol-repgen/api/Aviation/ReportMain/GenerateNewestReport/83048/pdf
+Saving to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Aero_Air_Llc/ntsb_report_83048.pdf
+Note: The NTSB server generates reports on-demand. This may take 30 seconds to several minutes.
+Progress: 1.0% (8,192 / 793,132 bytes)Progress: 2.1% (16,384 / 793,132 bytes)Progress: 3.1% (24,576 / 793,132 bytes)Progress: 4.1% (32,768 / 793,132 bytes)Progress: 5.2% (40,960 / 793,132 bytes)Progress: 6.2% (49,152 / 793,132 bytes)Progress: 7.2% (57,344 / 793,132 bytes)Progress: 8.3% (65,536 / 793,132 bytes)Progress: 9.3% (73,728 / 793,132 bytes)Progress: 10.3% (81,920 / 793,132 bytes)Progress: 11.4% (90,112 / 793,132 bytes)Progress: 12.4% (98,304 / 793,132 bytes)Progress: 13.4% (106,496 / 793,132 bytes)Progress: 14.5% (114,688 / 793,132 bytes)Progress: 15.5% (122,880 / 793,132 bytes)Progress: 16.5% (131,072 / 793,132 bytes)Progress: 17.6% (139,264 / 793,132 bytes)Progress: 18.6% (147,456 / 793,132 bytes)Progress: 19.6% (155,648 / 793,132 bytes)Progress: 20.7% (163,840 / 793,132 bytes)Progress: 21.7% (172,032 / 793,132 bytes)Progress: 22.7% (180,224 / 793,132 bytes)Progress: 23.8% (188,416 / 793,132 bytes)Progress: 24.8% (196,608 / 793,132 bytes)Progress: 25.8% (204,800 / 793,132 bytes)Progress: 26.9% (212,992 / 793,132 bytes)Progress: 27.9% (221,184 / 793,132 bytes)Progress: 28.9% (229,376 / 793,132 bytes)Progress: 30.0% (237,568 / 793,132 bytes)Progress: 31.0% (245,760 / 793,132 bytes)Progress: 32.0% (253,952 / 793,132 bytes)Progress: 33.1% (262,144 / 793,132 bytes)Progress: 34.1% (270,336 / 793,132 bytes)Progress: 35.1% (278,528 / 793,132 bytes)Progress: 36.2% (286,720 / 793,132 bytes)Progress: 37.2% (294,912 / 793,132 bytes)Progress: 38.2% (303,104 / 793,132 bytes)Progress: 39.2% (311,296 / 793,132 bytes)Progress: 40.3% (319,488 / 793,132 bytes)Progress: 41.3% (327,680 / 793,132 bytes)Progress: 42.3% (335,872 / 793,132 bytes)Progress: 43.4% (344,064 / 793,132 bytes)Progress: 44.4% (352,256 / 793,132 bytes)Progress: 45.4% (360,448 / 793,132 bytes)Progress: 46.5% (368,640 / 793,132 bytes)Progress: 47.5% (376,832 / 793,132 bytes)Progress: 48.5% (385,024 / 793,132 bytes)Progress: 49.6% (393,216 / 793,132 bytes)Progress: 50.6% (401,408 / 793,132 bytes)Progress: 51.6% (409,600 / 793,132 bytes)Progress: 52.7% (417,792 / 793,132 bytes)Progress: 53.7% (425,984 / 793,132 bytes)Progress: 54.7% (434,176 / 793,132 bytes)Progress: 55.8% (442,368 / 793,132 bytes)Progress: 56.8% (450,560 / 793,132 bytes)Progress: 57.8% (458,752 / 793,132 bytes)Progress: 58.9% (466,944 / 793,132 bytes)Progress: 59.9% (475,136 / 793,132 bytes)Progress: 60.9% (483,328 / 793,132 bytes)Progress: 62.0% (491,520 / 793,132 bytes)Progress: 63.0% (499,712 / 793,132 bytes)Progress: 64.0% (507,904 / 793,132 bytes)Progress: 65.1% (516,096 / 793,132 bytes)Progress: 66.1% (524,288 / 793,132 bytes)Progress: 67.1% (532,480 / 793,132 bytes)Progress: 68.2% (540,672 / 793,132 bytes)Progress: 69.2% (548,864 / 793,132 bytes)Progress: 70.2% (557,056 / 793,132 bytes)Progress: 71.3% (565,248 / 793,132 bytes)Progress: 72.3% (573,440 / 793,132 bytes)Progress: 73.3% (581,632 / 793,132 bytes)Progress: 74.4% (589,824 / 793,132 bytes)Progress: 75.4% (598,016 / 793,132 bytes)Progress: 76.4% (606,208 / 793,132 bytes)Progress: 77.5% (614,400 / 793,132 bytes)Progress: 78.5% (622,592 / 793,132 bytes)Progress: 79.5% (630,784 / 793,132 bytes)Progress: 80.6% (638,976 / 793,132 bytes)Progress: 81.6% (647,168 / 793,132 bytes)Progress: 82.6% (655,360 / 793,132 bytes)Progress: 83.7% (663,552 / 793,132 bytes)Progress: 84.7% (671,744 / 793,132 bytes)Progress: 85.7% (679,936 / 793,132 bytes)Progress: 86.8% (688,128 / 793,132 bytes)Progress: 87.8% (696,320 / 793,132 bytes)Progress: 88.8% (704,512 / 793,132 bytes)Progress: 89.9% (712,704 / 793,132 bytes)Progress: 90.9% (720,896 / 793,132 bytes)Progress: 91.9% (729,088 / 793,132 bytes)Progress: 93.0% (737,280 / 793,132 bytes)Progress: 94.0% (745,472 / 793,132 bytes)Progress: 95.0% (753,664 / 793,132 bytes)Progress: 96.1% (761,856 / 793,132 bytes)Progress: 97.1% (770,048 / 793,132 bytes)Progress: 98.1% (778,240 / 793,132 bytes)Progress: 99.2% (786,432 / 793,132 bytes)Progress: 100.0% (793,132 / 793,132 bytes)
+
+Download complete! File size: 793,132 bytes
+Saved to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Aero_Air_Llc/ntsb_report_83048.pdf
+
+Downloading NTSB PDFs to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Aero_Tech_Services_Inc
+
+Processing accident number: 94411
+Downloading PDF from: https://data.ntsb.gov/carol-repgen/api/Aviation/ReportMain/GenerateNewestReport/94411/pdf
+Saving to: /home/gtjadmin/gtj-scraper/backend/data/temp/20260117/Aero_Tech_Services_Inc/ntsb_report_94411.pdf
+Note: The NTSB server generates reports on-demand. This may take 30 seconds to several minutes.
+Progress: 1.1% (8,192 / 776,137 bytes)Progress: 2.1% (16,384 / 776,137 bytes)Progress: 3.2% (24,576 / 776,137 bytes)Progress: 4.2% (32,768 / 776,137 bytes)Progress: 5.3% (40,960 / 776,137 bytes)Progress: 6.3% (49,152 / 776,137 bytes)Progress: 7.4% (57,344 / 776,137 bytes)Progress: 8.4% (65,536 / 776,137 bytes)Progress: 9.5% (73,728 / 776,137 bytes)Progress: 10.6% (81,920 / 776,137 bytes)Progress: 11.6% (90,112 / 776,137 bytes)Progress: 12.7% (98,304 / 776,137 bytes)Progress: 13.7% (106,496 / 776,137 bytes)Progress: 14.8% (114,688 / 776,137 bytes)Progress: 15.8% (122,880 / 776,137 bytes)Progress: 16.9% (131,072 / 776,137 bytes)Progress: 17.9% (139,264 / 776,137 bytes)Progress: 19.0% (147,456 / 776,137 bytes)Progress: 20.1% (155,648 / 776,137 bytes)Progress: 21.1% (163,840 / 776,137 bytes)Progress: 22.2% (172,032 / 776,137 bytes)Progress: 23.2% (180,224 / 776,137 bytes)Progress: 24.3% (188,416 / 776,137 bytes)Progress: 25.3% (196,608 / 776,137 bytes)Progress: 26.4% (204,800 / 776,137 bytes)Progress: 27.4% (212,992 / 776,137 bytes)Progress: 28.5% (221,184 / 776,137 bytes)Progress: 29.6% (229,376 / 776,137 bytes)Progress: 30.6% (237,568 / 776,137 bytes)Progress: 31.7% (245,760 / 776,137 bytes)Progress: 32.7% (253,952 / 776,137 bytes)Progress: 33.8% (262,144 / 776,137 bytes)Progress: 34.8% (270,336 / 776,137 bytes)Progress: 35.9% (278,528 / 776,137 bytes)Progress: 36.9% (286,720 / 776,137 bytes)Progress: 38.0% (294,912 / 776,137 bytes)Progress: 39.1% (303,104 / 776,137 bytes)Progress: 40.1% (311,296 / 776,137 bytes)Progress: 41.2% (319,488 / 776,137 bytes)Progress: 42.2% (327,680 / 776,137 bytes)Progress: 43.3% (335,872 / 776,137 bytes)Progress: 44.3% (344,064 / 776,137 bytes)Progress: 45.4% (352,256 / 776,137 bytes)Progress: 46.4% (360,448 / 776,137 bytes)Progress: 47.5% (368,640 / 776,137 bytes)Progress: 48.6% (376,832 / 776,137 bytes)Progress: 49.6% (385,024 / 776,137 bytes)Progress: 50.7% (393,216 / 776,137 bytes)Progress: 51.7% (401,408 / 776,137 bytes)Progress: 52.8% (409,600 / 776,137 bytes)Progress: 53.8% (417,792 / 776,137 bytes)Progress: 54.9% (425,984 / 776,137 bytes)Progress: 55.9% (434,176 / 776,137 bytes)Progress: 57.0% (442,368 / 776,137 bytes)Progress: 58.1% (450,560 / 776,137 bytes)Progress: 59.1% (458,752 / 776,137 bytes)Progress: 60.2% (466,944 / 776,137 bytes)Progress: 61.2% (475,136 / 776,137 bytes)Progress: 62.3% (483,328 / 776,137 bytes)Progress: 63.3% (491,520 / 776,137 bytes)Progress: 64.4% (499,712 / 776,137 bytes)Progress: 65.4% (507,904 / 776,137 bytes)Progress: 66.5% (516,096 / 776,137 bytes)Progress: 67.6% (524,288 / 776,137 bytes)Progress: 68.6% (532,480 / 776,137 bytes)Progress: 69.7% (540,672 / 776,137 bytes)Progress: 70.7% (548,864 / 776,137 bytes)Progress: 71.8% (557,056 / 776,137 bytes)Progress: 72.8% (565,248 / 776,137 bytes)Progress: 73.9% (573,440 / 776,137 bytes)Progress: 74.9% (581,632 / 776,137 bytes)Progress: 76.0% (589,824 / 776,137 bytes)Progress: 77.1% (598,016 / 776,137 bytes)Progress: 78.1% (606,208 / 776,137 bytes)Progress: 79.2% (614,400 / 776,137 bytes)Progress: 80.2% (622,592 / 776,137 bytes)Progress: 81.3% (630,784 / 776,137 bytes)Progress: 82.3% (638,976 / 776,137 bytes)Progress: 83.4% (647,168 / 776,137 bytes)Progress: 84.4% (655,360 / 776,137 bytes)Progress: 85.5% (663,552 / 776,137 bytes)Progress: 86.5% (671,744 / 776,137 bytes)Progress: 87.6% (679,936 / 776,137 bytes)Progress: 88.7% (688,128 / 776,137 bytes)Progress: 89.7% (696,320 / 776,137 bytes)Progress: 90.8% (704,512 / 776,137 bytes)Progress: 91.8% (712,704 / 776,137 bytes)Progress: 92.9% (720,896 / 776,137 bytes)Progress: 93.9% (729,088 / 776,137 bytes)Progress: 95.0% (737,280 / 776,137 bytes)Progress: 96.0% (745,472 / 776,137 bytes)Progress: 97.1% (753,664 / 776,137 bytes)Progress: 98.2% (761,856 / 776,137 bytes)Progress: 99.2% (770,048 / 776,137 bytes)Progress: 100.0% (776,137 / 776,137 bytes)2026-01-17 22:08:38,911 - INFO - [Aero Air Llc] NTSB check complete: 2 incidents found, score: 90
+/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py:133: PydanticDeprecatedSince20: The `dict` method is deprecated; use `model_dump` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
+  ntsb_incidents_dict = [incident.dict() for incident in incidents]
+2026-01-17 22:08:38,911 - INFO - [Aero Air Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:39,178 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:39,178 - INFO - Retrying request to /v1/sessions in 0.392207 seconds
+2026-01-17 22:08:39,679 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:39,680 - INFO - Retrying request to /v1/sessions in 0.785493 seconds
+2026-01-17 22:08:40,580 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:40,580 - INFO - [Aero Air Llc] UCC check complete: error
+2026-01-17 22:08:40,580 - INFO - [Aero Air Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:08:40,613 - INFO - [Aero-Tech Services Inc] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:08:40,613 - INFO - [Aero-Tech Services Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:40,830 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:40,830 - INFO - Retrying request to /v1/sessions in 0.472792 seconds

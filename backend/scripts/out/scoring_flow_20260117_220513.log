@@ -1,0 +1,1150 @@
+2026-01-17 22:05:13,088 - INFO - Logging to: out/scoring_flow_20260117_220513.log
+2026-01-17 22:05:13,640 - INFO - select pg_catalog.version()
+2026-01-17 22:05:13,640 - INFO - [raw sql] {}
+2026-01-17 22:05:13,742 - INFO - select current_schema()
+2026-01-17 22:05:13,742 - INFO - [raw sql] {}
+2026-01-17 22:05:13,844 - INFO - show standard_conforming_strings
+2026-01-17 22:05:13,844 - INFO - [raw sql] {}
+2026-01-17 22:05:13,946 - INFO - BEGIN (implicit)
+2026-01-17 22:05:13,950 - INFO - SELECT gtj.operators.operator_id AS gtj_operators_operator_id, gtj.operators.name AS gtj_operators_name, gtj.operators.dba_name AS gtj_operators_dba_name, gtj.operators.certificate_number AS gtj_operators_certificate_number, gtj.operators.ops_specs AS gtj_operators_ops_specs, gtj.operators.base_airport AS gtj_operators_base_airport, gtj.operators.trust_score AS gtj_operators_trust_score, gtj.operators.trust_score_updated_at AS gtj_operators_trust_score_updated_at, gtj.operators.financial_health_score AS gtj_operators_financial_health_score, gtj.operators.regulatory_status AS gtj_operators_regulatory_status, gtj.operators.is_verified AS gtj_operators_is_verified, gtj.operators.business_started_date AS gtj_operators_business_started_date, gtj.operators.argus_rating AS gtj_operators_argus_rating, gtj.operators.wyvern_rating AS gtj_operators_wyvern_rating, gtj.operators.created_at AS gtj_operators_created_at 
+FROM gtj.operators 
+WHERE SUBSTRING(gtj.operators.certificate_number FROM %(substring_1)s FOR %(substring_2)s) BETWEEN %(substring_3)s AND %(substring_4)s ORDER BY gtj.operators.name
+2026-01-17 22:05:13,950 - INFO - [generated in 0.00021s] {'substring_1': 1, 'substring_2': 1, 'substring_3': 'F', 'substring_4': 'J'}
+2026-01-17 22:05:14,107 - INFO - ROLLBACK
+2026-01-17 22:05:14,158 - INFO - Loaded 167 operators from database (certificate filter: F to J)
+2026-01-17 22:05:14,158 - INFO - ======================================================================
+2026-01-17 22:05:14,159 - INFO - Full Scoring Flow - Batch Processing (Database Source)
+2026-01-17 22:05:14,159 - INFO - ======================================================================
+2026-01-17 22:05:14,159 - INFO - Operators: 167
+2026-01-17 22:05:14,159 - INFO - Output directory: out
+2026-01-17 22:05:14,159 - INFO - Browserbase: Enabled
+2026-01-17 22:05:14,159 - INFO - Concurrency: 5
+2026-01-17 22:05:14,159 - INFO - Certificate filter: F to J
+2026-01-17 22:05:14,159 - INFO - ======================================================================
+2026-01-17 22:05:14,164 - INFO - ================================================================================
+2026-01-17 22:05:14,164 - INFO - FULL SCORING FLOW FOR: 40 Mile Air Ltd (ID: 491abf43-3917-491d-a13e-595f5aef02cc)
+2026-01-17 22:05:14,164 - INFO - ================================================================================
+2026-01-17 22:05:14,164 - INFO - [40 Mile Air Ltd] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,235 - INFO - ================================================================================
+2026-01-17 22:05:14,235 - INFO - FULL SCORING FLOW FOR: A-1 Air Carriers, Llc. (ID: 84c6b546-9b04-4694-aeb4-c7baf262d9cb)
+2026-01-17 22:05:14,235 - INFO - ================================================================================
+2026-01-17 22:05:14,235 - INFO - [A-1 Air Carriers, Llc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,268 - INFO - ================================================================================
+2026-01-17 22:05:14,268 - INFO - FULL SCORING FLOW FOR: A-Ok Jets, Inc. (ID: dbd1e506-b743-45f2-88ac-da18d4c34a90)
+2026-01-17 22:05:14,268 - INFO - ================================================================================
+2026-01-17 22:05:14,268 - INFO - [A-Ok Jets, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,300 - INFO - ================================================================================
+2026-01-17 22:05:14,300 - INFO - FULL SCORING FLOW FOR: Ac Aviation Services, Llc. (ID: c6336e3c-70b0-4fc2-a2ba-09a39b084575)
+2026-01-17 22:05:14,300 - INFO - ================================================================================
+2026-01-17 22:05:14,300 - INFO - [Ac Aviation Services, Llc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,333 - INFO - ================================================================================
+2026-01-17 22:05:14,333 - INFO - FULL SCORING FLOW FOR: Addison Jet Management Inc (ID: 037fabca-b6f0-4112-ad69-225239dbc103)
+2026-01-17 22:05:14,333 - INFO - ================================================================================
+2026-01-17 22:05:14,333 - INFO - [Addison Jet Management Inc] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,627 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:14,628 - ERROR - [A-1 Air Carriers, Llc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:14,629 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:14,629 - INFO - ================================================================================
+2026-01-17 22:05:14,629 - INFO - FULL SCORING FLOW FOR: Aero Med Express (ID: 8e3afa9f-e72e-41dd-b93c-23f9d901ed5e)
+2026-01-17 22:05:14,629 - INFO - ================================================================================
+2026-01-17 22:05:14,629 - INFO - [Aero Med Express] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,663 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:14,664 - ERROR - [Ac Aviation Services, Llc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:14,665 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:14,665 - INFO - ================================================================================
+2026-01-17 22:05:14,665 - INFO - FULL SCORING FLOW FOR: Aero Tech, Llc (ID: 0d4b4fd1-87a5-4514-b40f-60c6359db6c1)
+2026-01-17 22:05:14,665 - INFO - ================================================================================
+2026-01-17 22:05:14,665 - INFO - [Aero Tech, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,813 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:14,814 - ERROR - [Aero Med Express] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:14,815 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:14,815 - INFO - ================================================================================
+2026-01-17 22:05:14,815 - INFO - FULL SCORING FLOW FOR: Air 7 Llc (ID: f7f38731-8660-4a46-8304-9b60ca7a5e77)
+2026-01-17 22:05:14,815 - INFO - ================================================================================
+2026-01-17 22:05:14,815 - INFO - [Air 7 Llc] Step 1: Querying NTSB database...
+2026-01-17 22:05:14,931 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:14,932 - ERROR - [Aero Tech, Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:14,933 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:14,933 - INFO - ================================================================================
+2026-01-17 22:05:14,933 - INFO - FULL SCORING FLOW FOR: Air Charters Of Excellence, Inc. (ID: 19b5aa74-11d2-4c22-b342-65e20d138198)
+2026-01-17 22:05:14,933 - INFO - ================================================================================
+2026-01-17 22:05:14,933 - INFO - [Air Charters Of Excellence, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,031 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,032 - ERROR - [Air 7 Llc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,032 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,033 - INFO - ================================================================================
+2026-01-17 22:05:15,033 - INFO - FULL SCORING FLOW FOR: Air Flite (ID: 554ad974-9403-4d74-b135-c4d0af069e51)
+2026-01-17 22:05:15,033 - INFO - ================================================================================
+2026-01-17 22:05:15,033 - INFO - [Air Flite] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,086 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,087 - ERROR - [Air Charters Of Excellence, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,088 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,088 - INFO - ================================================================================
+2026-01-17 22:05:15,088 - INFO - FULL SCORING FLOW FOR: Air Gato Enterprises, Inc. (ID: f8f6ee66-3197-4da8-85be-6916bb3262b8)
+2026-01-17 22:05:15,088 - INFO - ================================================================================
+2026-01-17 22:05:15,088 - INFO - [Air Gato Enterprises, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,226 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,227 - ERROR - [Air Flite] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,228 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,228 - INFO - ================================================================================
+2026-01-17 22:05:15,228 - INFO - FULL SCORING FLOW FOR: Air Margarita (ID: 6b6fcfed-5db1-44df-850f-0357595b8eb3)
+2026-01-17 22:05:15,228 - INFO - ================================================================================
+2026-01-17 22:05:15,228 - INFO - [Air Margarita] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,262 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,263 - ERROR - [Air Gato Enterprises, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,264 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,264 - INFO - ================================================================================
+2026-01-17 22:05:15,264 - INFO - FULL SCORING FLOW FOR: Air Reldan, Inc. (ID: b54bdf87-4136-4710-8f72-f5f8c1dc4b35)
+2026-01-17 22:05:15,264 - INFO - ================================================================================
+2026-01-17 22:05:15,264 - INFO - [Air Reldan, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,408 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,409 - ERROR - [Air Margarita] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,409 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,410 - INFO - ================================================================================
+2026-01-17 22:05:15,410 - INFO - FULL SCORING FLOW FOR: Air Trek, Inc. (ID: d17fe25a-e348-4bf4-b338-b1831b6ffdad)
+2026-01-17 22:05:15,410 - INFO - ================================================================================
+2026-01-17 22:05:15,410 - INFO - [Air Trek, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,443 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,444 - ERROR - [Air Reldan, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,445 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,445 - INFO - ================================================================================
+2026-01-17 22:05:15,445 - INFO - FULL SCORING FLOW FOR: Aircoastal Helicopters, Inc. (ID: 812bbeb9-e760-4f3f-9738-6d6fa42056dd)
+2026-01-17 22:05:15,445 - INFO - ================================================================================
+2026-01-17 22:05:15,445 - INFO - [Aircoastal Helicopters, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,604 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,605 - ERROR - [Air Trek, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,606 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,606 - INFO - ================================================================================
+2026-01-17 22:05:15,606 - INFO - FULL SCORING FLOW FOR: Ameristar Jet Charter, Inc. (ID: efc9e3d0-42ce-4a97-8280-503366b9e336)
+2026-01-17 22:05:15,606 - INFO - ================================================================================
+2026-01-17 22:05:15,606 - INFO - [Ameristar Jet Charter, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,639 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,640 - ERROR - [Aircoastal Helicopters, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,641 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,641 - INFO - ================================================================================
+2026-01-17 22:05:15,641 - INFO - FULL SCORING FLOW FOR: Aspen Helicopters Inc (ID: b50ea82e-1839-4b78-80db-15fd7338b3b0)
+2026-01-17 22:05:15,641 - INFO - ================================================================================
+2026-01-17 22:05:15,641 - INFO - [Aspen Helicopters Inc] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,789 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,790 - ERROR - [Ameristar Jet Charter, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,791 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,791 - INFO - ================================================================================
+2026-01-17 22:05:15,791 - INFO - FULL SCORING FLOW FOR: Aurora Aviation, Inc. (ID: 0731ec46-23d3-417f-aaab-77986adab832)
+2026-01-17 22:05:15,791 - INFO - ================================================================================
+2026-01-17 22:05:15,791 - INFO - [Aurora Aviation, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,914 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,914 - ERROR - [Aspen Helicopters Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,915 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,915 - INFO - ================================================================================
+2026-01-17 22:05:15,915 - INFO - FULL SCORING FLOW FOR: Basin Aviation, Inc. (ID: 895f15e1-1e30-4226-9f5c-018436b25591)
+2026-01-17 22:05:15,915 - INFO - ================================================================================
+2026-01-17 22:05:15,915 - INFO - [Basin Aviation, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:15,948 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:15,949 - ERROR - [Aurora Aviation, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:15,950 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:15,950 - INFO - ================================================================================
+2026-01-17 22:05:15,950 - INFO - FULL SCORING FLOW FOR: Bering Air Inc (ID: c4e42ba7-362d-4dd2-bf84-5af56a4aa21e)
+2026-01-17 22:05:15,950 - INFO - ================================================================================
+2026-01-17 22:05:15,950 - INFO - [Bering Air Inc] Step 1: Querying NTSB database...
+2026-01-17 22:05:16,101 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:16,102 - ERROR - [Basin Aviation, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:16,102 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:16,102 - INFO - ================================================================================
+2026-01-17 22:05:16,103 - INFO - FULL SCORING FLOW FOR: Berry Aviation Inc (ID: 3184087b-cecd-4555-9db1-269f2f0e67df)
+2026-01-17 22:05:16,103 - INFO - ================================================================================
+2026-01-17 22:05:16,103 - INFO - [Berry Aviation Inc] Step 1: Querying NTSB database...
+2026-01-17 22:05:16,136 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:16,137 - ERROR - [Bering Air Inc] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:16,137 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:16,138 - INFO - ================================================================================
+2026-01-17 22:05:16,138 - INFO - FULL SCORING FLOW FOR: Better Living Aviation, Inc. (ID: 00025738-3f30-4e7a-b536-35982829f206)
+2026-01-17 22:05:16,138 - INFO - ================================================================================
+2026-01-17 22:05:16,138 - INFO - [Better Living Aviation, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:16,279 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:16,280 - INFO - [40 Mile Air Ltd] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:16,280 - INFO - [40 Mile Air Ltd] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:16,507 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:16,507 - INFO - Retrying request to /v1/sessions in 0.467272 seconds
+2026-01-17 22:05:17,115 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:17,115 - INFO - Retrying request to /v1/sessions in 0.823034 seconds
+2026-01-17 22:05:18,056 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:18,056 - INFO - [40 Mile Air Ltd] UCC check complete: error
+2026-01-17 22:05:18,056 - INFO - [40 Mile Air Ltd] Step 3: Calculating TrustScore...
+2026-01-17 22:05:18,573 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:18,575 - INFO - [Addison Jet Management Inc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:18,575 - INFO - [Addison Jet Management Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:18,836 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:18,837 - INFO - Retrying request to /v1/sessions in 0.429238 seconds
+2026-01-17 22:05:19,374 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:19,374 - INFO - Retrying request to /v1/sessions in 0.910160 seconds
+2026-01-17 22:05:20,420 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:20,421 - INFO - [Addison Jet Management Inc] UCC check complete: error
+2026-01-17 22:05:20,421 - INFO - [Addison Jet Management Inc] Step 3: Calculating TrustScore...
+2026-01-17 22:05:20,453 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:20,454 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:20,455 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:20,456 - INFO - [A-Ok Jets, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:20,456 - INFO - [A-Ok Jets, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:20,653 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:20,654 - INFO - Retrying request to /v1/sessions in 0.429927 seconds
+2026-01-17 22:05:21,198 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:21,198 - INFO - Retrying request to /v1/sessions in 0.950930 seconds
+2026-01-17 22:05:22,259 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:22,260 - INFO - [A-Ok Jets, Inc.] UCC check complete: error
+2026-01-17 22:05:22,260 - INFO - [A-Ok Jets, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:05:22,295 - INFO - [Berry Aviation Inc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:22,295 - INFO - [Berry Aviation Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:22,510 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:22,511 - INFO - Retrying request to /v1/sessions in 0.427509 seconds
+2026-01-17 22:05:23,047 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:23,048 - INFO - Retrying request to /v1/sessions in 0.982596 seconds
+2026-01-17 22:05:24,098 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:24,099 - INFO - [Berry Aviation Inc] UCC check complete: error
+2026-01-17 22:05:24,099 - INFO - [Berry Aviation Inc] Step 3: Calculating TrustScore...
+2026-01-17 22:05:24,130 - INFO - [Better Living Aviation, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:24,130 - INFO - [Better Living Aviation, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:24,335 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:05:24,336 - INFO - Retrying request to /v1/sessions in 9.000000 seconds
+2026-01-17 22:05:33,572 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:05:33,573 - INFO - [Better Living Aviation, Inc.] UCC check complete: error
+2026-01-17 22:05:33,573 - INFO - [Better Living Aviation, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:05:33,611 - INFO - Retrying request to /chat/completions in 0.416118 seconds
+2026-01-17 22:05:34,455 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:34,518 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:34,524 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:34,709 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:34,809 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:37,893 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:38,051 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:38,107 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:38,148 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:39,284 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:41,617 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:42,038 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:42,070 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:42,611 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:42,997 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:46,650 - INFO - [40 Mile Air Ltd] TrustScore calculated: 96.38
+2026-01-17 22:05:46,650 - INFO - ================================================================================
+2026-01-17 22:05:46,651 - INFO - [40 Mile Air Ltd] FULL SCORING FLOW COMPLETED
+2026-01-17 22:05:46,651 - INFO - [40 Mile Air Ltd] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:05:46,651 - INFO - ================================================================================
+2026-01-17 22:05:46,651 - INFO - ================================================================================
+2026-01-17 22:05:46,651 - INFO - FULL SCORING FLOW FOR: Bode Aviation, Inc. (ID: 61c1daf8-5cf9-4651-9410-7f47d93fcdfe)
+2026-01-17 22:05:46,651 - INFO - ================================================================================
+2026-01-17 22:05:46,651 - INFO - [Bode Aviation, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:47,336 - INFO - [Berry Aviation Inc] TrustScore calculated: 96.38
+2026-01-17 22:05:47,336 - INFO - ================================================================================
+2026-01-17 22:05:47,336 - INFO - [Berry Aviation Inc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:05:47,336 - INFO - [Berry Aviation Inc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:05:47,336 - INFO - ================================================================================
+2026-01-17 22:05:47,336 - INFO - ================================================================================
+2026-01-17 22:05:47,336 - INFO - FULL SCORING FLOW FOR: Btr Air Charter & Management, Inc. (ID: f5c5c242-dae6-41cb-99fa-76dc62c1c53b)
+2026-01-17 22:05:47,336 - INFO - ================================================================================
+2026-01-17 22:05:47,336 - INFO - [Btr Air Charter & Management, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:47,449 - INFO - [Addison Jet Management Inc] TrustScore calculated: 96.38
+2026-01-17 22:05:47,449 - INFO - ================================================================================
+2026-01-17 22:05:47,449 - INFO - [Addison Jet Management Inc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:05:47,449 - INFO - [Addison Jet Management Inc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:05:47,449 - INFO - ================================================================================
+2026-01-17 22:05:47,449 - INFO - ================================================================================
+2026-01-17 22:05:47,449 - INFO - FULL SCORING FLOW FOR: Cal-Ore Life Flight Llc. (ID: 1bb8259f-0a1d-44b9-b71b-2796c07b8065)
+2026-01-17 22:05:47,450 - INFO - ================================================================================
+2026-01-17 22:05:47,450 - INFO - [Cal-Ore Life Flight Llc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:47,664 - INFO - [Better Living Aviation, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:05:47,664 - INFO - ================================================================================
+2026-01-17 22:05:47,664 - INFO - [Better Living Aviation, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:05:47,664 - INFO - [Better Living Aviation, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:05:47,664 - INFO - ================================================================================
+2026-01-17 22:05:47,664 - INFO - ================================================================================
+2026-01-17 22:05:47,664 - INFO - FULL SCORING FLOW FOR: Carlisle Air Corporation (ID: 7d571945-b45e-493f-986d-dd5c7c30fda5)
+2026-01-17 22:05:47,664 - INFO - ================================================================================
+2026-01-17 22:05:47,664 - INFO - [Carlisle Air Corporation] Step 1: Querying NTSB database...
+2026-01-17 22:05:47,829 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:47,830 - ERROR - [Carlisle Air Corporation] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:47,831 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:47,831 - INFO - ================================================================================
+2026-01-17 22:05:47,831 - INFO - FULL SCORING FLOW FOR: Catalina Flying Boats, Inc. (ID: 34fa9574-97d1-4e51-ad03-130444fb047d)
+2026-01-17 22:05:47,831 - INFO - ================================================================================
+2026-01-17 22:05:47,831 - INFO - [Catalina Flying Boats, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:48,110 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:48,111 - ERROR - [Catalina Flying Boats, Inc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:48,112 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:48,112 - INFO - ================================================================================
+2026-01-17 22:05:48,112 - INFO - FULL SCORING FLOW FOR: Catalyst Aviation, Llc. (ID: d40cb748-85e9-41f3-a92d-7b0d965a7036)
+2026-01-17 22:05:48,112 - INFO - ================================================================================
+2026-01-17 22:05:48,112 - INFO - [Catalyst Aviation, Llc.] Step 1: Querying NTSB database...
+2026-01-17 22:05:48,261 - INFO - [A-Ok Jets, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:05:48,261 - INFO - ================================================================================
+2026-01-17 22:05:48,261 - INFO - [A-Ok Jets, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:05:48,261 - INFO - [A-Ok Jets, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:05:48,262 - INFO - ================================================================================
+2026-01-17 22:05:48,262 - INFO - ================================================================================
+2026-01-17 22:05:48,262 - INFO - FULL SCORING FLOW FOR: Central Copters Inc (ID: 833922a4-0d05-4796-96a0-4ca88eae3989)
+2026-01-17 22:05:48,262 - INFO - ================================================================================
+2026-01-17 22:05:48,262 - INFO - [Central Copters Inc] Step 1: Querying NTSB database...
+2026-01-17 22:05:48,295 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 403 Forbidden"
+2026-01-17 22:05:48,297 - ERROR - [Catalyst Aviation, Llc.] Full scoring flow error: HTTPError: 500: NTSB API returned error: 403
+2026-01-17 22:05:48,297 - ERROR - Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 204, in query_ntsb_incidents
+    response.raise_for_status()
+  File "/home/gtjadmin/gtj-scraper/backend/.venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '403 Forbidden' for url 'https://data.ntsb.gov/carol-main-public/api/Query/Main'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gtjadmin/gtj-scraper/backend/scripts/full_scoring_flow_db.py", line 125, in run_full_scoring_flow
+    ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gtjadmin/gtj-scraper/backend/src/scoring/service.py", line 216, in query_ntsb_incidents
+    raise HTTPError(detail=f"NTSB API returned error: {e.response.status_code}")
+src.common.error.HTTPError: 500: NTSB API returned error: 403
+
+2026-01-17 22:05:48,297 - INFO - ================================================================================
+2026-01-17 22:05:48,298 - INFO - FULL SCORING FLOW FOR: Central Flight Management, Llc (ID: 26bc51d8-83e2-48d2-885c-6138fc75f1fb)
+2026-01-17 22:05:48,298 - INFO - ================================================================================
+2026-01-17 22:05:48,298 - INFO - [Central Flight Management, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:05:48,331 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:55,278 - INFO - [Bode Aviation, Inc.] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:05:55,278 - INFO - [Bode Aviation, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:55,576 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:05:55,576 - INFO - [Bode Aviation, Inc.] UCC check complete: error
+2026-01-17 22:05:55,576 - INFO - [Bode Aviation, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:05:55,609 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:55,610 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:55,611 - INFO - [Btr Air Charter & Management, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:55,612 - INFO - [Btr Air Charter & Management, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:55,886 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:05:55,887 - INFO - [Btr Air Charter & Management, Inc.] UCC check complete: error
+2026-01-17 22:05:55,887 - INFO - [Btr Air Charter & Management, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:05:55,918 - INFO - [Cal-Ore Life Flight Llc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:55,918 - INFO - [Cal-Ore Life Flight Llc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:56,207 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:05:56,208 - INFO - [Cal-Ore Life Flight Llc.] UCC check complete: error
+2026-01-17 22:05:56,208 - INFO - [Cal-Ore Life Flight Llc.] Step 3: Calculating TrustScore...
+2026-01-17 22:05:57,053 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:57,214 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:57,350 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:05:57,748 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:05:57,749 - INFO - [Central Flight Management, Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:05:57,749 - INFO - [Central Flight Management, Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:05:58,041 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:05:58,042 - INFO - [Central Flight Management, Llc] UCC check complete: error
+2026-01-17 22:05:58,042 - INFO - [Central Flight Management, Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:05:58,074 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:05,298 - INFO - [Central Copters Inc] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:06:05,298 - INFO - [Central Copters Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:05,591 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:06:05,592 - INFO - [Central Copters Inc] UCC check complete: error
+2026-01-17 22:06:05,592 - INFO - [Central Copters Inc] Step 3: Calculating TrustScore...
+2026-01-17 22:06:06,319 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:06,366 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:06,369 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:06,440 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:06,618 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:09,772 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:10,202 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:10,253 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:10,345 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:10,659 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:13,927 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:14,561 - INFO - [Cal-Ore Life Flight Llc.] TrustScore calculated: 96.38
+2026-01-17 22:06:14,561 - INFO - ================================================================================
+2026-01-17 22:06:14,561 - INFO - [Cal-Ore Life Flight Llc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:14,561 - INFO - [Cal-Ore Life Flight Llc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:14,561 - INFO - ================================================================================
+2026-01-17 22:06:14,561 - INFO - ================================================================================
+2026-01-17 22:06:14,561 - INFO - FULL SCORING FLOW FOR: Charter Jet Transport, Inc. (ID: f9cc157b-9521-4482-8232-f19b151c6030)
+2026-01-17 22:06:14,561 - INFO - ================================================================================
+2026-01-17 22:06:14,561 - INFO - [Charter Jet Transport, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:06:14,633 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:14,885 - INFO - [Btr Air Charter & Management, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:06:14,885 - INFO - ================================================================================
+2026-01-17 22:06:14,885 - INFO - [Btr Air Charter & Management, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:14,885 - INFO - [Btr Air Charter & Management, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:14,885 - INFO - ================================================================================
+2026-01-17 22:06:14,885 - INFO - ================================================================================
+2026-01-17 22:06:14,886 - INFO - FULL SCORING FLOW FOR: Classic Helicopter Corporation (ID: a3ecdda7-8189-403c-ac9c-9ac588b373fa)
+2026-01-17 22:06:14,886 - INFO - ================================================================================
+2026-01-17 22:06:14,886 - INFO - [Classic Helicopter Corporation] Step 1: Querying NTSB database...
+2026-01-17 22:06:15,146 - INFO - [Bode Aviation, Inc.] TrustScore calculated: 96.16
+2026-01-17 22:06:15,146 - INFO - ================================================================================
+2026-01-17 22:06:15,146 - INFO - [Bode Aviation, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:15,146 - INFO - [Bode Aviation, Inc.] NTSB Score: 95, TrustScore: 96.16
+2026-01-17 22:06:15,146 - INFO - ================================================================================
+2026-01-17 22:06:15,147 - INFO - ================================================================================
+2026-01-17 22:06:15,147 - INFO - FULL SCORING FLOW FOR: Cloud Peak, Llc (ID: fa99eb97-c40d-4e56-b294-1692f97f20a9)
+2026-01-17 22:06:15,147 - INFO - ================================================================================
+2026-01-17 22:06:15,147 - INFO - [Cloud Peak, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:06:16,849 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:16,850 - INFO - [Charter Jet Transport, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:16,850 - INFO - [Charter Jet Transport, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:17,145 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:06:17,146 - INFO - [Charter Jet Transport, Inc.] UCC check complete: error
+2026-01-17 22:06:17,146 - INFO - [Charter Jet Transport, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:06:17,177 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:17,179 - INFO - [Classic Helicopter Corporation] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:17,179 - INFO - [Classic Helicopter Corporation] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:17,460 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:06:17,461 - INFO - [Classic Helicopter Corporation] UCC check complete: error
+2026-01-17 22:06:17,461 - INFO - [Classic Helicopter Corporation] Step 3: Calculating TrustScore...
+2026-01-17 22:06:17,494 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:17,495 - INFO - [Cloud Peak, Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:17,495 - INFO - [Cloud Peak, Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:17,781 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:06:17,782 - INFO - [Cloud Peak, Llc] UCC check complete: error
+2026-01-17 22:06:17,782 - INFO - [Cloud Peak, Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:06:18,453 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:18,594 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:18,666 - INFO - [Central Flight Management, Llc] TrustScore calculated: 96.38
+2026-01-17 22:06:18,666 - INFO - ================================================================================
+2026-01-17 22:06:18,666 - INFO - [Central Flight Management, Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:18,666 - INFO - [Central Flight Management, Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:18,666 - INFO - ================================================================================
+2026-01-17 22:06:18,666 - INFO - ================================================================================
+2026-01-17 22:06:18,666 - INFO - FULL SCORING FLOW FOR: Coastal Air Service, Llc (ID: e249e5c1-ecb5-4dea-9ef3-7e4597106a4f)
+2026-01-17 22:06:18,667 - INFO - ================================================================================
+2026-01-17 22:06:18,667 - INFO - [Coastal Air Service, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:06:18,814 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:19,942 - INFO - [Central Copters Inc] TrustScore calculated: 73.92
+2026-01-17 22:06:19,942 - INFO - ================================================================================
+2026-01-17 22:06:19,942 - INFO - [Central Copters Inc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:19,942 - INFO - [Central Copters Inc] NTSB Score: 95, TrustScore: 73.92
+2026-01-17 22:06:19,942 - INFO - ================================================================================
+2026-01-17 22:06:19,942 - INFO - ================================================================================
+2026-01-17 22:06:19,942 - INFO - FULL SCORING FLOW FOR: Coleman Jet, Llc (ID: 88bca0df-9f05-4f0d-af5d-841521f8a081)
+2026-01-17 22:06:19,942 - INFO - ================================================================================
+2026-01-17 22:06:19,942 - INFO - [Coleman Jet, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:06:20,226 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:20,227 - INFO - [Coastal Air Service, Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:20,227 - INFO - [Coastal Air Service, Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:20,503 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:06:20,504 - INFO - [Coastal Air Service, Llc] UCC check complete: error
+2026-01-17 22:06:20,504 - INFO - [Coastal Air Service, Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:06:21,402 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:21,681 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:21,681 - INFO - [Coleman Jet, Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:21,681 - INFO - [Coleman Jet, Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:21,943 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:21,943 - INFO - Retrying request to /v1/sessions in 0.469714 seconds
+2026-01-17 22:06:22,525 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:22,525 - INFO - Retrying request to /v1/sessions in 0.925840 seconds
+2026-01-17 22:06:23,561 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:23,561 - INFO - [Coleman Jet, Llc] UCC check complete: error
+2026-01-17 22:06:23,561 - INFO - [Coleman Jet, Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:06:23,594 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:23,594 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:24,245 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:24,286 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:25,205 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:25,798 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:26,381 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:27,999 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:28,661 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:29,042 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:31,266 - INFO - [Cloud Peak, Llc] TrustScore calculated: 96.38
+2026-01-17 22:06:31,266 - INFO - ================================================================================
+2026-01-17 22:06:31,266 - INFO - [Cloud Peak, Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:31,266 - INFO - [Cloud Peak, Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:31,266 - INFO - ================================================================================
+2026-01-17 22:06:31,266 - INFO - ================================================================================
+2026-01-17 22:06:31,267 - INFO - FULL SCORING FLOW FOR: Colorado By Air Llc (ID: ec56a4ad-a585-4d84-8faa-11d34ebb5851)
+2026-01-17 22:06:31,267 - INFO - ================================================================================
+2026-01-17 22:06:31,267 - INFO - [Colorado By Air Llc] Step 1: Querying NTSB database...
+2026-01-17 22:06:31,324 - INFO - [Classic Helicopter Corporation] TrustScore calculated: 96.38
+2026-01-17 22:06:31,324 - INFO - ================================================================================
+2026-01-17 22:06:31,324 - INFO - [Classic Helicopter Corporation] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:31,325 - INFO - [Classic Helicopter Corporation] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:31,325 - INFO - ================================================================================
+2026-01-17 22:06:31,325 - INFO - ================================================================================
+2026-01-17 22:06:31,325 - INFO - FULL SCORING FLOW FOR: Construction Helicopters, Inc. (ID: 8a4d8a62-cf74-4eca-9633-c59b817f01ac)
+2026-01-17 22:06:31,325 - INFO - ================================================================================
+2026-01-17 22:06:31,325 - INFO - [Construction Helicopters, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:06:31,625 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:32,853 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:32,854 - INFO - [Colorado By Air Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:32,854 - INFO - [Colorado By Air Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:33,146 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:06:33,146 - INFO - [Colorado By Air Llc] UCC check complete: error
+2026-01-17 22:06:33,147 - INFO - [Colorado By Air Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:06:33,179 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:33,181 - INFO - [Charter Jet Transport, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:06:33,182 - INFO - ================================================================================
+2026-01-17 22:06:33,182 - INFO - [Charter Jet Transport, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:33,182 - INFO - [Charter Jet Transport, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:33,182 - INFO - ================================================================================
+2026-01-17 22:06:33,182 - INFO - [Construction Helicopters, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:33,182 - INFO - [Construction Helicopters, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:33,414 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:33,414 - INFO - Retrying request to /v1/sessions in 0.481600 seconds
+2026-01-17 22:06:34,003 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:34,003 - INFO - Retrying request to /v1/sessions in 0.945445 seconds
+2026-01-17 22:06:35,056 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:35,057 - INFO - [Construction Helicopters, Inc.] UCC check complete: error
+2026-01-17 22:06:35,057 - INFO - [Construction Helicopters, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:06:35,088 - INFO - ================================================================================
+2026-01-17 22:06:35,089 - INFO - FULL SCORING FLOW FOR: Corporate Flight Management, Inc. (ID: 22c39424-ffaf-4227-9221-5fa4b8131f8c)
+2026-01-17 22:06:35,089 - INFO - ================================================================================
+2026-01-17 22:06:35,089 - INFO - [Corporate Flight Management, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:06:35,127 - INFO - [Coastal Air Service, Llc] TrustScore calculated: 96.38
+2026-01-17 22:06:35,127 - INFO - ================================================================================
+2026-01-17 22:06:35,127 - INFO - [Coastal Air Service, Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:35,128 - INFO - [Coastal Air Service, Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:35,128 - INFO - ================================================================================
+2026-01-17 22:06:35,128 - INFO - ================================================================================
+2026-01-17 22:06:35,128 - INFO - FULL SCORING FLOW FOR: Courtney Aviation, Inc (ID: 09a4f1ef-a386-404d-8559-37ae2e7cad64)
+2026-01-17 22:06:35,128 - INFO - ================================================================================
+2026-01-17 22:06:35,128 - INFO - [Courtney Aviation, Inc] Step 1: Querying NTSB database...
+2026-01-17 22:06:36,013 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:36,700 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:36,701 - INFO - [Corporate Flight Management, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:36,701 - INFO - [Corporate Flight Management, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:36,920 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:36,920 - INFO - Retrying request to /v1/sessions in 0.401267 seconds
+2026-01-17 22:06:37,430 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:37,431 - INFO - Retrying request to /v1/sessions in 0.992210 seconds
+2026-01-17 22:06:38,532 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:38,533 - INFO - [Corporate Flight Management, Inc.] UCC check complete: error
+2026-01-17 22:06:38,533 - INFO - [Corporate Flight Management, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:06:38,565 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:38,566 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:38,568 - INFO - [Coleman Jet, Llc] TrustScore calculated: 96.38
+2026-01-17 22:06:38,568 - INFO - ================================================================================
+2026-01-17 22:06:38,568 - INFO - [Coleman Jet, Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:38,568 - INFO - [Coleman Jet, Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:38,568 - INFO - ================================================================================
+2026-01-17 22:06:38,568 - INFO - [Courtney Aviation, Inc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:06:38,568 - INFO - [Courtney Aviation, Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:38,836 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:06:38,841 - INFO - [Courtney Aviation, Inc] UCC check complete: error
+2026-01-17 22:06:38,841 - INFO - [Courtney Aviation, Inc] Step 3: Calculating TrustScore...
+2026-01-17 22:06:38,873 - INFO - ================================================================================
+2026-01-17 22:06:38,873 - INFO - FULL SCORING FLOW FOR: Croman Corporation (ID: 6a866110-c708-4d4e-a875-23b1d9566831)
+2026-01-17 22:06:38,873 - INFO - ================================================================================
+2026-01-17 22:06:38,873 - INFO - [Croman Corporation] Step 1: Querying NTSB database...
+2026-01-17 22:06:39,622 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:39,691 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:40,364 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:06:51,973 - INFO - [Croman Corporation] NTSB check complete: 3 incidents found, score: 85
+2026-01-17 22:06:51,974 - INFO - [Croman Corporation] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:06:52,186 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:52,186 - INFO - Retrying request to /v1/sessions in 0.485986 seconds
+2026-01-17 22:06:52,782 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:52,782 - INFO - Retrying request to /v1/sessions in 0.910048 seconds
+2026-01-17 22:06:53,798 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:06:53,799 - INFO - [Croman Corporation] UCC check complete: error
+2026-01-17 22:06:53,799 - INFO - [Croman Corporation] Step 3: Calculating TrustScore...
+2026-01-17 22:06:53,831 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:53,832 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:54,602 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:54,652 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:54,803 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:54,935 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:54,947 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:57,994 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:58,674 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:06:59,314 - INFO - [Colorado By Air Llc] TrustScore calculated: 96.38
+2026-01-17 22:06:59,314 - INFO - ================================================================================
+2026-01-17 22:06:59,314 - INFO - [Colorado By Air Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:59,314 - INFO - [Colorado By Air Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:59,314 - INFO - ================================================================================
+2026-01-17 22:06:59,314 - INFO - ================================================================================
+2026-01-17 22:06:59,314 - INFO - FULL SCORING FLOW FOR: Csi Aviation Inc (ID: 26aae0c8-5b56-47b8-992a-e9c245a1d927)
+2026-01-17 22:06:59,314 - INFO - ================================================================================
+2026-01-17 22:06:59,314 - INFO - [Csi Aviation Inc] Step 1: Querying NTSB database...
+2026-01-17 22:06:59,890 - INFO - [Construction Helicopters, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:06:59,890 - INFO - ================================================================================
+2026-01-17 22:06:59,891 - INFO - [Construction Helicopters, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:06:59,891 - INFO - [Construction Helicopters, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:06:59,891 - INFO - ================================================================================
+2026-01-17 22:06:59,891 - INFO - ================================================================================
+2026-01-17 22:06:59,891 - INFO - FULL SCORING FLOW FOR: Dallas Aero & Sales, Llc (ID: 30ceae65-a5ab-4a62-ae40-4ce2e1a6b597)
+2026-01-17 22:06:59,891 - INFO - ================================================================================
+2026-01-17 22:06:59,891 - INFO - [Dallas Aero & Sales, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:07:00,813 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:02,138 - INFO - [Csi Aviation Inc] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:07:02,138 - INFO - [Csi Aviation Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:02,444 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:02,445 - INFO - [Csi Aviation Inc] UCC check complete: error
+2026-01-17 22:07:02,445 - INFO - [Csi Aviation Inc] Step 3: Calculating TrustScore...
+2026-01-17 22:07:02,477 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:02,478 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:02,481 - INFO - [Dallas Aero & Sales, Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:07:02,481 - INFO - [Dallas Aero & Sales, Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:02,755 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:02,756 - INFO - [Dallas Aero & Sales, Llc] UCC check complete: error
+2026-01-17 22:07:02,756 - INFO - [Dallas Aero & Sales, Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:07:03,675 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:03,763 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:03,919 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:04,311 - INFO - [Courtney Aviation, Inc] TrustScore calculated: 96.38
+2026-01-17 22:07:04,311 - INFO - ================================================================================
+2026-01-17 22:07:04,312 - INFO - [Courtney Aviation, Inc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:04,312 - INFO - [Courtney Aviation, Inc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:07:04,312 - INFO - ================================================================================
+2026-01-17 22:07:04,312 - INFO - ================================================================================
+2026-01-17 22:07:04,312 - INFO - FULL SCORING FLOW FOR: Dena'ina Air Taxi Llc (ID: 2fbe6041-198c-4255-ada8-dd7071158354)
+2026-01-17 22:07:04,312 - INFO - ================================================================================
+2026-01-17 22:07:04,312 - INFO - [Dena'ina Air Taxi Llc] Step 1: Querying NTSB database...
+2026-01-17 22:07:05,640 - INFO - [Corporate Flight Management, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:07:05,640 - INFO - ================================================================================
+2026-01-17 22:07:05,641 - INFO - [Corporate Flight Management, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:05,641 - INFO - [Corporate Flight Management, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:07:05,641 - INFO - ================================================================================
+2026-01-17 22:07:05,641 - INFO - ================================================================================
+2026-01-17 22:07:05,641 - INFO - FULL SCORING FLOW FOR: Don Davis Aviation, Inc. (ID: 72a02e85-f7e1-4c40-a048-11b2fc51e025)
+2026-01-17 22:07:05,641 - INFO - ================================================================================
+2026-01-17 22:07:05,641 - INFO - [Don Davis Aviation, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:07:05,774 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:05,775 - INFO - [Dena'ina Air Taxi Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:07:05,775 - INFO - [Dena'ina Air Taxi Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:05,986 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:07:05,987 - INFO - Retrying request to /v1/sessions in 0.402894 seconds
+2026-01-17 22:07:06,498 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:07:06,498 - INFO - Retrying request to /v1/sessions in 0.913703 seconds
+2026-01-17 22:07:07,577 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:07,578 - INFO - [Dena'ina Air Taxi Llc] UCC check complete: error
+2026-01-17 22:07:07,578 - INFO - [Dena'ina Air Taxi Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:07:07,611 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:07,614 - INFO - [Don Davis Aviation, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:07:07,614 - INFO - [Don Davis Aviation, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:07,891 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:07,892 - INFO - [Don Davis Aviation, Inc.] UCC check complete: error
+2026-01-17 22:07:07,892 - INFO - [Don Davis Aviation, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:07:08,729 - INFO - [Croman Corporation] TrustScore calculated: 79.47
+2026-01-17 22:07:08,729 - INFO - ================================================================================
+2026-01-17 22:07:08,729 - INFO - [Croman Corporation] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:08,729 - INFO - [Croman Corporation] NTSB Score: 85, TrustScore: 79.47
+2026-01-17 22:07:08,729 - INFO - ================================================================================
+2026-01-17 22:07:08,730 - INFO - ================================================================================
+2026-01-17 22:07:08,730 - INFO - FULL SCORING FLOW FOR: Eagle Aviation (ID: b4f11992-5d5a-4dcb-b9c2-af695da24d16)
+2026-01-17 22:07:08,730 - INFO - ================================================================================
+2026-01-17 22:07:08,730 - INFO - [Eagle Aviation] Step 1: Querying NTSB database...
+2026-01-17 22:07:08,899 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:08,962 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:09,598 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:09,814 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:10,195 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:24,207 - INFO - [Eagle Aviation] NTSB check complete: 5 incidents found, score: 75
+2026-01-17 22:07:24,208 - INFO - [Eagle Aviation] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:24,484 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:24,485 - INFO - [Eagle Aviation] UCC check complete: error
+2026-01-17 22:07:24,485 - INFO - [Eagle Aviation] Step 3: Calculating TrustScore...
+2026-01-17 22:07:25,161 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:25,231 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:25,370 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:25,445 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:25,756 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:28,952 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:29,047 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:29,935 - INFO - [Dallas Aero & Sales, Llc] TrustScore calculated: 96.38
+2026-01-17 22:07:29,935 - INFO - ================================================================================
+2026-01-17 22:07:29,935 - INFO - [Dallas Aero & Sales, Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:29,935 - INFO - [Dallas Aero & Sales, Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:07:29,935 - INFO - ================================================================================
+2026-01-17 22:07:29,936 - INFO - ================================================================================
+2026-01-17 22:07:29,936 - INFO - FULL SCORING FLOW FOR: Eagle Helicopters Inc. (ID: 06db6e13-bd33-4c26-8c7a-37a43e353736)
+2026-01-17 22:07:29,936 - INFO - ================================================================================
+2026-01-17 22:07:29,936 - INFO - [Eagle Helicopters Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:07:29,970 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:30,789 - INFO - [Csi Aviation Inc] TrustScore calculated: 71.06
+2026-01-17 22:07:30,789 - INFO - ================================================================================
+2026-01-17 22:07:30,789 - INFO - [Csi Aviation Inc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:30,789 - INFO - [Csi Aviation Inc] NTSB Score: 95, TrustScore: 71.06
+2026-01-17 22:07:30,789 - INFO - ================================================================================
+2026-01-17 22:07:30,789 - INFO - ================================================================================
+2026-01-17 22:07:30,790 - INFO - FULL SCORING FLOW FOR: Egli Air Haul Inc (ID: 8eb4afd7-0346-4137-8873-28cc77bdbb7e)
+2026-01-17 22:07:30,790 - INFO - ================================================================================
+2026-01-17 22:07:30,790 - INFO - [Egli Air Haul Inc] Step 1: Querying NTSB database...
+2026-01-17 22:07:31,452 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:31,452 - INFO - [Eagle Helicopters Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:07:31,452 - INFO - [Eagle Helicopters Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:31,732 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:31,735 - INFO - [Eagle Helicopters Inc.] UCC check complete: error
+2026-01-17 22:07:31,735 - INFO - [Eagle Helicopters Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:07:32,282 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:43,187 - INFO - [Egli Air Haul Inc] NTSB check complete: 2 incidents found, score: 90
+2026-01-17 22:07:43,187 - INFO - [Egli Air Haul Inc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:43,442 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:43,443 - INFO - [Egli Air Haul Inc] UCC check complete: error
+2026-01-17 22:07:43,443 - INFO - [Egli Air Haul Inc] Step 3: Calculating TrustScore...
+2026-01-17 22:07:43,476 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:43,478 - INFO - [Dena'ina Air Taxi Llc] TrustScore calculated: 96.38
+2026-01-17 22:07:43,478 - INFO - ================================================================================
+2026-01-17 22:07:43,478 - INFO - [Dena'ina Air Taxi Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:43,478 - INFO - [Dena'ina Air Taxi Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:07:43,478 - INFO - ================================================================================
+2026-01-17 22:07:43,480 - INFO - [Don Davis Aviation, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:07:43,480 - INFO - ================================================================================
+2026-01-17 22:07:43,480 - INFO - [Don Davis Aviation, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:43,480 - INFO - [Don Davis Aviation, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:07:43,480 - INFO - ================================================================================
+2026-01-17 22:07:43,482 - INFO - ================================================================================
+2026-01-17 22:07:43,482 - INFO - FULL SCORING FLOW FOR: Elite Jet Llc (ID: 168ea9c6-f6e5-489e-9807-3afc6298f50a)
+2026-01-17 22:07:43,482 - INFO - ================================================================================
+2026-01-17 22:07:43,482 - INFO - [Elite Jet Llc] Step 1: Querying NTSB database...
+2026-01-17 22:07:43,514 - INFO - ================================================================================
+2026-01-17 22:07:43,514 - INFO - FULL SCORING FLOW FOR: Erin Air, Inc. (ID: ff8a72a7-9d33-4e3a-9dee-103ce26031f5)
+2026-01-17 22:07:43,514 - INFO - ================================================================================
+2026-01-17 22:07:43,514 - INFO - [Erin Air, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:07:44,492 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:44,537 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:44,705 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:45,008 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:45,009 - INFO - [Erin Air, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:07:45,009 - INFO - [Erin Air, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:45,286 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:45,287 - INFO - [Erin Air, Inc.] UCC check complete: error
+2026-01-17 22:07:45,287 - INFO - [Erin Air, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:07:45,319 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:45,321 - INFO - [Elite Jet Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:07:45,321 - INFO - [Elite Jet Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:45,613 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:45,614 - INFO - [Elite Jet Llc] UCC check complete: error
+2026-01-17 22:07:45,614 - INFO - [Elite Jet Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:07:45,651 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:46,386 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:46,504 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:48,556 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:50,083 - INFO - [Eagle Aviation] TrustScore calculated: 96.29
+2026-01-17 22:07:50,083 - INFO - ================================================================================
+2026-01-17 22:07:50,083 - INFO - [Eagle Aviation] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:50,083 - INFO - [Eagle Aviation] NTSB Score: 75, TrustScore: 96.29
+2026-01-17 22:07:50,083 - INFO - ================================================================================
+2026-01-17 22:07:50,083 - INFO - ================================================================================
+2026-01-17 22:07:50,083 - INFO - FULL SCORING FLOW FOR: Everts Air Alaska (ID: c0fb225b-bc7e-4e16-92df-b5c2512424b5)
+2026-01-17 22:07:50,083 - INFO - ================================================================================
+2026-01-17 22:07:50,083 - INFO - [Everts Air Alaska] Step 1: Querying NTSB database...
+2026-01-17 22:07:50,208 - INFO - [Eagle Helicopters Inc.] TrustScore calculated: 96.38
+2026-01-17 22:07:50,209 - INFO - ================================================================================
+2026-01-17 22:07:50,209 - INFO - [Eagle Helicopters Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:50,209 - INFO - [Eagle Helicopters Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:07:50,209 - INFO - ================================================================================
+2026-01-17 22:07:50,209 - INFO - ================================================================================
+2026-01-17 22:07:50,209 - INFO - FULL SCORING FLOW FOR: Executive Aero Charter Management, Llc (ID: 28b69bf0-4202-4c62-b874-34bf6476c30d)
+2026-01-17 22:07:50,209 - INFO - ================================================================================
+2026-01-17 22:07:50,209 - INFO - [Executive Aero Charter Management, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:07:50,309 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:50,517 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:51,949 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:55,271 - INFO - [Everts Air Alaska] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:07:55,271 - INFO - [Everts Air Alaska] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:55,558 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:55,559 - INFO - [Everts Air Alaska] UCC check complete: error
+2026-01-17 22:07:55,559 - INFO - [Everts Air Alaska] Step 3: Calculating TrustScore...
+2026-01-17 22:07:55,593 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:07:55,595 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:55,599 - INFO - [Executive Aero Charter Management, Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:07:55,599 - INFO - [Executive Aero Charter Management, Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:07:55,905 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:07:55,906 - INFO - [Executive Aero Charter Management, Llc] UCC check complete: error
+2026-01-17 22:07:55,906 - INFO - [Executive Aero Charter Management, Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:07:56,614 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:56,697 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:56,821 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:57,120 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:07:58,720 - INFO - [Egli Air Haul Inc] TrustScore calculated: 70.32
+2026-01-17 22:07:58,720 - INFO - ================================================================================
+2026-01-17 22:07:58,720 - INFO - [Egli Air Haul Inc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:07:58,720 - INFO - [Egli Air Haul Inc] NTSB Score: 90, TrustScore: 70.32
+2026-01-17 22:07:58,720 - INFO - ================================================================================
+2026-01-17 22:07:58,721 - INFO - ================================================================================
+2026-01-17 22:07:58,721 - INFO - FULL SCORING FLOW FOR: Executive Air Charter Of Boca Raton (ID: c5d28bc1-1415-4d5d-87c3-aceacfe3f2ed)
+2026-01-17 22:07:58,721 - INFO - ================================================================================
+2026-01-17 22:07:58,721 - INFO - [Executive Air Charter Of Boca Raton] Step 1: Querying NTSB database...
+2026-01-17 22:08:00,181 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:08:03,554 - INFO - [Executive Air Charter Of Boca Raton] NTSB check complete: 1 incidents found, score: 95
+2026-01-17 22:08:03,555 - INFO - [Executive Air Charter Of Boca Raton] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:03,848 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 201 Created"
+2026-01-17 22:08:03,849 - INFO - [Executive Air Charter Of Boca Raton] UCC check complete: error
+2026-01-17 22:08:03,849 - INFO - [Executive Air Charter Of Boca Raton] Step 3: Calculating TrustScore...
+2026-01-17 22:08:03,882 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:03,883 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:03,884 - INFO - [Elite Jet Llc] TrustScore calculated: 96.38
+2026-01-17 22:08:03,884 - INFO - ================================================================================
+2026-01-17 22:08:03,884 - INFO - [Elite Jet Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:08:03,884 - INFO - [Elite Jet Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:08:03,884 - INFO - ================================================================================
+2026-01-17 22:08:03,885 - INFO - [Erin Air, Inc.] TrustScore calculated: 96.38
+2026-01-17 22:08:03,885 - INFO - ================================================================================
+2026-01-17 22:08:03,885 - INFO - [Erin Air, Inc.] FULL SCORING FLOW COMPLETED
+2026-01-17 22:08:03,885 - INFO - [Erin Air, Inc.] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:08:03,885 - INFO - ================================================================================
+2026-01-17 22:08:03,887 - INFO - ================================================================================
+2026-01-17 22:08:03,887 - INFO - FULL SCORING FLOW FOR: Firehawk Helicopters, Inc. (ID: 7d43ab43-17dd-4ca0-9e71-60cf9916a60b)
+2026-01-17 22:08:03,887 - INFO - ================================================================================
+2026-01-17 22:08:03,887 - INFO - [Firehawk Helicopters, Inc.] Step 1: Querying NTSB database...
+2026-01-17 22:08:03,919 - INFO - ================================================================================
+2026-01-17 22:08:03,919 - INFO - FULL SCORING FLOW FOR: Firm Foundation Aviation, Llc (ID: 5b2b011c-a069-4ad3-b0db-da892cf46822)
+2026-01-17 22:08:03,919 - INFO - ================================================================================
+2026-01-17 22:08:03,919 - INFO - [Firm Foundation Aviation, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:04,678 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:04,995 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:05,035 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:05,436 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:08:05,436 - INFO - [Firehawk Helicopters, Inc.] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:08:05,437 - INFO - [Firehawk Helicopters, Inc.] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:05,653 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:05,654 - INFO - Retrying request to /v1/sessions in 0.388812 seconds
+2026-01-17 22:08:06,149 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:06,150 - INFO - Retrying request to /v1/sessions in 0.794448 seconds
+2026-01-17 22:08:07,055 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:07,056 - INFO - [Firehawk Helicopters, Inc.] UCC check complete: error
+2026-01-17 22:08:07,056 - INFO - [Firehawk Helicopters, Inc.] Step 3: Calculating TrustScore...
+2026-01-17 22:08:07,088 - INFO - HTTP Request: POST https://data.ntsb.gov/carol-main-public/api/Query/Main "HTTP/1.1 200 OK"
+2026-01-17 22:08:07,090 - INFO - [Firm Foundation Aviation, Llc] NTSB check complete: 0 incidents found, score: 100
+2026-01-17 22:08:07,090 - INFO - [Firm Foundation Aviation, Llc] Step 2: Verifying UCC filings with Browserbase...
+2026-01-17 22:08:07,287 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:07,287 - INFO - Retrying request to /v1/sessions in 0.490597 seconds
+2026-01-17 22:08:07,889 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:07,890 - INFO - Retrying request to /v1/sessions in 0.792752 seconds
+2026-01-17 22:08:08,795 - INFO - HTTP Request: POST https://api.browserbase.com/v1/sessions "HTTP/1.1 429 Too Many Requests"
+2026-01-17 22:08:08,795 - INFO - [Firm Foundation Aviation, Llc] UCC check complete: error
+2026-01-17 22:08:08,795 - INFO - [Firm Foundation Aviation, Llc] Step 3: Calculating TrustScore...
+2026-01-17 22:08:09,568 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:09,590 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:09,729 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-17 22:08:10,212 - INFO - [Everts Air Alaska] TrustScore calculated: 96.18
+2026-01-17 22:08:10,212 - INFO - ================================================================================
+2026-01-17 22:08:10,212 - INFO - [Everts Air Alaska] FULL SCORING FLOW COMPLETED
+2026-01-17 22:08:10,212 - INFO - [Everts Air Alaska] NTSB Score: 95, TrustScore: 96.18
+2026-01-17 22:08:10,212 - INFO - ================================================================================
+2026-01-17 22:08:10,212 - INFO - ================================================================================
+2026-01-17 22:08:10,212 - INFO - FULL SCORING FLOW FOR: First Wing Management, Llc (ID: 0792beac-3c57-4f5e-b30e-fd7fecc82db0)
+2026-01-17 22:08:10,212 - INFO - ================================================================================
+2026-01-17 22:08:10,212 - INFO - [First Wing Management, Llc] Step 1: Querying NTSB database...
+2026-01-17 22:08:10,327 - INFO - [Executive Aero Charter Management, Llc] TrustScore calculated: 96.38
+2026-01-17 22:08:10,327 - INFO - ================================================================================
+2026-01-17 22:08:10,327 - INFO - [Executive Aero Charter Management, Llc] FULL SCORING FLOW COMPLETED
+2026-01-17 22:08:10,327 - INFO - [Executive Aero Charter Management, Llc] NTSB Score: 100, TrustScore: 96.38
+2026-01-17 22:08:10,327 - INFO - ================================================================================
+2026-01-17 22:08:10,327 - INFO - ================================================================================
+2026-01-17 22:08:10,327 - INFO - FULL SCORING FLOW FOR: Flight Level Services Llc (ID: da585aa0-8142-47bc-9acf-e639baa74043)
+2026-01-17 22:08:10,327 - INFO - ================================================================================
+2026-01-17 22:08:10,327 - INFO - [Flight Level Services Llc] Step 1: Querying NTSB database...

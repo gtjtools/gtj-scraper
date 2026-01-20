@@ -1,0 +1,111 @@
+{
+  "metadata": {
+    "start_time": "2026-01-17T21:50:19.347032",
+    "end_time": "2026-01-17T22:05:11.957455",
+    "total_failed": 17
+  },
+  "failed_operators": [
+    {
+      "operator_id": "09bbdb75-ac78-4c62-a2ba-06979946eba6",
+      "operator_name": "3D Jets LLC",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "e4f3fe09-ca39-4348-8e22-d2c4b03979fe",
+      "operator_name": "A.L.E.R.T. Kalispell Regional Medical Center Inc.",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "82c48fad-9604-47d6-973d-43a7dffe0655",
+      "operator_name": "Aberdeen Flying Service INC",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "7123cb79-7937-470c-aeed-8d35266503fc",
+      "operator_name": "Adventure Air LLC",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "0d112a04-96c4-4413-b220-867bf0d1efe7",
+      "operator_name": "Aero Charter Inc.",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "7afb0300-d38a-4b97-bca0-83c6b9fc53cd",
+      "operator_name": "AIR CARGO CARRIERS, LLC",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "9f051ead-a6f8-4c8b-89c2-a6cbc2269d93",
+      "operator_name": "Air Charter Service, Inc",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "3eb7079e-3d54-4de1-906d-277f6d9955b7",
+      "operator_name": "Air Direct, LLC",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "663ac2fd-5683-4de4-a1df-cbcbb1fef8d9",
+      "operator_name": "Air Exec, Inc.",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "d3e9150c-2621-4a95-90e5-841fc5c77098",
+      "operator_name": "Air Flight, Inc.",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "6ce3111e-e12f-4f18-8eb3-8eeb3bbd8662",
+      "operator_name": "Air Metro Helicopters Inc.",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "91da8066-9a1e-4d30-b328-8009454df6a3",
+      "operator_name": "Air Wisconsin",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "a1a98e1e-38c6-4d4a-af6c-dc9195769fda",
+      "operator_name": "AIRCRAFT CHARTER SERVICES INC",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "5c4a3978-1ba7-4155-b899-7cef736497c4",
+      "operator_name": "AIRCRAFT MANAGEMENT SERVICES, INC.",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "200b5de9-e2e3-465d-8ee0-d0ec76db1b99",
+      "operator_name": "Airpac Airlines, Inc.",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "38e88b52-3ae2-4ccb-a4a3-d7ee9c52cfed",
+      "operator_name": "ALEXANDRIA AVIATION INC",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    },
+    {
+      "operator_id": "ed7725ed-9498-4a93-865e-074be3da5e57",
+      "operator_name": "Alpha Three Aviation Incorporated",
+      "status": "error",
+      "error": "500: NTSB API returned error: 403"
+    }
+  ]
+}
