@@ -5,7 +5,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import UUID4
-from datetime import datetime
+from datetime import datetime, timedelta
+from decimal import Decimal
 from src.scoring.schemas import NTSBQueryRequest, ScoreCalculationResponse
 from src.scoring.service import ScoringService
 from src.scoring.ucc_service import UCCVerificationService
@@ -18,6 +19,7 @@ from src.trustscore.llm_client import LLMClient, LLMProvider
 from src.common.dependencies import get_db
 from src.auth.service import authentication
 from src.common.error import HTTPError
+from src.common.models import Operator, TrustScore
 
 # Directory for storing verification results
 VERIFICATION_RESULTS_DIR = os.path.join(os.path.dirname(__file__), "../../data/temp")
@@ -39,6 +41,90 @@ UCC_READY_STATES = ["CA"]
 # Example: ["GO FLY LLC.", "Another Operator"]
 # BATCH_TEST_OPERATORS = ["GO FLY LLC."]  # Set to None to disable filter
 BATCH_TEST_OPERATORS = None
+
+
+def save_trust_score_to_supabase(
+    operator_name: str,
+    trust_score_result: dict,
+    ntsb_result: dict,
+    ucc_result: dict
+) -> bool:
+    """
+    Save trust score results to Supabase database.
+
+    Updates:
+    1. gtj.operators.trust_score and trust_score_updated_at
+    2. gtj.trust_scores table with detailed breakdown
+
+    Args:
+        operator_name: Name of the operator
+        trust_score_result: TrustScore calculation result
+        ntsb_result: NTSB query result
+        ucc_result: UCC verification result
+
+    Returns:
+        True if saved successfully, False otherwise
+    """
+    from src.common.config import SessionLocal
+
+    db = SessionLocal()
+    try:
+        # Find the operator
+        operator = db.query(Operator).filter(Operator.name == operator_name).first()
+
+        if not operator:
+            print(f"  ⚠️  Operator '{operator_name}' not found in gtj.operators table")
+            return False
+
+        # Update operator's trust_score
+        overall_score = trust_score_result.get('trust_score', 0)
+        operator.trust_score = Decimal(str(overall_score))
+        operator.trust_score_updated_at = datetime.utcnow()
+
+        # Prepare factors JSON with all scraped data
+        factors = {
+            "ntsb": {
+                "score": ntsb_result.get('score', 100),
+                "total_incidents": ntsb_result.get('total_incidents', 0),
+                "incidents": ntsb_result.get('incidents', [])
+            },
+            "ucc": {
+                "status": ucc_result.get('status', 'unknown'),
+                "states_processed": ucc_result.get('states_processed', 0),
+                "visited_states": ucc_result.get('visited_states', [])
+            },
+            "fleet_score": trust_score_result.get('fleet_score', 0),
+            "tail_score": trust_score_result.get('tail_score', 0),
+            "breakdown": trust_score_result.get('breakdown', {}),
+            "ai_insights": trust_score_result.get('ai_insights', None)
+        }
+
+        # Create detailed trust score record in gtj.trust_scores table
+        trust_score_record = TrustScore(
+            operator_id=operator.operator_id,
+            overall_score=Decimal(str(overall_score)),
+            safety_score=Decimal(str(trust_score_result.get('fleet_score', overall_score))),
+            financial_score=Decimal(str(100 - len(ucc_result.get('visited_states', [])) * 5)),
+            regulatory_score=Decimal(str(100)),
+            aog_score=Decimal(str(100)),
+            factors=factors,
+            version="1.0",
+            expires_at=datetime.utcnow() + timedelta(days=30),
+            confidence_level=Decimal(str(trust_score_result.get('confidence', 0.8)))
+        )
+
+        db.add(trust_score_record)
+        db.commit()
+
+        print(f"  ✓ Saved trust score {overall_score} for {operator_name} to Supabase")
+        return True
+
+    except Exception as e:
+        print(f"  ❌ Error saving to Supabase for {operator_name}: {e}")
+        db.rollback()
+        return False
+    finally:
+        db.close()
 
 
 @scoring_router.post(
@@ -625,6 +711,7 @@ async def batch_verify_by_states(session_id: str = None):
         results = []
         successful = 0
         failed = 0
+        saved_to_supabase_count = 0
 
         for idx, operator in enumerate(filtered_operators, 1):
             print(f"\n{'='*60}")
@@ -854,7 +941,19 @@ async def batch_verify_by_states(session_id: str = None):
                 with open(filepath, "w") as f:
                     json.dump(result_data, f, indent=2, default=str)
 
-                print(f"  ✓ Saved: {filename}")
+                print(f"  ✓ Saved JSON: {filename}")
+
+                # Save to Supabase database
+                saved_to_db = save_trust_score_to_supabase(
+                    operator_name=operator.company,
+                    trust_score_result=trust_score_result,
+                    ntsb_result={
+                        "score": ntsb_score,
+                        "total_incidents": total_incidents,
+                        "incidents": fleet_events
+                    },
+                    ucc_result=ucc_data
+                )
 
                 results.append(
                     {
@@ -866,6 +965,7 @@ async def batch_verify_by_states(session_id: str = None):
                         "total_incidents": total_incidents,
                         "ucc_states_processed": ucc_data.get("states_processed", 0),
                         "saved_file": filename,
+                        "saved_to_supabase": saved_to_db,
                         "live_view_url": ucc_data.get("live_view_url"),
                         "session_id": ucc_data.get("session_id"),
                         "errors": {
@@ -877,6 +977,8 @@ async def batch_verify_by_states(session_id: str = None):
                 )
 
                 successful += 1
+                if saved_to_db:
+                    saved_to_supabase_count += 1
                 if has_errors:
                     print(
                         f"  ✓ Verified {operator.company} (with errors in some steps)"
@@ -900,7 +1002,7 @@ async def batch_verify_by_states(session_id: str = None):
         print(f"\n{'='*80}")
         print(f"BATCH VERIFICATION COMPLETED")
         print(
-            f"Total: {len(filtered_operators)}, Successful: {successful}, Failed: {failed}"
+            f"Total: {len(filtered_operators)}, Successful: {successful}, Failed: {failed}, Saved to Supabase: {saved_to_supabase_count}"
         )
         print(f"{'='*80}\n")
 
@@ -910,6 +1012,7 @@ async def batch_verify_by_states(session_id: str = None):
             "total_operators": len(filtered_operators),
             "successful": successful,
             "failed": failed,
+            "saved_to_supabase": saved_to_supabase_count,
             "results": results,
         }
 

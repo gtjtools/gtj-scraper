@@ -1,0 +1,267 @@
+[
+    {
+        "value": "",
+        "text": "Please select",
+        "abbreviation": ""
+    },
+    {
+        "value": "https://www.sos.alabama.gov/business-services/ucc-home",
+        "text": "Alabama",
+        "abbreviation": "AL"
+    },
+    {
+        "value": "https://dnr.alaska.gov/ssd/recoff/ucc",
+        "text": "Alaska",
+        "abbreviation": "AK"
+    },
+    {
+        "value": "https://azsos.gov/business/uniform-commercial-code-ucc",
+        "text": "Arizona",
+        "abbreviation": "AZ"
+    },
+    {
+        "value": "https://www.sos.arkansas.gov/business-commercial-services-bcs/uniform-commercial-code-ucc/",
+        "text": "Arkansas",
+        "abbreviation": "AR"
+    },
+    {
+        "value": "http://www.sos.ca.gov/business-programs/ucc/",
+        "text": "California",
+        "abbreviation": "CA"
+    },
+    {
+        "value": "http://www.sos.state.co.us/pubs/UCC/uccHome.html",
+        "text": "Colorado",
+        "abbreviation": "CO"
+    },
+    {
+        "value": "https://business.ct.gov/manage/all-business-filings/file-ucc-liens?language=en_US",
+        "text": "Connecticut",
+        "abbreviation": "CT"
+    },
+    {
+        "value": "http://corp.delaware.gov/ucc.shtml",
+        "text": "Delaware",
+        "abbreviation": "DE"
+    },
+    {
+        "value": "https://otr.cfo.dc.gov/page/recorder-deeds",
+        "text": "District of Columbia",
+        "abbreviation": "DC"
+    },
+    {
+        "value": "https://dos.myflorida.com/sunbiz/other-services/ucc-information/",
+        "text": "Florida",
+        "abbreviation": "FL"
+    },
+    {
+        "value": "http://www.gsccca.org/Search/UCC_search/",
+        "text": "Georgia",
+        "abbreviation": "GA"
+    },
+    {
+        "value": "https://dlnr.hawaii.gov/boc/forms/",
+        "text": "Hawaii",
+        "abbreviation": "HI"
+    },
+    {
+        "value": "https://sos.idaho.gov/uniform-commercial-code/",
+        "text": "Idaho",
+        "abbreviation": "ID"
+    },
+    {
+        "value": "https://www.ilsos.gov/departments/business_services/uniform_commercial_code/home.html",
+        "text": "Illinois",
+        "abbreviation": "IL"
+    },
+    {
+        "value": "https://inbiz.in.gov/business-filings/ucc\n",
+        "text": "Indiana",
+        "abbreviation": "IN"
+    },
+    {
+        "value": "http://sos.iowa.gov/business/UCCInfo.html",
+        "text": "Iowa",
+        "abbreviation": "IA"
+    },
+    {
+        "value": "https://sos.ks.gov/general-services/ucc-filing-information.html",
+        "text": "Kansas",
+        "abbreviation": "KS"
+    },
+    {
+        "value": "http://www.sos.ky.gov/bus/UCC/Pages/default.aspx",
+        "text": "Kentucky",
+        "abbreviation": "KY"
+    },
+    {
+        "value": "http://www.sos.la.gov/BusinessServices/UniformCommercialCode/Pages/default.aspx",
+        "text": "Louisiana",
+        "abbreviation": "LA"
+    },
+    {
+        "value": "http://www.maine.gov/sos/cec/ucc/index.html",
+        "text": "Maine",
+        "abbreviation": "ME"
+    },
+    {
+        "value": "https://egov.maryland.gov/SDAT/UCCFiling/UCCMainPage.aspx",
+        "text": "Maryland",
+        "abbreviation": "MD"
+    },
+    {
+        "value": "https://www.sec.state.ma.us/divisions/corporations/filing-by-subject/ucc/corporations-uniform-commercial-code.htm",
+        "text": "Massachusetts",
+        "abbreviation": "MA"
+    },
+    {
+        "value": "http://www.michigan.gov/sos/0,1607,7-127-1631_8851---,00.html",
+        "text": "Michigan",
+        "abbreviation": "MI"
+    },
+    {
+        "value": "https://www.sos.state.mn.us/business-liens/ucc-cns-tax-liens-help/",
+        "text": "Minnesota",
+        "abbreviation": "MN"
+    },
+    {
+        "value": "https://www.sos.ms.gov/business-services/ucc-search",
+        "text": "Mississippi",
+        "abbreviation": "MS"
+    },
+    {
+        "value": "http://www.sos.mo.gov/ucc/generalInfo.asp",
+        "text": "Missouri",
+        "abbreviation": "MO"
+    },
+    {
+        "value": "https://sosmt.gov/business/ucc/",
+        "text": "Montana",
+        "abbreviation": "MT"
+    },
+    {
+        "value": "http://www.sos.ne.gov/business/ucc/index.html",
+        "text": "Nebraska",
+        "abbreviation": "NE"
+    },
+    {
+        "value": "https://www.nvsos.gov/sos/sos-information/office-facts/faqs-all-division/uniform-commercial-code",
+        "text": "Nevada",
+        "abbreviation": "NV"
+    },
+    {
+        "value": "https://sos.nh.gov/corporation-ucc-securities/ucc/uniform-commercial-code-ucc/",
+        "text": "New Hampshire",
+        "abbreviation": "NH"
+    },
+    {
+        "value": "https://www.njportal.com/ucc/",
+        "text": "New Jersey",
+        "abbreviation": "NJ"
+    },
+    {
+        "value": "https://www.sos.nm.gov/commercial-services/ucc-filings/ucc-forms-2/",
+        "text": "New Mexico",
+        "abbreviation": "NM"
+    },
+    {
+        "value": "https://dos.ny.gov/ucc-frequently-asked-questions",
+        "text": "New York",
+        "abbreviation": "NY"
+    },
+    {
+        "value": "https://www.sosnc.gov/divisions/uniform_commercial_code",
+        "text": "North Carolina",
+        "abbreviation": "NC"
+    },
+    {
+        "value": "http://www.nd.gov/sos/businessserv/centralindex/index.html",
+        "text": "North Dakota",
+        "abbreviation": "ND"
+    },
+    {
+        "value": "http://www.sos.state.oh.us/SOS/Businesses/UCC.aspx",
+        "text": "Ohio",
+        "abbreviation": "OH"
+    },
+    {
+        "value": "https://www.oklahomacounty.org/county-information/uniform-commercial-code-ucc",
+        "text": "Oklahoma",
+        "abbreviation": "OK"
+    },
+    {
+        "value": "https://sos.oregon.gov/business/Pages/ucc.aspx",
+        "text": "Oregon",
+        "abbreviation": "OR"
+    },
+    {
+        "value": "https://www.dli.pa.gov/Individuals/Labor-Management-Relations/bois/fee-schedules/Pages/UCC.aspx",
+        "text": "Pennsylvania",
+        "abbreviation": "PA"
+    },
+    {
+        "value": "https://state.pr.gov/en/",
+        "text": "Puerto Rico",
+        "abbreviation": "PR"
+    },
+    {
+        "value": "https://www.sos.ri.gov/divisions/business-services/ucc/",
+        "text": "Rhode Island",
+        "abbreviation": "RI"
+    },
+    {
+        "value": "https://sos.sc.gov/online-filings/uniform-commercial-code",
+        "text": "South Carolina",
+        "abbreviation": "SC"
+    },
+    {
+        "value": "https://sosenterprise.sd.gov/ucc/",
+        "text": "South Dakota",
+        "abbreviation": "SD"
+    },
+    {
+        "value": "https://sos.tn.gov/search?search_keywords=ucc",
+        "text": "Tennessee",
+        "abbreviation": "TN"
+    },
+    {
+        "value": "http://www.sos.state.tx.us/ucc/index.shtml",
+        "text": "Texas",
+        "abbreviation": "TX"
+    },
+    {
+        "value": "https://secure.utah.gov/uccsearch/uccs",
+        "text": "Utah",
+        "abbreviation": "UT"
+    },
+    {
+        "value": "https://sos.vermont.gov/business-services/ucc-liens/",
+        "text": "Vermont",
+        "abbreviation": "VT"
+    },
+    {
+        "value": "https://www.scc.virginia.gov/businesses/ucc/",
+        "text": "Virginia",
+        "abbreviation": "VA"
+    },
+    {
+        "value": "https://www.dol.wa.gov/business/UCC/uccforms.html",
+        "text": "Washington",
+        "abbreviation": "WA"
+    },
+    {
+        "value": "https://sos.wv.gov/business/Pages/UCCFilingProc.aspx",
+        "text": "West Virginia",
+        "abbreviation": "WV"
+    },
+    {
+        "value": "https://dfi.wi.gov/Pages/BusinessServices/UCC/GeneralInformation.aspx",
+        "text": "Wisconsin",
+        "abbreviation": "WI"
+    },
+    {
+        "value": "http://soswy.state.wy.us/Business/Default.aspx",
+        "text": "Wyoming",
+        "abbreviation": "WY"
+    }
+]
