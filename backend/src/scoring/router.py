@@ -607,6 +607,19 @@ async def full_scoring_flow(
         # Add filename to result
         result["saved_file"] = filename
 
+        # Save to Supabase database
+        saved_to_db = save_trust_score_to_supabase(
+            operator_name=operator_name,
+            trust_score_result=trust_score_result,
+            ntsb_result={
+                "score": ntsb_score,
+                "total_incidents": total_incidents,
+                "incidents": ntsb_incidents_dict
+            },
+            ucc_result=ucc_data
+        )
+        result["saved_to_supabase"] = saved_to_db
+
         print(f"\n{'='*80}")
         print(f"FULL SCORING FLOW COMPLETED - Status: {overall_status.upper()}")
         if has_errors:
@@ -640,7 +653,7 @@ async def full_scoring_flow(
     description="Run full verification flow for all operators from database",
     tags=["scoring"],
 )
-async def batch_verify_by_states(session_id: str = None):
+async def batch_verify_by_states(session_id: str = None, null_trust_score_only: bool = False):
     """
     Run batch verification for all operators.
 
@@ -648,6 +661,10 @@ async def batch_verify_by_states(session_id: str = None):
     1. Queries database for all operators with faa_state FL or CA
     2. Runs full scoring flow (NTSB + UCC) for each operator
     3. Returns summary of results
+
+    Args:
+        session_id: Optional existing Browserbase session ID
+        null_trust_score_only: If True, only process operators with NULL trust_score
 
     Returns:
         Batch verification results with summary statistics
@@ -696,6 +713,28 @@ async def batch_verify_by_states(session_id: str = None):
             else:
                 filtered_operators = all_operators
                 print(f"✓ Processing all {len(filtered_operators)} operators (no state filter)")
+
+        # Filter to only operators with null trust_score if requested
+        if null_trust_score_only:
+            print("📍 Filtering to operators with NULL trust_score...")
+            from src.common.config import SessionLocal
+            from src.common.models import Operator as OperatorModel
+            db = SessionLocal()
+            try:
+                # Get operator names that have NULL trust_score
+                null_trust_score_operators = db.query(OperatorModel.name).filter(
+                    OperatorModel.trust_score.is_(None)
+                ).all()
+                null_trust_score_names = {op.name for op in null_trust_score_operators}
+
+                # Filter to only include operators with null trust_score
+                filtered_operators = [
+                    op for op in filtered_operators
+                    if op.company in null_trust_score_names
+                ]
+                print(f"✓ Filtered to {len(filtered_operators)} operators with NULL trust_score")
+            finally:
+                db.close()
 
         if not filtered_operators:
             return {
