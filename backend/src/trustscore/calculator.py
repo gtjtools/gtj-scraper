@@ -1,11 +1,17 @@
 """
-TrustScore Calculator Service - Algorithm v3 Refined
-Calculates TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
-FleetScore = (50 + 0.5*OS) * CS
+TrustScore Calculator Service - Algorithm v3 Refined2
+Calculates TrustScore = 50 + (0.5 * (0.6*OS + 0.4*TS)) * CS
+FleetScore = 50 + (0.5 * OS * CS)
 where:
   OS (Operator Score) = 100 - ORF + FSF - CSF
   TS (Tail Score) = 100 - MRT + OST - 5*IHT
   CS = Confidence Score
+
+Score Tiers:
+  90+ : Pinnacle
+  80+ : Premier
+  70+ : Benchmark
+  <70 : Standard
 
 NOTE: CSF uses INVERSE scoring - better certifications have LOWER values
   - Platinum Elite (ARGUS) = 0 points (best, no penalty)
@@ -45,13 +51,19 @@ class TailScoreData:
 
 class TrustScoreCalculator:
     """
-    Main TrustScore calculation service - Algorithm v3 Refined
-    TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
-    FleetScore = (50 + 0.5*OS) * CS
+    Main TrustScore calculation service - Algorithm v3 Refined2
+    TrustScore = 50 + (0.5 * (0.6*OS + 0.4*TS)) * CS
+    FleetScore = 50 + (0.5 * OS * CS)
     where:
       OS (Operator Score) = 100 - ORF + FSF - CSF
       TS (Tail Score) = 100 - MRT + OST - 5*IHT
       CS = Confidence Score
+
+    Score Tiers:
+      90+ : Pinnacle
+      80+ : Premier
+      70+ : Benchmark
+      <70 : Standard
 
     NOTE: CSF uses INVERSE scoring (better cert = lower penalty)
     """
@@ -76,6 +88,34 @@ class TrustScoreCalculator:
 
     # Time decay constant: k = ln(2) / 5
     TIME_DECAY_K = math.log(2) / 5
+
+    # Score Tiers (Algorithm v3 Refined2)
+    SCORE_TIERS = {
+        "Pinnacle": 90,   # 90+
+        "Premier": 80,    # 80+
+        "Benchmark": 70,  # 70+
+        "Standard": 0,    # <70
+    }
+
+    @staticmethod
+    def get_score_tier(score: float) -> str:
+        """
+        Get the score tier based on the trust score.
+
+        Args:
+            score: The trust score (0-100)
+
+        Returns:
+            Tier name: "Pinnacle", "Premier", "Benchmark", or "Standard"
+        """
+        if score >= 90:
+            return "Pinnacle"
+        elif score >= 80:
+            return "Premier"
+        elif score >= 70:
+            return "Benchmark"
+        else:
+            return "Standard"
 
     def __init__(self, llm_client=None):
         """
@@ -106,9 +146,9 @@ class TrustScoreCalculator:
         self, fleet_data: FleetScoreData, tail_data: TailScoreData
     ) -> Dict[str, Any]:
         """
-        Calculate the complete TrustScore (Algorithm v3 - Refined)
-        TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
-        FleetScore = (50 + 0.5*OS) * CS
+        Calculate the complete TrustScore (Algorithm v3 - Refined2)
+        TrustScore = 50 + (0.5 * (0.6*OS + 0.4*TS)) * CS
+        FleetScore = 50 + (0.5 * OS * CS)
 
         Args:
             fleet_data: Data for FleetScore calculation
@@ -121,12 +161,12 @@ class TrustScoreCalculator:
         tail_score, tail_breakdown = await self.calculate_tail_score(tail_data)
         confidence_score = self.calculate_confidence_score(fleet_data.operator_age_years)
 
-        # TrustScore = (50 + (0.5 * (0.6*OS + 0.4*TS))) * CS
+        # TrustScore = 50 + (0.5 * (0.6*OS + 0.4*TS)) * CS
         raw_combined = 0.6 * operator_score + 0.4 * tail_score
-        trust_score = (50 + (0.5 * raw_combined)) * confidence_score
+        trust_score = 50 + (0.5 * raw_combined) * confidence_score
 
-        # FleetScore = (50 + 0.5*OS) * CS
-        fleet_score = (50 + 0.5 * operator_score) * confidence_score
+        # FleetScore = 50 + (0.5 * OS * CS)
+        fleet_score = 50 + (0.5 * operator_score * confidence_score)
 
         # Generate AI insights if LLM client is available
         ai_insights = None
@@ -136,8 +176,12 @@ class TrustScoreCalculator:
                 confidence_score, fleet_breakdown, tail_breakdown
             )
 
+        # Determine score tier
+        score_tier = self.get_score_tier(trust_score)
+
         result = {
             "trust_score": round(trust_score, 2),
+            "score_tier": score_tier,
             "fleet_score": round(fleet_score, 2),
             "operator_score": round(operator_score, 2),
             "tail_score": round(tail_score, 2),
