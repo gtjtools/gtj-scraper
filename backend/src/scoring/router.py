@@ -653,7 +653,11 @@ async def full_scoring_flow(
     description="Run full verification flow for all operators from database",
     tags=["scoring"],
 )
-async def batch_verify_by_states(session_id: str = None, null_trust_score_only: bool = False):
+async def batch_verify_by_states(
+    session_id: str = None,
+    null_trust_score_only: bool = False,
+    operator_id: str = None
+):
     """
     Run batch verification for all operators.
 
@@ -665,26 +669,46 @@ async def batch_verify_by_states(session_id: str = None, null_trust_score_only: 
     Args:
         session_id: Optional existing Browserbase session ID
         null_trust_score_only: If True, only process operators with NULL trust_score
+        operator_id: Optional specific operator ID (UUID) to process only that operator
 
     Returns:
         Batch verification results with summary statistics
     """
     try:
-        from src.operator.charter_service import get_charter_operators
+        from src.operator.charter_service import get_charter_operators, get_charter_operator_by_id
         from src.scoring.service import NTSBService
 
         # Filter by states - set to None or empty list to process all operators
         states = None
 
         print(f"\n{'='*80}")
-        print(f"BATCH VERIFICATION FOR STATES: {states if states else 'ALL'}")
+        if operator_id:
+            print(f"BATCH VERIFICATION FOR OPERATOR ID: {operator_id}")
+        else:
+            print(f"BATCH VERIFICATION FOR STATES: {states if states else 'ALL'}")
         print(f"{'='*80}\n")
 
         # Step 1: Get operators from database
         print("Step 1: Fetching operators from database...")
 
+        # If operator_id is provided, fetch only that specific operator
+        if operator_id:
+            print(f"📍 Fetching specific operator by ID: {operator_id}")
+            operator = await get_charter_operator_by_id(operator_id)
+            if operator:
+                filtered_operators = [operator]
+                print(f"✓ Found operator: {operator.company}")
+            else:
+                return {
+                    "status": "failed",
+                    "message": f"Operator with ID {operator_id} not found",
+                    "total_operators": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "results": [],
+                }
         # If BATCH_TEST_OPERATORS is set, only query those specific operators
-        if BATCH_TEST_OPERATORS:
+        elif BATCH_TEST_OPERATORS:
             print(f"📍 Test filter active - querying only: {BATCH_TEST_OPERATORS}")
             filtered_operators = []
             for operator_name in BATCH_TEST_OPERATORS:
