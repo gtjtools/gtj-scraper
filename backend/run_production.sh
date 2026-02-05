@@ -34,6 +34,22 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
+# Activate virtual environment (create if doesn't exist)
+if [ -d "venv" ]; then
+    echo -e "${GREEN}Activating virtual environment${NC}"
+    source venv/bin/activate
+elif [ -d ".venv" ]; then
+    echo -e "${GREEN}Activating virtual environment${NC}"
+    source .venv/bin/activate
+else
+    echo -e "${YELLOW}No virtual environment found. Creating one...${NC}"
+    python3 -m venv venv
+    source venv/bin/activate
+    echo -e "${GREEN}Installing dependencies...${NC}"
+    pip install -r requirements.txt
+    echo -e "${GREEN}Virtual environment created and dependencies installed${NC}"
+fi
+
 # Check for required environment variables
 if [ -z "$HATCHET_CLIENT_TOKEN" ]; then
     echo -e "${RED}Error: HATCHET_CLIENT_TOKEN is not set${NC}"
