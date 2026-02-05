@@ -49,20 +49,21 @@ def save_trust_score_to_supabase(
     operator_name: str,
     trust_score_result: dict,
     ntsb_result: dict,
-    ucc_result: dict
+    ucc_result: dict,
+    argus_rating: str = None,
+    wyvern_rating: str = None
 ) -> bool:
     """
     Save trust score results to Supabase database.
-
-    Updates:
-    1. gtj.operators.trust_score and trust_score_updated_at
-    2. gtj.trust_scores table with detailed breakdown
+    Updates gtj.operators and creates record in gtj.trust_scores.
 
     Args:
         operator_name: Name of the operator
         trust_score_result: TrustScore calculation result
         ntsb_result: NTSB query result
         ucc_result: UCC verification result
+        argus_rating: ARGUS certification rating
+        wyvern_rating: Wyvern certification rating
 
     Returns:
         True if saved successfully, False otherwise
@@ -78,12 +79,22 @@ def save_trust_score_to_supabase(
             print(f"  ⚠️  Operator '{operator_name}' not found in gtj.operators table")
             return False
 
-        # Update operator's trust_score
+        # Extract scores from trust_score_result
         overall_score = trust_score_result.get('trust_score', 0)
+        fleet_score = trust_score_result.get('fleet_score', overall_score)
+        tail_score = trust_score_result.get('tail_score', 100)
+        operator_score = trust_score_result.get('operator_score', 100)
+        confidence_score = trust_score_result.get('confidence_score', 0.8)
+
+        # Extract financial score from fleet_breakdown final_score
+        fleet_breakdown = trust_score_result.get('fleet_breakdown', {})
+        financial_score = fleet_breakdown.get('final_score', 100)
+
+        # Update operator's trust_score
         operator.trust_score = Decimal(str(overall_score))
         operator.trust_score_updated_at = datetime.utcnow()
 
-        # Prepare factors JSON with all scraped data
+        # Build comprehensive factors JSON
         factors = {
             "ntsb": {
                 "score": ntsb_result.get('score', 100),
@@ -95,30 +106,40 @@ def save_trust_score_to_supabase(
                 "states_processed": ucc_result.get('states_processed', 0),
                 "visited_states": ucc_result.get('visited_states', [])
             },
-            "fleet_score": trust_score_result.get('fleet_score', 0),
-            "tail_score": trust_score_result.get('tail_score', 0),
-            "breakdown": trust_score_result.get('breakdown', {}),
+            "scores": {
+                "fleet_score": fleet_score,
+                "tail_score": tail_score,
+                "operator_score": operator_score,
+                "raw_combined_score": trust_score_result.get('raw_combined_score', 0),
+                "score_tier": trust_score_result.get('score_tier', 'Unknown')
+            },
+            "fleet_breakdown": fleet_breakdown,
+            "tail_breakdown": trust_score_result.get('tail_breakdown', {}),
+            "certifications": {
+                "argus_rating": argus_rating,
+                "wyvern_rating": wyvern_rating
+            },
             "ai_insights": trust_score_result.get('ai_insights', None)
         }
 
-        # Create detailed trust score record in gtj.trust_scores table
+        # Create trust_scores record with enriched data
         trust_score_record = TrustScore(
             operator_id=operator.operator_id,
             overall_score=Decimal(str(overall_score)),
-            safety_score=Decimal(str(trust_score_result.get('fleet_score', overall_score))),
-            financial_score=Decimal(str(100 - len(ucc_result.get('visited_states', [])) * 5)),
-            regulatory_score=Decimal(str(100)),
-            aog_score=Decimal(str(100)),
+            safety_score=Decimal(str(fleet_score)),
+            financial_score=Decimal(str(financial_score)),
+            regulatory_score=Decimal(str(operator_score)),
+            aog_score=Decimal(str(100)),  # Default, no AOG data yet
             factors=factors,
-            version="1.0",
+            version="3.0",  # Algorithm v3
             expires_at=datetime.utcnow() + timedelta(days=30),
-            confidence_level=Decimal(str(trust_score_result.get('confidence', 0.8)))
+            confidence_level=Decimal(str(confidence_score))
         )
 
         db.add(trust_score_record)
         db.commit()
 
-        print(f"  ✓ Saved trust score {overall_score} for {operator_name} to Supabase")
+        print(f"  ✓ Saved trust score {overall_score} for {operator_name} to gtj.operators and gtj.trust_scores")
         return True
 
     except Exception as e:
@@ -609,7 +630,7 @@ async def full_scoring_flow(
         # Add filename to result
         result["saved_file"] = filename
 
-        # Save to Supabase database
+        # Save to Supabase database (gtj.operators and gtj.trust_scores)
         saved_to_db = save_trust_score_to_supabase(
             operator_name=operator_name,
             trust_score_result=trust_score_result,
@@ -618,7 +639,9 @@ async def full_scoring_flow(
                 "total_incidents": total_incidents,
                 "incidents": ntsb_incidents_dict
             },
-            ucc_result=ucc_data
+            ucc_result=ucc_data,
+            argus_rating=argus_rating,
+            wyvern_rating=wyvern_rating
         )
         result["saved_to_supabase"] = saved_to_db
 
