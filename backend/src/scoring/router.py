@@ -20,6 +20,8 @@ from src.common.dependencies import get_db
 from src.auth.service import authentication
 from src.common.error import HTTPError
 from src.common.models import Operator, TrustScore
+from src.hatchet_client import hatchet
+from src.workflows.batch_verify_workflow import batch_verify_workflow
 
 # Directory for storing verification results
 VERIFICATION_RESULTS_DIR = os.path.join(os.path.dirname(__file__), "../../data/temp")
@@ -650,7 +652,7 @@ async def full_scoring_flow(
 @scoring_router.post(
     "/scoring/batch-verify-by-states",
     summary="Batch verify operators by FAA states (NTSB + UCC)",
-    description="Run full verification flow for all operators from database",
+    description="Trigger batch verification workflow for all operators from database. Returns immediately with workflow run ID.",
     tags=["scoring"],
 )
 async def batch_verify_by_states(
@@ -659,12 +661,12 @@ async def batch_verify_by_states(
     operator_id: str = None
 ):
     """
-    Run batch verification for all operators.
+    Trigger batch verification workflow for all operators.
 
     This endpoint:
-    1. Queries database for all operators with faa_state FL or CA
-    2. Runs full scoring flow (NTSB + UCC) for each operator
-    3. Returns summary of results
+    1. Triggers a Hatchet workflow for batch verification
+    2. Returns immediately with a workflow_run_id
+    3. The workflow processes operators asynchronously in the background
 
     Args:
         session_id: Optional existing Browserbase session ID
@@ -672,418 +674,98 @@ async def batch_verify_by_states(
         operator_id: Optional specific operator ID (UUID) to process only that operator
 
     Returns:
-        Batch verification results with summary statistics
+        Workflow run ID for tracking progress
     """
     try:
-        from src.operator.charter_service import get_charter_operators, get_charter_operator_by_id
-        from src.scoring.service import NTSBService
-
-        # Filter by states - set to None or empty list to process all operators
-        states = None
-
-        print(f"\n{'='*80}")
-        if operator_id:
-            print(f"BATCH VERIFICATION FOR OPERATOR ID: {operator_id}")
-        else:
-            print(f"BATCH VERIFICATION FOR STATES: {states if states else 'ALL'}")
-        print(f"{'='*80}\n")
-
-        # Step 1: Get operators from database
-        print("Step 1: Fetching operators from database...")
-
-        # If operator_id is provided, fetch only that specific operator
-        if operator_id:
-            print(f"📍 Fetching specific operator by ID: {operator_id}")
-            operator = await get_charter_operator_by_id(operator_id)
-            if operator:
-                filtered_operators = [operator]
-                print(f"✓ Found operator: {operator.company}")
-            else:
-                return {
-                    "status": "failed",
-                    "message": f"Operator with ID {operator_id} not found",
-                    "total_operators": 0,
-                    "successful": 0,
-                    "failed": 0,
-                    "results": [],
-                }
-        # If BATCH_TEST_OPERATORS is set, only query those specific operators
-        elif BATCH_TEST_OPERATORS:
-            print(f"📍 Test filter active - querying only: {BATCH_TEST_OPERATORS}")
-            filtered_operators = []
-            for operator_name in BATCH_TEST_OPERATORS:
-                operators_response = await get_charter_operators(
-                    skip=0, limit=None, search=operator_name
-                )
-                for op in operators_response.data:
-                    # Exact match check (search might return partial matches)
-                    if op.company == operator_name:
-                        filtered_operators.append(op)
-            print(f"✓ Found {len(filtered_operators)} operator(s) matching test filter")
-        else:
-            # Query all operators
-            operators_response = await get_charter_operators(
-                skip=0, limit=None, search=None
-            )
-            all_operators = operators_response.data
-            print(f"✓ Found {len(all_operators)} total operators in database")
-
-            # Filter by states only if states list is specified
-            if states:
-                filtered_operators = [op for op in all_operators if op.faa_state in states]
-                print(
-                    f"✓ Filtered to {len(filtered_operators)} operators with faa_state in {states}"
-                )
-            else:
-                filtered_operators = all_operators
-                print(f"✓ Processing all {len(filtered_operators)} operators (no state filter)")
-
-        # Filter to only operators with null trust_score if requested
-        if null_trust_score_only:
-            print("📍 Filtering to operators with NULL trust_score...")
-            from src.common.config import SessionLocal
-            from src.common.models import Operator as OperatorModel
-            db = SessionLocal()
-            try:
-                # Get operator names that have NULL trust_score
-                null_trust_score_operators = db.query(OperatorModel.name).filter(
-                    OperatorModel.trust_score.is_(None)
-                ).all()
-                null_trust_score_names = {op.name for op in null_trust_score_operators}
-
-                # Filter to only include operators with null trust_score
-                filtered_operators = [
-                    op for op in filtered_operators
-                    if op.company in null_trust_score_names
-                ]
-                print(f"✓ Filtered to {len(filtered_operators)} operators with NULL trust_score")
-            finally:
-                db.close()
-
-        if not filtered_operators:
-            return {
-                "status": "completed",
-                "message": f"No operators found with faa_state in {states}",
-                "total_operators": 0,
-                "successful": 0,
-                "failed": 0,
-                "results": [],
+        # Trigger the Hatchet workflow (fire and forget - returns immediately)
+        workflow_ref = batch_verify_workflow.run_no_wait(
+            input={
+                "session_id": session_id,
+                "null_trust_score_only": null_trust_score_only,
+                "operator_id": operator_id
             }
-
-        # Step 3: Run verification for each operator
-        results = []
-        successful = 0
-        failed = 0
-        saved_to_supabase_count = 0
-
-        for idx, operator in enumerate(filtered_operators, 1):
-            print(f"\n{'='*60}")
-            print(
-                f"Processing operator {idx}/{len(filtered_operators)}: {operator.company}"
-            )
-            print(f"FAA State: {operator.faa_state}")
-            print(f"{'='*60}")
-
-            try:
-                # Run NTSB query
-                print(f"  → Querying NTSB for {operator.company}...")
-                ntsb_error = None
-                try:
-                    ntsb_data = await NTSBService.query_ntsb_incidents(operator.company)
-                    incidents = NTSBService.parse_ntsb_response(ntsb_data)
-                    total_incidents = len(incidents)
-                    ntsb_score = max(0, 100 - (total_incidents * 5))
-                    print(f"  ✓ NTSB: {total_incidents} incidents, score: {ntsb_score}")
-                except Exception as e:
-                    ntsb_error = str(e)
-                    print(f"  ⚠️  NTSB failed: {ntsb_error}")
-                    print("  → Continuing with default values")
-                    ntsb_data = {"Results": []}
-                    incidents = []
-                    total_incidents = 0
-                    ntsb_score = 100.0
-
-                # Run UCC verification
-                print(f"  → Verifying UCC filings...")
-                ucc_error = None
-                try:
-                    ucc_service = UCCVerificationService()
-                    ntsb_results = ntsb_data.get("Results", [])
-                    ucc_data = await ucc_service.verify_ucc_filings_with_session(
-                        operator.company,
-                        ntsb_results,
-                        operator.faa_state,
-                        None,
-                        session_id,
-                        UCC_READY_STATES,
-                    )
-                    print(f"  ✓ UCC: {ucc_data.get('status')}")
-                except Exception as e:
-                    ucc_error = str(e)
-                    print(f"  ⚠️  UCC failed: {ucc_error}")
-                    print("  → Continuing with default values")
-                    ucc_data = {
-                        "status": "failed",
-                        "error": ucc_error,
-                        "visited_states": [],
-                        "states_processed": 0,
-                    }
-
-                # Calculate TrustScore
-                print(f"  → Calculating TrustScore...")
-                trust_score_error = None
-
-                try:
-                    # Extract UCC filings
-                    ucc_filings = []
-                    visited_states = ucc_data.get("visited_states", [])
-                    for state_result in visited_states:
-                        if state_result.get("flow_used") and state_result.get(
-                            "flow_result"
-                        ):
-                            flow_result = state_result["flow_result"]
-                            normalized_filings = flow_result.get(
-                                "normalized_filings", []
-                            )
-                            for filing in normalized_filings:
-                                ucc_filings.append(
-                                    {
-                                        "file_number": filing.get(
-                                            "file_number", "Unknown"
-                                        ),
-                                        "status": filing.get("status", "Unknown"),
-                                        "filing_date": filing.get(
-                                            "filing_date", "Unknown"
-                                        ),
-                                        "lapse_date": filing.get(
-                                            "lapse_date", "Unknown"
-                                        ),
-                                        "lien_type": filing.get("lien_type", "Unknown"),
-                                        "debtor": filing.get("debtor", "Unknown"),
-                                        "secured_party": filing.get(
-                                            "secured_party", None
-                                        ),
-                                        "collateral": filing.get("collateral", None),
-                                        "state": state_result.get("state", "Unknown"),
-                                    }
-                                )
-
-                    # Convert incidents to dict format
-                    fleet_events = [incident.dict() for incident in incidents]
-
-                    # Fetch operator age from database
-                    from src.common.models import Operator
-                    from src.common.config import SessionLocal
-
-                    operator_age_years = 10.0
-                    fleet_size = 1
-                    argus_rating = None
-                    wyvern_rating = None
-
-                    try:
-                        db = SessionLocal()
-                        db_operator = (
-                            db.query(Operator)
-                            .filter(Operator.name == operator.company)
-                            .first()
-                        )
-
-                        if db_operator and db_operator.business_started_date:
-                            years_diff = (
-                                datetime.now() - db_operator.business_started_date
-                            ).days / 365.25
-                            operator_age_years = round(years_diff, 1)
-
-                        if db_operator:
-                            argus_rating = db_operator.argus_rating
-                            wyvern_rating = db_operator.wyvern_rating
-
-                        db.close()
-                    except Exception as e:
-                        print(
-                            f"  ⚠️  Could not fetch operator data from gtj.operators: {e}"
-                        )
-
-                    # Create FleetScoreData
-                    fleet_data = FleetScoreData(
-                        operator_name=operator.company,
-                        operator_age_years=operator_age_years,
-                        fleet_size=fleet_size,
-                        fleet_events=fleet_events,
-                        ucc_filings=ucc_filings,
-                        argus_rating=argus_rating,
-                        wyvern_rating=wyvern_rating,
-                        bankruptcy_history=None,
-                    )
-
-                    # Create TailScoreData
-                    tail_data = TailScoreData(
-                        aircraft_age_years=5.0,
-                        operator_name=operator.company,
-                        registered_owner=operator.company,
-                        fractional_owner=False,
-                        tail_events=fleet_events,
-                    )
-
-                    # Calculate TrustScore
-                    try:
-                        llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
-                        calculator = TrustScoreCalculator(llm_client=llm_client)
-                    except Exception:
-                        calculator = TrustScoreCalculator(llm_client=None)
-
-                    trust_score_result = await calculator.calculate_trust_score(
-                        fleet_data, tail_data
-                    )
-                    print(f"  ✓ TrustScore: {trust_score_result['trust_score']}")
-
-                except Exception as e:
-                    trust_score_error = str(e)
-                    print(f"  ⚠️  TrustScore calculation failed: {trust_score_error}")
-                    print(
-                        f"  → Using fallback calculation based on NTSB score: {ntsb_score}"
-                    )
-                    fleet_events = (
-                        [incident.dict() for incident in incidents] if incidents else []
-                    )
-                    argus_rating = None
-                    wyvern_rating = None
-                    # Use NTSB score as fallback trust score if available
-                    fallback_score = ntsb_score if ntsb_score is not None else 50.0
-                    trust_score_result = {
-                        "trust_score": fallback_score,
-                        "fleet_score": fallback_score,
-                        "tail_score": fallback_score,
-                        "error": trust_score_error,
-                        "fallback": True,
-                    }
-
-                # Save result
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                safe_operator_name = "".join(
-                    c if c.isalnum() else "_" for c in operator.company
-                )
-                date_only = datetime.now().strftime("%Y%m%d")
-                folder_name = f"{date_only}/{safe_operator_name}"
-                operator_folder = os.path.join(VERIFICATION_RESULTS_DIR, folder_name)
-                os.makedirs(operator_folder, exist_ok=True)
-
-                # Determine status for this operator
-                has_errors = any([ntsb_error, ucc_error, trust_score_error])
-                operator_status = "completed_with_errors" if has_errors else "completed"
-
-                result_data = {
-                    "operator_name": operator.company,
-                    "faa_state": operator.faa_state,
-                    "verification_date": datetime.now().isoformat(),
-                    "ntsb": {
-                        "score": ntsb_score,
-                        "total_incidents": total_incidents,
-                        "incidents": fleet_events,
-                        "raw_response": ntsb_data,
-                        "error": ntsb_error,
-                    },
-                    "ucc": ucc_data,
-                    "trust_score": trust_score_result,
-                    "combined_score": trust_score_result["trust_score"],
-                    # Certification ratings
-                    "argus_rating": argus_rating,
-                    "wyvern_rating": wyvern_rating,
-                    # Status and errors
-                    "status": operator_status,
-                    "errors": {
-                        "ntsb": ntsb_error,
-                        "ucc": ucc_error,
-                        "trust_score": trust_score_error,
-                    },
-                }
-
-                filename = f"verification_result_{safe_operator_name}_{timestamp}.json"
-                filepath = os.path.join(operator_folder, filename)
-
-                with open(filepath, "w") as f:
-                    json.dump(result_data, f, indent=2, default=str)
-
-                print(f"  ✓ Saved JSON: {filename}")
-
-                # Save to Supabase database
-                saved_to_db = save_trust_score_to_supabase(
-                    operator_name=operator.company,
-                    trust_score_result=trust_score_result,
-                    ntsb_result={
-                        "score": ntsb_score,
-                        "total_incidents": total_incidents,
-                        "incidents": fleet_events
-                    },
-                    ucc_result=ucc_data
-                )
-
-                results.append(
-                    {
-                        "operator_name": operator.company,
-                        "faa_state": operator.faa_state,
-                        "status": operator_status,
-                        "ntsb_score": ntsb_score,
-                        "trust_score": trust_score_result["trust_score"],
-                        "total_incidents": total_incidents,
-                        "ucc_states_processed": ucc_data.get("states_processed", 0),
-                        "saved_file": filename,
-                        "saved_to_supabase": saved_to_db,
-                        "live_view_url": ucc_data.get("live_view_url"),
-                        "session_id": ucc_data.get("session_id"),
-                        "errors": {
-                            "ntsb": ntsb_error,
-                            "ucc": ucc_error,
-                            "trust_score": trust_score_error,
-                        },
-                    }
-                )
-
-                successful += 1
-                if saved_to_db:
-                    saved_to_supabase_count += 1
-                if has_errors:
-                    print(
-                        f"  ✓ Verified {operator.company} (with errors in some steps)"
-                    )
-                else:
-                    print(f"  ✓ Successfully verified {operator.company}")
-
-            except Exception as e:
-                print(f"  ❌ Error verifying {operator.company}: {str(e)}")
-                results.append(
-                    {
-                        "operator_name": operator.company,
-                        "faa_state": operator.faa_state,
-                        "status": "failed",
-                        "error": str(e),
-                    }
-                )
-                failed += 1
-
-        # Summary
-        print(f"\n{'='*80}")
-        print(f"BATCH VERIFICATION COMPLETED")
-        print(
-            f"Total: {len(filtered_operators)}, Successful: {successful}, Failed: {failed}, Saved to Supabase: {saved_to_supabase_count}"
         )
-        print(f"{'='*80}\n")
 
         return {
-            "status": "completed",
-            "message": f"Batch verification completed for {len(filtered_operators)} operators",
-            "total_operators": len(filtered_operators),
-            "successful": successful,
-            "failed": failed,
-            "saved_to_supabase": saved_to_supabase_count,
-            "results": results,
+            "status": "queued",
+            "message": "Batch verification workflow started",
+            "workflow_run_id": workflow_ref.workflow_run_id
         }
 
     except Exception as e:
-        print(f"❌ Batch verification error: {type(e).__name__}: {str(e)}")
+        print(f"❌ Failed to start batch verification workflow: {type(e).__name__}: {str(e)}")
         import traceback
-
         traceback.print_exc()
         raise HTTPException(
-            status_code=500, detail=f"Batch verification failed: {str(e)}"
+            status_code=500, detail=f"Failed to start batch verification workflow: {str(e)}"
+        )
+
+
+@scoring_router.delete(
+    "/scoring/batch-verify-cancel/{workflow_run_id}",
+    summary="Cancel a batch verification workflow",
+    description="Cancel a running or queued batch verification workflow",
+    tags=["scoring"],
+)
+async def cancel_batch_verify(workflow_run_id: str):
+    """
+    Cancel a batch verification workflow run.
+
+    Args:
+        workflow_run_id: The workflow run ID to cancel
+
+    Returns:
+        Cancellation confirmation
+    """
+    try:
+        await hatchet.runs.aio_cancel(workflow_run_id)
+        return {
+            "workflow_run_id": workflow_run_id,
+            "status": "cancelled",
+            "message": "Workflow run cancelled successfully"
+        }
+    except Exception as e:
+        print(f"❌ Failed to cancel workflow: {type(e).__name__}: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to cancel workflow: {str(e)}"
+        )
+
+
+@scoring_router.get(
+    "/scoring/batch-verify-status/{workflow_run_id}",
+    summary="Get batch verification workflow status",
+    description="Check the status of a batch verification workflow run",
+    tags=["scoring"],
+)
+async def get_batch_verify_status(workflow_run_id: str):
+    """
+    Get the status of a batch verification workflow run.
+
+    Args:
+        workflow_run_id: The workflow run ID returned from batch-verify-by-states
+
+    Returns:
+        Workflow status and result if completed
+    """
+    try:
+        # Get workflow run status
+        status = await hatchet.runs.aio_get_status(workflow_run_id)
+
+        # Try to get result if completed
+        result = None
+        if status in ["SUCCEEDED", "COMPLETED"]:
+            try:
+                result = await hatchet.runs.aio_get_result(workflow_run_id)
+            except Exception:
+                pass
+
+        return {
+            "workflow_run_id": workflow_run_id,
+            "status": status,
+            "result": result
+        }
+    except Exception as e:
+        print(f"❌ Failed to get workflow status: {type(e).__name__}: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get workflow status: {str(e)}"
         )
