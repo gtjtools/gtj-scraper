@@ -5,6 +5,22 @@
 
 set -e
 
+#   Usage:
+
+#   # Start services
+#   ./run_production.sh
+
+#   # Stop services
+#   ./run_production.sh stop
+
+#   # Check if running
+#   ps aux | grep uvicorn
+#   ps aux | grep batch_verify
+
+#   # View logs
+#   tail -f logs/fastapi_latest.log
+#   tail -f logs/hatchet_latest.log
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -57,21 +73,24 @@ if [ -z "$HATCHET_CLIENT_TOKEN" ]; then
     exit 1
 fi
 
-# Function to cleanup background processes on exit
-cleanup() {
-    echo -e "\n${YELLOW}Shutting down services...${NC}"
-    if [ ! -z "$FASTAPI_PID" ]; then
-        kill $FASTAPI_PID 2>/dev/null || true
+# Function to stop services (can be called with: ./run_production.sh stop)
+stop_services() {
+    echo -e "${YELLOW}Stopping services...${NC}"
+    if [ -f "$LOG_DIR/fastapi.pid" ]; then
+        kill $(cat "$LOG_DIR/fastapi.pid") 2>/dev/null && echo -e "${GREEN}FastAPI stopped${NC}" || echo -e "${RED}FastAPI not running${NC}"
+        rm -f "$LOG_DIR/fastapi.pid"
     fi
-    if [ ! -z "$HATCHET_PID" ]; then
-        kill $HATCHET_PID 2>/dev/null || true
+    if [ -f "$LOG_DIR/hatchet.pid" ]; then
+        kill $(cat "$LOG_DIR/hatchet.pid") 2>/dev/null && echo -e "${GREEN}Hatchet stopped${NC}" || echo -e "${RED}Hatchet not running${NC}"
+        rm -f "$LOG_DIR/hatchet.pid"
     fi
-    echo -e "${GREEN}Services stopped${NC}"
     exit 0
 }
 
-# Set trap to cleanup on script exit
-trap cleanup SIGINT SIGTERM EXIT
+# Handle stop command
+if [ "$1" = "stop" ]; then
+    stop_services
+fi
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  GTJ Scraper Production Startup${NC}"
@@ -79,22 +98,28 @@ echo -e "${GREEN}========================================${NC}"
 
 # Start FastAPI server
 echo -e "\n${YELLOW}Starting FastAPI server...${NC}"
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4 2>&1 | tee "$FASTAPI_LOG" &
+nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4 >> "$FASTAPI_LOG" 2>&1 &
 FASTAPI_PID=$!
 ln -sf "$FASTAPI_LOG" "$FASTAPI_LATEST"
 echo -e "${GREEN}FastAPI server started (PID: $FASTAPI_PID)${NC}"
 echo -e "Log: $FASTAPI_LOG"
+
+# Save PIDs to file for later management
+echo "$FASTAPI_PID" > "$LOG_DIR/fastapi.pid"
 
 # Wait a moment for FastAPI to initialize
 sleep 2
 
 # Start Hatchet worker
 echo -e "\n${YELLOW}Starting Hatchet worker...${NC}"
-python -m src.workers.batch_verify_worker 2>&1 | tee "$HATCHET_LOG" &
+nohup python -m src.workers.batch_verify_worker >> "$HATCHET_LOG" 2>&1 &
 HATCHET_PID=$!
 ln -sf "$HATCHET_LOG" "$HATCHET_LATEST"
 echo -e "${GREEN}Hatchet worker started (PID: $HATCHET_PID)${NC}"
 echo -e "Log: $HATCHET_LOG"
+
+# Save PIDs to file for later management
+echo "$HATCHET_PID" > "$LOG_DIR/hatchet.pid"
 
 echo -e "\n${GREEN}========================================${NC}"
 echo -e "${GREEN}  All services running${NC}"
@@ -105,7 +130,8 @@ echo -e "API Docs: http://process.trustjet.ai:8000/docs"
 echo -e "\n${YELLOW}Log files:${NC}"
 echo -e "  FastAPI: tail -f $FASTAPI_LATEST"
 echo -e "  Hatchet: tail -f $HATCHET_LATEST"
-echo -e "\nPress Ctrl+C to stop all services"
-
-# Wait for both processes
-wait $FASTAPI_PID $HATCHET_PID
+echo -e "\n${YELLOW}PID files:${NC}"
+echo -e "  FastAPI: $LOG_DIR/fastapi.pid"
+echo -e "  Hatchet: $LOG_DIR/hatchet.pid"
+echo -e "\n${GREEN}Services will keep running after you close the terminal.${NC}"
+echo -e "To stop services: kill \$(cat $LOG_DIR/fastapi.pid) \$(cat $LOG_DIR/hatchet.pid)"
