@@ -18,20 +18,24 @@ DATABASE_URL = f"postgresql://postgres:ForTestingLang123456@db.spttnizdxfnajghkb
 #DATABASE_URL = f"postgresql://postgres:Dreaming%20of%20a%20Contractor%20Life@db.spttnizdxfnajghkbnvh.supabase.co:5432/postgres"
 #DATABASE_URL= f"postgresql://postgres.spttnizdxfnajghkbnvh:ForTestingLang123456@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
 
-# Create the SQLAlchemy engine
-engine = create_engine(DATABASE_URL, echo=True)
-# engine = create_engine(
-#   DATABASE_URL,
-#   connect_args={
-#     "sslmode": "require",        # Supabase requires TLS
-#     "connect_timeout": 10,       # Prevent hanging connections
-#   },
-#   pool_timeout=30,
-#   pool_pre_ping=True,             # Verify connections before use
-#   pool_recycle=3600,              # Refresh connections hourly
-#   pool_size=20,                   # Base pool size
-#   max_overflow=30,
-# )
+# Create the SQLAlchemy engine with connection pooling and keepalive
+engine = create_engine(
+    DATABASE_URL,
+    echo=True,
+    connect_args={
+        "sslmode": "require",
+        "connect_timeout": 10,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+    },
+    pool_pre_ping=True,      # Check connection before using
+    pool_recycle=300,        # Recycle connections every 5 min
+    pool_timeout=30,
+    pool_size=5,
+    max_overflow=10,
+)
 
 # Create a sessionmaker
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

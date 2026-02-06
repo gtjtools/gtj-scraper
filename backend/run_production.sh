@@ -13,6 +13,12 @@ set -e
 #   # Stop services
 #   ./run_production.sh stop
 
+#   # Cancel a specific Hatchet workflow
+#   ./run_production.sh cancel <workflow_run_id>
+
+#   # Cancel all workflows from a file (one ID per line)
+#   ./run_production.sh cancel-all workflows.txt
+
 #   # Check if running
 #   ps aux | grep uvicorn
 #   ps aux | grep batch_verify
@@ -87,9 +93,62 @@ stop_services() {
     exit 0
 }
 
-# Handle stop command
+# Production API URL
+API_URL="http://process.trustjet.ai"
+
+# Function to cancel a single workflow
+cancel_workflow() {
+    local workflow_id=$1
+    echo -e "${YELLOW}Cancelling workflow: $workflow_id${NC}"
+    response=$(curl -s -X POST "$API_URL/scoring/batch-verify-cancel/$workflow_id")
+    if echo "$response" | grep -q "success\|cancelled"; then
+        echo -e "${GREEN}✓ Cancelled: $workflow_id${NC}"
+    else
+        echo -e "${RED}✗ Failed to cancel: $workflow_id${NC}"
+        echo "  Response: $response"
+    fi
+}
+
+# Function to cancel all workflows from a file
+cancel_all_workflows() {
+    local file=$1
+    if [ ! -f "$file" ]; then
+        echo -e "${RED}Error: File '$file' not found${NC}"
+        exit 1
+    fi
+    echo -e "${YELLOW}Cancelling all workflows from: $file${NC}"
+    while IFS= read -r workflow_id || [ -n "$workflow_id" ]; do
+        # Skip empty lines and comments
+        if [ -n "$workflow_id" ] && [[ ! "$workflow_id" =~ ^# ]]; then
+            cancel_workflow "$workflow_id"
+        fi
+    done < "$file"
+    echo -e "${GREEN}Done cancelling workflows${NC}"
+    exit 0
+}
+
+# Handle commands
 if [ "$1" = "stop" ]; then
     stop_services
+fi
+
+if [ "$1" = "cancel" ]; then
+    if [ -z "$2" ]; then
+        echo -e "${RED}Error: Please provide a workflow run ID${NC}"
+        echo "Usage: ./run_production.sh cancel <workflow_run_id>"
+        exit 1
+    fi
+    cancel_workflow "$2"
+    exit 0
+fi
+
+if [ "$1" = "cancel-all" ]; then
+    if [ -z "$2" ]; then
+        echo -e "${RED}Error: Please provide a file with workflow IDs${NC}"
+        echo "Usage: ./run_production.sh cancel-all workflows.txt"
+        exit 1
+    fi
+    cancel_all_workflows "$2"
 fi
 
 echo -e "${GREEN}========================================${NC}"

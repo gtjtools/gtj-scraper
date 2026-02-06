@@ -709,6 +709,12 @@ async def batch_verify_by_states(
             }
         )
 
+        # Save Hatchet workflow run ID for tracking/cancellation via ./run_production.sh cancel-all logs/workflows.txt
+        workflow_file = os.path.join(os.path.dirname(__file__), "../../logs/workflows.txt")
+        os.makedirs(os.path.dirname(workflow_file), exist_ok=True)
+        with open(workflow_file, "a") as f:
+            f.write(f"{workflow_ref.workflow_run_id}\n")
+
         return {
             "status": "queued",
             "message": "Batch verification workflow started",

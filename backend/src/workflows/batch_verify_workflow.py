@@ -41,92 +41,103 @@ def save_trust_score_to_supabase(
     ntsb_result: dict,
     ucc_result: dict,
     argus_rating: str = None,
-    wyvern_rating: str = None
+    wyvern_rating: str = None,
+    max_retries: int = 3
 ) -> bool:
     """
     Save trust score results to Supabase database.
     Updates gtj.operators and creates record in gtj.trust_scores.
+    Includes retry logic for transient connection errors.
     """
+    import time
     from src.common.config import SessionLocal
     from src.common.models import Operator, TrustScore
 
-    db = SessionLocal()
-    try:
-        operator = db.query(Operator).filter(Operator.name == operator_name).first()
+    for attempt in range(max_retries):
+        db = SessionLocal()
+        try:
+            operator = db.query(Operator).filter(Operator.name == operator_name).first()
 
-        if not operator:
-            print(f"  ⚠️  Operator '{operator_name}' not found in gtj.operators table")
-            return False
+            if not operator:
+                print(f"  ⚠️  Operator '{operator_name}' not found in gtj.operators table")
+                return False
 
-        # Extract scores from trust_score_result
-        overall_score = trust_score_result.get('trust_score', 0)
-        fleet_score = trust_score_result.get('fleet_score', overall_score)
-        tail_score = trust_score_result.get('tail_score', 100)
-        operator_score = trust_score_result.get('operator_score', 100)
-        confidence_score = trust_score_result.get('confidence_score', 0.8)
+            # Extract scores from trust_score_result
+            overall_score = trust_score_result.get('trust_score', 0)
+            fleet_score = trust_score_result.get('fleet_score', overall_score)
+            tail_score = trust_score_result.get('tail_score', 100)
+            operator_score = trust_score_result.get('operator_score', 100)
+            confidence_score = trust_score_result.get('confidence_score', 0.8)
 
-        # Extract financial score from fleet_breakdown final_score
-        fleet_breakdown = trust_score_result.get('fleet_breakdown', {})
-        financial_score = fleet_breakdown.get('final_score', 100)
+            # Extract financial score from fleet_breakdown final_score
+            fleet_breakdown = trust_score_result.get('fleet_breakdown', {})
+            financial_score = fleet_breakdown.get('final_score', 100)
 
-        # Update operator's trust_score
-        operator.trust_score = Decimal(str(overall_score))
-        operator.trust_score_updated_at = datetime.utcnow()
+            # Update operator's trust_score
+            operator.trust_score = Decimal(str(overall_score))
+            operator.trust_score_updated_at = datetime.utcnow()
 
-        # Build comprehensive factors JSON
-        factors = {
-            "ntsb": {
-                "score": ntsb_result.get('score', 100),
-                "total_incidents": ntsb_result.get('total_incidents', 0),
-                "incidents": ntsb_result.get('incidents', [])
-            },
-            "ucc": {
-                "status": ucc_result.get('status', 'unknown'),
-                "states_processed": ucc_result.get('states_processed', 0),
-                "visited_states": ucc_result.get('visited_states', [])
-            },
-            "scores": {
-                "fleet_score": fleet_score,
-                "tail_score": tail_score,
-                "operator_score": operator_score,
-                "raw_combined_score": trust_score_result.get('raw_combined_score', 0),
-                "score_tier": trust_score_result.get('score_tier', 'Unknown')
-            },
-            "fleet_breakdown": fleet_breakdown,
-            "tail_breakdown": trust_score_result.get('tail_breakdown', {}),
-            "certifications": {
-                "argus_rating": argus_rating,
-                "wyvern_rating": wyvern_rating
-            },
-            "ai_insights": trust_score_result.get('ai_insights', None)
-        }
+            # Build comprehensive factors JSON
+            factors = {
+                "ntsb": {
+                    "score": ntsb_result.get('score', 100),
+                    "total_incidents": ntsb_result.get('total_incidents', 0),
+                    "incidents": ntsb_result.get('incidents', [])
+                },
+                "ucc": {
+                    "status": ucc_result.get('status', 'unknown'),
+                    "states_processed": ucc_result.get('states_processed', 0),
+                    "visited_states": ucc_result.get('visited_states', [])
+                },
+                "scores": {
+                    "fleet_score": fleet_score,
+                    "tail_score": tail_score,
+                    "operator_score": operator_score,
+                    "raw_combined_score": trust_score_result.get('raw_combined_score', 0),
+                    "score_tier": trust_score_result.get('score_tier', 'Unknown')
+                },
+                "fleet_breakdown": fleet_breakdown,
+                "tail_breakdown": trust_score_result.get('tail_breakdown', {}),
+                "certifications": {
+                    "argus_rating": argus_rating,
+                    "wyvern_rating": wyvern_rating
+                },
+                "ai_insights": trust_score_result.get('ai_insights', None)
+            }
 
-        # Create trust_scores record with enriched data
-        trust_score_record = TrustScore(
-            operator_id=operator.operator_id,
-            overall_score=Decimal(str(overall_score)),
-            safety_score=Decimal(str(fleet_score)),
-            financial_score=Decimal(str(financial_score)),
-            regulatory_score=Decimal(str(operator_score)),
-            aog_score=Decimal(str(100)),  # Default, no AOG data yet
-            factors=factors,
-            version="3.0",  # Algorithm v3
-            expires_at=datetime.utcnow() + timedelta(days=30),
-            confidence_level=Decimal(str(confidence_score))
-        )
+            # Create trust_scores record with enriched data
+            trust_score_record = TrustScore(
+                operator_id=operator.operator_id,
+                overall_score=Decimal(str(overall_score)),
+                safety_score=Decimal(str(fleet_score)),
+                financial_score=Decimal(str(financial_score)),
+                regulatory_score=Decimal(str(operator_score)),
+                aog_score=Decimal(str(100)),  # Default, no AOG data yet
+                factors=factors,
+                version="3.0",  # Algorithm v3
+                expires_at=datetime.utcnow() + timedelta(days=30),
+                confidence_level=Decimal(str(confidence_score))
+            )
 
-        db.add(trust_score_record)
-        db.commit()
+            db.add(trust_score_record)
+            db.commit()
 
-        print(f"  ✓ Saved trust score {overall_score} for {operator_name} to gtj.operators and gtj.trust_scores")
-        return True
+            print(f"  ✓ Saved trust score {overall_score} for {operator_name} to gtj.operators and gtj.trust_scores")
+            return True
 
-    except Exception as e:
-        print(f"  ❌ Error saving to Supabase for {operator_name}: {e}")
-        db.rollback()
-        return False
-    finally:
-        db.close()
+        except Exception as e:
+            db.rollback()
+            if attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 2  # 2, 4, 6 seconds
+                print(f"  ⚠️  DB error (attempt {attempt + 1}/{max_retries}): {e}")
+                print(f"  → Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"  ❌ Error saving to Supabase for {operator_name} after {max_retries} attempts: {e}")
+                return False
+        finally:
+            db.close()
+    return False
 
 
 batch_verify_workflow = hatchet.workflow(name="batch-verify-operators")
