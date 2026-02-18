@@ -83,7 +83,7 @@ class Operator(Base):
   faa_state = Column(String(2), nullable=True)
   faa_pic_captains = Column(String(50), nullable=True)
   external_sources = Column(JSON, nullable=True, server_default="'{}'")
-  rating_tiers = Column(JSON, nullable=True)
+  rating_tiers = Column(String(50), nullable=True)
   created_at = Column(DateTime, nullable=False, server_default="now()")
 
 class Aircraft(Base):

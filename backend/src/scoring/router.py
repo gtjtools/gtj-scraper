@@ -94,22 +94,9 @@ def save_trust_score_to_supabase(
         operator.trust_score = Decimal(str(overall_score))
         operator.trust_score_updated_at = datetime.utcnow()
 
-        # Update rating_tiers with score breakdown
+        # Update rating_tiers with overall tier string (e.g. "Pinnacle", "Benchmark")
         score_tier = trust_score_result.get('score_tier', TrustScoreCalculator.get_score_tier(overall_score))
-        operator.rating_tiers = {
-            "overall_tier": score_tier,
-            "overall_score": overall_score,
-            "fleet_score": fleet_score,
-            "tail_score": tail_score,
-            "operator_score": operator_score,
-            "confidence_score": confidence_score,
-            "financial_score": financial_score,
-            "certifications": {
-                "argus_rating": argus_rating,
-                "wyvern_rating": wyvern_rating,
-            },
-            "updated_at": datetime.utcnow().isoformat(),
-        }
+        operator.rating_tiers = score_tier
 
         # Build comprehensive factors JSON
         factors = {

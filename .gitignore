@@ -15,6 +15,12 @@ lib/
 # Python cache
 __pycache__/
 *.pyc
+# Misc
+.claude
+*.log
+claude-conversation.txt
+CLAUDE.md
+snippets.txt
 
 pyvenv.cfg
 .claude
