@@ -106,16 +106,22 @@ class NTSBService:
             return False
 
     @staticmethod
-    def _download_incident_pdfs(raw_data: Dict[str, Any], operator_name: str) -> None:
+    def _download_incident_pdfs(
+        raw_data: Dict[str, Any], operator_name: str
+    ) -> Tuple[str, List[str]]:
         """
         Download PDFs for all incidents in the NTSB response.
 
         Args:
             raw_data: Raw response from NTSB API
             operator_name: Name of the operator
+
+        Returns:
+            Tuple of (folder_path, list_of_downloaded_pdf_paths).
+            Returns ("", []) if no results or download fails.
         """
         if not isinstance(raw_data, dict) or "Results" not in raw_data:
-            return
+            return "", []
 
         # Create folder name with format: YYYYMMDD/operator_name
         timestamp = datetime.now().strftime("%Y%m%d")
@@ -123,12 +129,13 @@ class NTSBService:
         folder_name = f"{timestamp}/{safe_operator_name}"
 
         # Get the project root directory and create temp folder path
-        # Assuming the backend/src/scoring directory structure
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.abspath(os.path.join(current_dir, "../../../"))
         temp_folder = os.path.join(project_root, "backend/data/temp", folder_name)
 
         print(f"\nDownloading NTSB PDFs to: {temp_folder}")
+
+        downloaded_pdfs: List[str] = []
 
         # Extract Mkey (accident number) from each result
         for result in raw_data.get("Results", []):
@@ -141,9 +148,46 @@ class NTSBService:
                     if values:
                         accident_number = values[0]
                         print(f"\nProcessing accident number: {accident_number}")
-                        NTSBService.download_ntsb_pdf(
+                        success = NTSBService.download_ntsb_pdf(
                             accident_number, temp_folder, operator_name
                         )
+                        if success:
+                            pdf_path = os.path.join(
+                                temp_folder, f"ntsb_report_{accident_number}.pdf"
+                            )
+                            downloaded_pdfs.append(pdf_path)
+
+        return temp_folder, downloaded_pdfs
+
+    @staticmethod
+    async def analyze_downloaded_pdfs(
+        folder_path: str,
+        operator_name: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Analyze all downloaded NTSB PDF reports in a folder using AI.
+
+        Args:
+            folder_path: Path to the folder containing downloaded PDFs.
+            operator_name: Operator name for context in analysis prompts.
+
+        Returns:
+            List of analysis result dicts from DocumentAnalyzer.
+        """
+        if not folder_path or not os.path.isdir(folder_path):
+            return []
+
+        try:
+            from src.scoring.document_analyzer import DocumentAnalyzer
+
+            analyzer = DocumentAnalyzer()
+            context = f"NTSB accident report for operator: {operator_name}"
+            results = await analyzer.analyze_documents_in_folder(folder_path, context=context)
+            print(f"Analyzed {len(results)} document(s) for {operator_name}")
+            return results
+        except Exception as e:
+            print(f"WARNING: Document analysis failed for {operator_name}: {e}")
+            return []
 
     @staticmethod
     async def query_ntsb_incidents(operator_name: str) -> Dict[str, Any]:
@@ -204,8 +248,14 @@ class NTSBService:
                 response.raise_for_status()
                 raw_data = response.json()
 
-                # Download PDFs for each incident
-                NTSBService._download_incident_pdfs(raw_data, operator_name)
+                # Download PDFs for each incident and track the output folder
+                pdf_folder, downloaded_pdfs = NTSBService._download_incident_pdfs(
+                    raw_data, operator_name
+                )
+
+                # Attach metadata so callers can find the PDFs for analysis
+                raw_data["_pdf_folder"] = pdf_folder
+                raw_data["_downloaded_pdfs"] = downloaded_pdfs
 
                 return raw_data
         except httpx.TimeoutException:

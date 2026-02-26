@@ -51,7 +51,8 @@ def save_trust_score_to_supabase(
     ntsb_result: dict,
     ucc_result: dict,
     argus_rating: str = None,
-    wyvern_rating: str = None
+    wyvern_rating: str = None,
+    document_analyses: list = None
 ) -> bool:
     """
     Save trust score results to Supabase database.
@@ -64,6 +65,7 @@ def save_trust_score_to_supabase(
         ucc_result: UCC verification result
         argus_rating: ARGUS certification rating
         wyvern_rating: Wyvern certification rating
+        document_analyses: AI-generated document summaries (NTSB PDFs, etc.)
 
     Returns:
         True if saved successfully, False otherwise
@@ -123,7 +125,8 @@ def save_trust_score_to_supabase(
                 "argus_rating": argus_rating,
                 "wyvern_rating": wyvern_rating
             },
-            "ai_insights": trust_score_result.get('ai_insights', None)
+            "ai_insights": trust_score_result.get('ai_insights', None),
+            "document_analyses": document_analyses or []
         }
 
         # Create trust_scores record with enriched data
@@ -404,6 +407,7 @@ async def full_scoring_flow(
         # Step 1: Query NTSB
         print("Step 1: Querying NTSB database...")
         ntsb_error = None
+        document_analyses = []
         try:
             ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
             incidents = NTSBService.parse_ntsb_response(ntsb_data)
@@ -412,6 +416,20 @@ async def full_scoring_flow(
             print(
                 f"✓ NTSB check complete: {total_incidents} incidents found, score: {ntsb_score}"
             )
+
+            # Analyze downloaded NTSB PDFs with AI
+            pdf_folder = ntsb_data.get("_pdf_folder", "")
+            if pdf_folder:
+                print("Step 1b: Analyzing NTSB report PDFs with AI...")
+                try:
+                    document_analyses = await NTSBService.analyze_downloaded_pdfs(
+                        pdf_folder, operator_name
+                    )
+                    successful = sum(1 for d in document_analyses if d.get("status") == "success")
+                    print(f"✓ Document analysis complete: {successful}/{len(document_analyses)} analyzed")
+                except Exception as e:
+                    print(f"⚠️  Document analysis failed: {e}")
+
         except Exception as e:
             ntsb_error = str(e)
             print(f"⚠️  NTSB check failed: {ntsb_error}")
@@ -595,6 +613,8 @@ async def full_scoring_flow(
                 "raw_response": ntsb_data,
                 "error": ntsb_error,  # Will be None if successful
             },
+            # AI Document Analyses (NTSB reports, UCC filings, etc.)
+            "document_analyses": document_analyses,
             # UCC Results
             "ucc": ucc_data,
             # TrustScore Results
@@ -645,7 +665,8 @@ async def full_scoring_flow(
             },
             ucc_result=ucc_data,
             argus_rating=argus_rating,
-            wyvern_rating=wyvern_rating
+            wyvern_rating=wyvern_rating,
+            document_analyses=document_analyses
         )
         result["saved_to_supabase"] = saved_to_db
 

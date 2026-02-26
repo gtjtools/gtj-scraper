@@ -42,6 +42,7 @@ def save_trust_score_to_supabase(
     ucc_result: dict,
     argus_rating: str = None,
     wyvern_rating: str = None,
+    document_analyses: list = None,
     max_retries: int = 3
 ) -> bool:
     """
@@ -107,7 +108,8 @@ def save_trust_score_to_supabase(
                     "argus_rating": argus_rating,
                     "wyvern_rating": wyvern_rating
                 },
-                "ai_insights": trust_score_result.get('ai_insights', None)
+                "ai_insights": trust_score_result.get('ai_insights', None),
+                "document_analyses": document_analyses or []
             }
 
             # Create trust_scores record with enriched data
@@ -282,12 +284,27 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
             # Run NTSB query
             print(f"  → Querying NTSB for {operator.company}...")
             ntsb_error = None
+            document_analyses = []
             try:
                 ntsb_data = await NTSBService.query_ntsb_incidents(operator.company)
                 incidents = NTSBService.parse_ntsb_response(ntsb_data)
                 total_incidents = len(incidents)
                 ntsb_score = max(0, 100 - (total_incidents * 5))
                 print(f"  ✓ NTSB: {total_incidents} incidents, score: {ntsb_score}")
+
+                # Analyze downloaded NTSB PDFs with AI
+                pdf_folder = ntsb_data.get("_pdf_folder", "")
+                if pdf_folder:
+                    print(f"  → Analyzing NTSB report PDFs with AI...")
+                    try:
+                        document_analyses = await NTSBService.analyze_downloaded_pdfs(
+                            pdf_folder, operator.company
+                        )
+                        successful = sum(1 for d in document_analyses if d.get("status") == "success")
+                        print(f"  ✓ Document analysis: {successful}/{len(document_analyses)} analyzed")
+                    except Exception as e:
+                        print(f"  ⚠️  Document analysis failed: {e}")
+
             except Exception as e:
                 ntsb_error = str(e)
                 print(f"  ⚠️  NTSB failed: {ntsb_error}")
@@ -448,6 +465,7 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                     "raw_response": ntsb_data,
                     "error": ntsb_error,
                 },
+                "document_analyses": document_analyses,
                 "ucc": ucc_data,
                 "trust_score": trust_score_result,
                 "combined_score": trust_score_result["trust_score"],
@@ -480,7 +498,8 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                 },
                 ucc_result=ucc_data,
                 argus_rating=argus_rating,
-                wyvern_rating=wyvern_rating
+                wyvern_rating=wyvern_rating,
+                document_analyses=document_analyses
             )
 
             results.append({
