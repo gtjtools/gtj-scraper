@@ -8,7 +8,7 @@ const { enrichOperatorData } = require('./scraper');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
 
 // Password protection - Only in production
 if (process.env.NODE_ENV === 'production') {
@@ -126,6 +126,11 @@ function loadScrapedCharterData() {
 const staticDir = process.env.NODE_ENV === 'production' ? 'build' : 'public';
 app.use(express.static(staticDir));
 console.log(`Serving static files from: ${staticDir}`);
+
+// API endpoint to expose backend URL to client-side scripts
+app.get('/api/config', (req, res) => {
+    res.json({ BACKEND_API_URL: BACKEND_URL });
+});
 
 // API endpoint to get all operators
 app.get('/api/operators', (req, res) => {

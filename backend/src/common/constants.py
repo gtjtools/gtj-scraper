@@ -7,3 +7,7 @@ HTTP_400_BAD_REQUEST = 400
 HTTP_401_UNAUTHORIZED = 401
 HTTP_404_NOT_FOUND = 404
 HTTP_500_INTERNAL_SERVER_ERROR = 500
+
+# States with UCC scraper ready -- UCC flow will only scrape these states.
+# Add more state abbreviations here as scrapers become available.
+UCC_READY_STATES: list[str] = ["CA", "FL", "AK"]

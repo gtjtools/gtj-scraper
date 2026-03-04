@@ -20,6 +20,7 @@ from src.common.dependencies import get_db
 from src.auth.service import authentication
 from src.common.error import HTTPError
 from src.common.models import Operator, TrustScore
+from src.common.constants import UCC_READY_STATES
 from src.hatchet_client import hatchet
 from src.workflows.batch_verify_workflow import batch_verify_workflow
 
@@ -33,10 +34,6 @@ scoring_router = APIRouter()
 OPERATOR_STATE_OVERRIDES = {
     "Aero Air LLC": "Oregon",
 }
-
-# States with UCC scraper ready - UCC flow will only scrape these states
-# Add more states here as scrapers become available (e.g., ["CA", "FL"])
-UCC_READY_STATES = ["CA"]
 
 # Test filter for batch verification - only process these operators
 # Set to None or empty list to process all operators matching state filter
@@ -52,7 +49,7 @@ def save_trust_score_to_supabase(
     ucc_result: dict,
     argus_rating: str = None,
     wyvern_rating: str = None,
-    document_analyses: list = None
+    document_analyses: list = None,
 ) -> bool:
     """
     Save trust score results to Supabase database.
@@ -82,51 +79,53 @@ def save_trust_score_to_supabase(
             return False
 
         # Extract scores from trust_score_result
-        overall_score = trust_score_result.get('trust_score', 0)
-        fleet_score = trust_score_result.get('fleet_score', overall_score)
-        tail_score = trust_score_result.get('tail_score', 100)
-        operator_score = trust_score_result.get('operator_score', 100)
-        confidence_score = trust_score_result.get('confidence_score', 0.8)
+        overall_score = trust_score_result.get("trust_score", 0)
+        fleet_score = trust_score_result.get("fleet_score", overall_score)
+        tail_score = trust_score_result.get("tail_score", 100)
+        operator_score = trust_score_result.get("operator_score", 100)
+        confidence_score = trust_score_result.get("confidence_score", 0.8)
 
         # Extract financial score from fleet_breakdown final_score
-        fleet_breakdown = trust_score_result.get('fleet_breakdown', {})
-        financial_score = fleet_breakdown.get('final_score', 100)
+        fleet_breakdown = trust_score_result.get("fleet_breakdown", {})
+        financial_score = fleet_breakdown.get("final_score", 100)
 
         # Update operator's trust_score
         operator.trust_score = Decimal(str(overall_score))
         operator.trust_score_updated_at = datetime.utcnow()
 
         # Update rating_tiers with overall tier string (e.g. "Pinnacle", "Benchmark")
-        score_tier = trust_score_result.get('score_tier', TrustScoreCalculator.get_score_tier(overall_score))
+        score_tier = trust_score_result.get(
+            "score_tier", TrustScoreCalculator.get_score_tier(overall_score)
+        )
         operator.rating_tiers = score_tier
 
         # Build comprehensive factors JSON
         factors = {
             "ntsb": {
-                "score": ntsb_result.get('score', 100),
-                "total_incidents": ntsb_result.get('total_incidents', 0),
-                "incidents": ntsb_result.get('incidents', [])
+                "score": ntsb_result.get("score", 100),
+                "total_incidents": ntsb_result.get("total_incidents", 0),
+                "incidents": ntsb_result.get("incidents", []),
             },
             "ucc": {
-                "status": ucc_result.get('status', 'unknown'),
-                "states_processed": ucc_result.get('states_processed', 0),
-                "visited_states": ucc_result.get('visited_states', [])
+                "status": ucc_result.get("status", "unknown"),
+                "states_processed": ucc_result.get("states_processed", 0),
+                "visited_states": ucc_result.get("visited_states", []),
             },
             "scores": {
                 "fleet_score": fleet_score,
                 "tail_score": tail_score,
                 "operator_score": operator_score,
-                "raw_combined_score": trust_score_result.get('raw_combined_score', 0),
-                "score_tier": trust_score_result.get('score_tier', 'Unknown')
+                "raw_combined_score": trust_score_result.get("raw_combined_score", 0),
+                "score_tier": trust_score_result.get("score_tier", "Unknown"),
             },
             "fleet_breakdown": fleet_breakdown,
-            "tail_breakdown": trust_score_result.get('tail_breakdown', {}),
+            "tail_breakdown": trust_score_result.get("tail_breakdown", {}),
             "certifications": {
                 "argus_rating": argus_rating,
-                "wyvern_rating": wyvern_rating
+                "wyvern_rating": wyvern_rating,
             },
-            "ai_insights": trust_score_result.get('ai_insights', None),
-            "document_analyses": document_analyses or []
+            "ai_insights": trust_score_result.get("ai_insights", None),
+            "document_analyses": document_analyses or [],
         }
 
         # Create trust_scores record with enriched data
@@ -140,13 +139,15 @@ def save_trust_score_to_supabase(
             factors=factors,
             version="3.0",  # Algorithm v3
             expires_at=datetime.utcnow() + timedelta(days=30),
-            confidence_level=Decimal(str(confidence_score))
+            confidence_level=Decimal(str(confidence_score)),
         )
 
         db.add(trust_score_record)
         db.commit()
 
-        print(f"  ✓ Saved trust score {overall_score} for {operator_name} to gtj.operators and gtj.trust_scores")
+        print(
+            f"  ✓ Saved trust score {overall_score} for {operator_name} to gtj.operators and gtj.trust_scores"
+        )
         return True
 
     except Exception as e:
@@ -425,8 +426,12 @@ async def full_scoring_flow(
                     document_analyses = await NTSBService.analyze_downloaded_pdfs(
                         pdf_folder, operator_name
                     )
-                    successful = sum(1 for d in document_analyses if d.get("status") == "success")
-                    print(f"✓ Document analysis complete: {successful}/{len(document_analyses)} analyzed")
+                    successful = sum(
+                        1 for d in document_analyses if d.get("status") == "success"
+                    )
+                    print(
+                        f"✓ Document analysis complete: {successful}/{len(document_analyses)} analyzed"
+                    )
                 except Exception as e:
                     print(f"⚠️  Document analysis failed: {e}")
 
@@ -661,12 +666,12 @@ async def full_scoring_flow(
             ntsb_result={
                 "score": ntsb_score,
                 "total_incidents": total_incidents,
-                "incidents": ntsb_incidents_dict
+                "incidents": ntsb_incidents_dict,
             },
             ucc_result=ucc_data,
             argus_rating=argus_rating,
             wyvern_rating=wyvern_rating,
-            document_analyses=document_analyses
+            document_analyses=document_analyses,
         )
         result["saved_to_supabase"] = saved_to_db
 
@@ -704,9 +709,7 @@ async def full_scoring_flow(
     tags=["scoring"],
 )
 async def batch_verify_by_states(
-    session_id: str = None,
-    null_trust_score_only: bool = False,
-    operator_id: str = None
+    session_id: str = None, null_trust_score_only: bool = False, operator_id: str = None
 ):
     """
     Trigger batch verification workflow for all operators.
@@ -730,12 +733,14 @@ async def batch_verify_by_states(
             input={
                 "session_id": session_id,
                 "null_trust_score_only": null_trust_score_only,
-                "operator_id": operator_id
+                "operator_id": operator_id,
             }
         )
 
         # Save Hatchet workflow run ID for tracking/cancellation via ./run_production.sh cancel-all logs/workflows.txt
-        workflow_file = os.path.join(os.path.dirname(__file__), "../../logs/workflows.txt")
+        workflow_file = os.path.join(
+            os.path.dirname(__file__), "../../logs/workflows.txt"
+        )
         os.makedirs(os.path.dirname(workflow_file), exist_ok=True)
         with open(workflow_file, "a") as f:
             f.write(f"{workflow_ref.workflow_run_id}\n")
@@ -743,15 +748,19 @@ async def batch_verify_by_states(
         return {
             "status": "queued",
             "message": "Batch verification workflow started",
-            "workflow_run_id": workflow_ref.workflow_run_id
+            "workflow_run_id": workflow_ref.workflow_run_id,
         }
 
     except Exception as e:
-        print(f"❌ Failed to start batch verification workflow: {type(e).__name__}: {str(e)}")
+        print(
+            f"❌ Failed to start batch verification workflow: {type(e).__name__}: {str(e)}"
+        )
         import traceback
+
         traceback.print_exc()
         raise HTTPException(
-            status_code=500, detail=f"Failed to start batch verification workflow: {str(e)}"
+            status_code=500,
+            detail=f"Failed to start batch verification workflow: {str(e)}",
         )
 
 
@@ -776,7 +785,7 @@ async def cancel_batch_verify(workflow_run_id: str):
         return {
             "workflow_run_id": workflow_run_id,
             "status": "cancelled",
-            "message": "Workflow run cancelled successfully"
+            "message": "Workflow run cancelled successfully",
         }
     except Exception as e:
         print(f"❌ Failed to cancel workflow: {type(e).__name__}: {str(e)}")
@@ -813,11 +822,7 @@ async def get_batch_verify_status(workflow_run_id: str):
             except Exception:
                 pass
 
-        return {
-            "workflow_run_id": workflow_run_id,
-            "status": status,
-            "result": result
-        }
+        return {"workflow_run_id": workflow_run_id, "status": status, "result": result}
     except Exception as e:
         print(f"❌ Failed to get workflow status: {type(e).__name__}: {str(e)}")
         raise HTTPException(

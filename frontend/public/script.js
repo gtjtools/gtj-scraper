@@ -1,6 +1,13 @@
 let allData = [];
 let currentData = [];
 
+// Backend API URL - fetched from server config, fallback to localhost:8001
+let BACKEND_API_URL = 'http://localhost:8001';
+fetch('/api/config')
+  .then(res => res.json())
+  .then(config => { BACKEND_API_URL = config.BACKEND_API_URL; })
+  .catch(() => {});
+
 // DOM elements - Part 135
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
@@ -1218,8 +1225,6 @@ async function runCharterScore(operatorName, certificateDesignator, faaState) {
     // Pass faaState to backend (backend handles validation)
     const validFaaState = faaState || '';
 
-    const BACKEND_API_URL = 'http://localhost:8000';
-
     // Step 1: Create Browserbase session and get live view URL immediately
     modal.style.display = 'block';
     modalBody.innerHTML =
@@ -1594,7 +1599,6 @@ function displayCharterScoreResults(operatorName, scoreData) {
 
 // Batch Verify All functionality - Calls backend batch-verify-by-states endpoint
 async function runBatchVerify() {
-  const BACKEND_API_URL = 'http://localhost:8000';
   const batchVerifyBtn = document.getElementById('batchVerifyBtn');
 
   try {

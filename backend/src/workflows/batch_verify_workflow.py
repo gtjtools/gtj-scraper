@@ -7,13 +7,11 @@ from decimal import Decimal
 
 from src.hatchet_client import hatchet
 from hatchet_sdk import Context
+from src.common.constants import UCC_READY_STATES
 
 # Directory for storing verification results
 VERIFICATION_RESULTS_DIR = os.path.join(os.path.dirname(__file__), "../../data/temp")
 os.makedirs(VERIFICATION_RESULTS_DIR, exist_ok=True)
-
-# States with UCC scraper ready
-UCC_READY_STATES = ["CA"]
 
 # Test filter for batch verification
 BATCH_TEST_OPERATORS = None
