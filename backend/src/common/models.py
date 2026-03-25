@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, DECIMAL, DateTime, Enum, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Integer, Float, DECIMAL, DateTime, Enum, Boolean, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -284,6 +284,25 @@ class RiskAssessment(Base):
   requires_approval = Column(Boolean, nullable=False, server_default="false")
   approved_by = Column(UUID(as_uuid=True), ForeignKey("gtj.user_profiles.userprofile_id"), nullable=True)
   approval_notes = Column(String, nullable=True)
+
+class FAAEnforcementAction(Base):
+  __tablename__ = "faa_enforcement_actions"
+  __table_args__ = {'schema': 'gtj'}
+
+  id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+  case_number = Column(String(50), unique=True, nullable=False)
+  operator_name = Column(String(255), nullable=False)
+  operator_name_normalized = Column(String(255), nullable=False, index=True)
+  entity_type = Column(String(100), nullable=True)
+  date_known = Column(DateTime, nullable=True)
+  action_type = Column(String(255), nullable=True)
+  sanction_amount = Column(Float, nullable=True)
+  sanction_type = Column(String(255), nullable=True)
+  case_type = Column(String(100), nullable=True)
+  closed_date = Column(DateTime, nullable=True)
+  initial_action_narrative = Column(Text, nullable=True)
+  created_at = Column(DateTime, nullable=False, server_default="now()")
+
 
 class TrustScore(Base):
   __tablename__ = "trust_scores"

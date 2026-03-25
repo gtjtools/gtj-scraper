@@ -8,6 +8,7 @@ from decimal import Decimal
 from src.hatchet_client import hatchet
 from hatchet_sdk import Context
 from src.common.constants import UCC_READY_STATES
+from src.scoring.faa_enforcement_service import FAAEnforcementService
 
 # Directory for storing verification results
 VERIFICATION_RESULTS_DIR = os.path.join(os.path.dirname(__file__), "../../data/temp")
@@ -21,6 +22,7 @@ class BatchVerifyInput(BaseModel):
     session_id: Optional[str] = None
     null_trust_score_only: bool = False
     operator_id: Optional[str] = None
+    operator_ids: Optional[List[str]] = None
 
 
 class BatchVerifyOutput(BaseModel):
@@ -363,6 +365,12 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                             })
 
                 fleet_events = [incident.dict() for incident in incidents]
+
+                # Query FAA enforcement actions and append to fleet events
+                faa_events = FAAEnforcementService.query_actions_as_fleet_events(operator.company)
+                if faa_events:
+                    fleet_events = fleet_events + faa_events
+                    print(f"  ✓ Found {len(faa_events)} FAA enforcement action(s)")
 
                 operator_age_years = 10.0
                 fleet_size = 1

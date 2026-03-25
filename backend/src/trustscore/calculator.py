@@ -610,14 +610,20 @@ class TrustScoreCalculator:
 
     def _get_event_severity(self, event: Dict[str, Any]) -> float:
         """
-        Get severity score for an event based on type and injury level
+        Get severity score for an event based on type and injury level.
 
-        Severity values:
+        Severity values (NTSB events):
         - Fatal Accident: 50
         - Non-Fatal Accident: 25
         - Serious Incident: 15
         - Major FAA Enforcement Action: 10
         - Minor Incident/Enforcement: 5
+
+        Severity values (FAA enforcement actions):
+        - Certificate Revocation: 20
+        - Civil Penalty >= $50,000: 15
+        - Civil Penalty $10,000-$49,999: 10
+        - Civil Penalty < $10,000: 5
 
         Args:
             event: Event dictionary containing event_type and injury_level
@@ -625,12 +631,16 @@ class TrustScoreCalculator:
         Returns:
             Severity score
         """
-        # Handle None values by using 'or ""' to ensure we have a string
         event_type = (event.get("event_type") or "").lower()
+
+        # FAA enforcement actions have their own severity mapping
+        if event_type == "faa_enforcement":
+            return self._get_faa_enforcement_severity(event)
+
+        # NTSB / general event severity
         injury_level = (event.get("injury_level") or "").lower()
         severity = (event.get("severity") or "").lower()
 
-        # Determine severity based on event type and injury level
         if "accident" in event_type:
             if "fatal" in injury_level:
                 return 50
@@ -642,6 +652,46 @@ class TrustScoreCalculator:
             return 10
         else:
             return 5
+
+    def _get_faa_enforcement_severity(self, event: Dict[str, Any]) -> float:
+        """
+        Map an FAA enforcement action to a severity score.
+
+        Mapping:
+        - Certificate revocation: 20 (most severe regulatory action)
+        - Civil penalty >= $50,000: 15
+        - Civil penalty $10,000 - $49,999: 10
+        - Civil penalty < $10,000 or other actions: 5
+
+        Args:
+            event: FAA enforcement event dict with faa_action_type
+                   and faa_sanction_amount fields.
+
+        Returns:
+            Severity score (5, 10, 15, or 20).
+        """
+        action_type = (event.get("faa_action_type") or "").upper()
+        sanction_amount = event.get("faa_sanction_amount")
+
+        # Certificate revocation is the most severe regulatory action
+        if "REVOCATION" in action_type:
+            return 20
+
+        # Civil penalties are graded by dollar amount
+        if sanction_amount is not None:
+            try:
+                amount = float(sanction_amount)
+                if amount >= 50_000:
+                    return 15
+                elif amount >= 10_000:
+                    return 10
+                else:
+                    return 5
+            except (ValueError, TypeError):
+                pass
+
+        # Default for any other enforcement action
+        return 5
 
     def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
         """
@@ -659,7 +709,11 @@ class TrustScoreCalculator:
         try:
             # Try ISO format with timezone first
             if "T" in str(date_str):
-                return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                # Ensure timezone-aware (FAA dates lack tz suffix)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
             else:
                 # Simple YYYY-MM-DD format
                 dt = datetime.strptime(date_str, "%Y-%m-%d")

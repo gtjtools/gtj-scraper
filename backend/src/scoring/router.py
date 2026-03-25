@@ -10,6 +10,7 @@ from decimal import Decimal
 from src.scoring.schemas import NTSBQueryRequest, ScoreCalculationResponse
 from src.scoring.service import ScoringService
 from src.scoring.ucc_service import UCCVerificationService
+from src.scoring.faa_enforcement_service import FAAEnforcementService
 from src.trustscore.calculator import (
     TrustScoreCalculator,
     FleetScoreData,
@@ -503,6 +504,15 @@ async def full_scoring_flow(
             fleet_events = [incident.dict() for incident in incidents]
             ntsb_incidents_dict = fleet_events  # Keep reference for result output
 
+            # Query FAA enforcement actions and append to fleet events
+            print("Step 3a: Querying FAA enforcement actions...")
+            faa_events = FAAEnforcementService.query_actions_as_fleet_events(operator_name)
+            if faa_events:
+                fleet_events = fleet_events + faa_events
+                print(f"  ✓ Found {len(faa_events)} FAA enforcement action(s)")
+            else:
+                print("  ✓ No FAA enforcement actions found")
+
             # Fetch operator data from database to get business_started_date
             from src.common.models import Operator
             from src.common.config import SessionLocal
@@ -791,6 +801,44 @@ async def cancel_batch_verify(workflow_run_id: str):
         print(f"❌ Failed to cancel workflow: {type(e).__name__}: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to cancel workflow: {str(e)}"
+        )
+
+
+@scoring_router.post(
+    "/scoring/faa-ingest",
+    summary="Ingest FAA enforcement reports",
+    description="Download and ingest all quarterly FAA enforcement reports. Idempotent — skips already-ingested case numbers.",
+    tags=["scoring"],
+)
+async def faa_ingest():
+    """
+    Trigger full ingestion of FAA enforcement quarterly reports.
+
+    Downloads all discovered .xlsx reports from the FAA website,
+    parses enforcement actions for aircraft/commercial operators,
+    and stores them in gtj.faa_enforcement_actions.
+
+    Returns:
+        Summary dict with reports_found, records_inserted, records_skipped
+    """
+    try:
+        print("\n" + "=" * 80)
+        print("FAA ENFORCEMENT INGESTION STARTED")
+        print("=" * 80 + "\n")
+
+        result = await FAAEnforcementService.run_full_ingestion()
+
+        print(f"\n✓ FAA ingestion complete: {result.get('records_inserted', 0)} inserted, "
+              f"{result.get('records_skipped', 0)} skipped")
+        return result
+
+    except Exception as e:
+        print(f"❌ FAA ingestion failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"FAA enforcement ingestion failed: {str(e)}",
         )
 
 
