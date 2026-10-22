@@ -15,6 +15,11 @@ class LLMProvider(Enum):
     OPENROUTER = "openrouter"
 
 
+# Same model gtj-backend/src/llm/service.py uses for flight-time / arrival-time.
+# Model is chosen in code (not OPENROUTER_MODEL env), matching backend.
+OPENROUTER_DEFAULT_MODEL = "google/gemini-2.5-flash"
+
+
 class LLMClient:
     """
     LLM Client for risk scoring with support for multiple providers
@@ -230,15 +235,9 @@ class LLMClient:
         Returns:
             Tuple of (score, reasoning)
         """
-        # Get model preference from environment, default to Claude 3.5 Sonnet
-        model = os.getenv(
-            "OPENROUTER_MODEL",
-            "anthropic/claude-3.5-sonnet"  # Cost-effective and high quality
-        )
-
         try:
             response = await self.client.chat.completions.create(
-                model=model,
+                model=OPENROUTER_DEFAULT_MODEL,
                 messages=[
                     {
                         "role": "system",
@@ -305,16 +304,17 @@ class LLMClient:
             raise Exception(f"Anthropic API call failed: {str(e)}")
 
     async def _get_completion_openrouter(self, prompt: str) -> str:
-        """Get text completion from OpenRouter"""
+        """Get text completion from OpenRouter (model matches gtj-backend llm service)."""
         try:
             response = await self.client.chat.completions.create(
-                model="anthropic/claude-3.5-sonnet",
+                model=OPENROUTER_DEFAULT_MODEL,
                 messages=[
                     {"role": "system", "content": "You are an aviation safety analyst providing clear, professional insights."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                max_tokens=500
+                # DOT batch prompts return large JSON arrays; keep headroom.
+                max_tokens=16384,
             )
             return response.choices[0].message.content.strip()
         except Exception as e:

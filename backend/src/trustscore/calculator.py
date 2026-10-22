@@ -637,6 +637,11 @@ class TrustScoreCalculator:
         if event_type == "faa_enforcement":
             return self._get_faa_enforcement_severity(event)
 
+        # Service difficulty reports are pre-scored by SDRSService from the
+        # discrepancy narrative, since SDRS carries no severity field.
+        if event_type == "faa_sdr":
+            return self._get_sdr_severity(event)
+
         # NTSB / general event severity
         injury_level = (event.get("injury_level") or "").lower()
         severity = (event.get("severity") or "").lower()
@@ -692,6 +697,34 @@ class TrustScoreCalculator:
 
         # Default for any other enforcement action
         return 5
+
+    def _get_sdr_severity(self, event: Dict[str, Any]) -> float:
+        """
+        Map an FAA Service Difficulty Report to a severity score.
+
+        SDRS has no severity field, so SDRSService classifies each report from
+        its discrepancy narrative and passes the result as sdr_severity:
+
+        - 15: emergency landing, in-flight shutdown, declared emergency
+        - 10: fire, smoke, engine failure, loss of control
+        -  5: crack, corrosion, fracture, leak, fatigue
+        -  3: routine finding with nothing notable in the narrative
+
+        These sit below NTSB accident severities (25-50) on purpose. A service
+        difficulty is a maintenance signal, not an accident, and SDRs are far
+        more numerous — scoring them like accidents would let routine
+        maintenance findings dominate the operational risk term.
+
+        Args:
+            event: SDR event dict carrying sdr_severity.
+
+        Returns:
+            Severity score, defaulting to 3.0 when the field is missing.
+        """
+        try:
+            return float(event.get("sdr_severity", 3.0))
+        except (ValueError, TypeError):
+            return 3.0
 
     def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
         """

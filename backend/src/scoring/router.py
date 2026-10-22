@@ -1,8 +1,8 @@
 # src/scoring/router.py
 import os
 import json
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import UUID4
 from datetime import datetime, timedelta
@@ -11,10 +11,17 @@ from src.scoring.schemas import NTSBQueryRequest, ScoreCalculationResponse
 from src.scoring.service import ScoringService
 from src.scoring.ucc_service import UCCVerificationService
 from src.scoring.faa_enforcement_service import FAAEnforcementService
+from src.scoring.dot_enforcement_service import DOTEnforcementService
+from src.trustscore import adapter_v5, narrative_v5
+from src.trustscore.calculator_v5 import calculate_trust_score as calculate_trust_score_v5
+
+# Algorithm v3 — superseded by v5.0. TrustScoreCalculator is still imported for
+# its get_score_tier helper; FleetScoreData/TailScoreData are no longer
+# constructed. Re-enable together with the commented v3 block below to roll back.
 from src.trustscore.calculator import (
     TrustScoreCalculator,
-    FleetScoreData,
-    TailScoreData,
+    # FleetScoreData,
+    # TailScoreData,
 )
 from src.trustscore.llm_client import LLMClient, LLMProvider
 from src.common.dependencies import get_db
@@ -138,7 +145,9 @@ def save_trust_score_to_supabase(
             regulatory_score=Decimal(str(operator_score)),
             aog_score=Decimal(str(100)),  # Default, no AOG data yet
             factors=factors,
-            version="3.0",  # Algorithm v3
+            # Read from the result rather than hardcoded, so the stored version
+            # always matches the engine that produced the score.
+            version=trust_score_result.get("algorithm_version", "3.0"),
             expires_at=datetime.utcnow() + timedelta(days=30),
             confidence_level=Decimal(str(confidence_score)),
         )
@@ -520,6 +529,7 @@ async def full_scoring_flow(
             operator_age_years = 10.0  # Default fallback
             fleet_size = 1  # Default fallback
             argus_rating = None  # Default fallback
+            certificate_designator = None  # Resolved from gtj.operators below
             wyvern_rating = None  # Default fallback
 
             try:
@@ -546,6 +556,8 @@ async def full_scoring_flow(
                     # Fetch ARGUS and Wyvern ratings
                     argus_rating = operator.argus_rating
                     wyvern_rating = operator.wyvern_rating
+                    # §8: anchor to the immutable 4-char FAA certificate ID.
+                    certificate_designator = operator.faa_dsgn_code
                     print(
                         f"✓ ARGUS rating: {argus_rating or 'None'}, Wyvern rating: {wyvern_rating or 'None'}"
                     )
@@ -556,41 +568,85 @@ async def full_scoring_flow(
             except Exception as e:
                 print(f"⚠️  Error fetching operator data: {e}, using default values")
 
-            # Create FleetScoreData (Algorithm v3)
-            fleet_data = FleetScoreData(
+            # ─── Algorithm v3 (superseded by v5.0) ───────────────────────────
+            # fleet_data = FleetScoreData(
+            #     operator_name=operator_name,
+            #     operator_age_years=operator_age_years,
+            #     fleet_size=fleet_size,
+            #     fleet_events=fleet_events,
+            #     ucc_filings=ucc_filings,
+            #     argus_rating=argus_rating,
+            #     wyvern_rating=wyvern_rating,
+            #     bankruptcy_history=None,
+            # )
+            #
+            # tail_data = TailScoreData(
+            #     aircraft_age_years=5.0,
+            #     operator_name=operator_name,
+            #     registered_owner=operator_name,
+            #     fractional_owner=False,
+            #     tail_events=fleet_events,   # BUG: fleet-wide list as tail events
+            # )
+            #
+            # try:
+            #     llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
+            #     calculator = TrustScoreCalculator(llm_client=llm_client)
+            # except Exception as e:
+            #     calculator = TrustScoreCalculator(llm_client=None)
+            #
+            # trust_score_result = await calculator.calculate_trust_score(
+            #     fleet_data, tail_data
+            # )
+            # ─────────────────────────────────────────────────────────────────
+
+            # Algorithm v5.0 (TrustScore Algorithm v5.0.docx).
+            operator_v5 = adapter_v5.build_operator_data(
                 operator_name=operator_name,
-                operator_age_years=operator_age_years,
-                fleet_size=fleet_size,  # Default - would need to be fetched from operator data
-                fleet_events=fleet_events,  # All fleet-wide events (NTSB + FAA)
+                certificate_designator=certificate_designator,
+                certificate_age_years=operator_age_years,
+                # fleet_size omitted: the adapter counts active tails from
+                # gtj.aircraft. The local `fleet_size = 1` above is a v3
+                # leftover and must not be passed through.
+                fleet_events=fleet_events,
                 ucc_filings=ucc_filings,
-                argus_rating=argus_rating,
-                wyvern_rating=wyvern_rating,
-                bankruptcy_history=None,
             )
 
-            # Create TailScoreData (placeholder - would need aircraft-specific data)
-            tail_data = TailScoreData(
-                aircraft_age_years=5.0,  # Default placeholder
-                operator_name=operator_name,
-                registered_owner=operator_name,  # Assume same as operator
-                fractional_owner=False,
-                tail_events=fleet_events,  # Tail-specific events
+            # This endpoint scores an operator, not a specific airframe, so no
+            # tail events are supplied. Iht carries a 5x multiplier (§5.3);
+            # passing the fleet-wide list here was the v3 bug.
+            tail_v5 = adapter_v5.build_tail_data(tail_number="")
+
+            trust_score_result = calculate_trust_score_v5(operator_v5, tail_v5)
+
+            gaps = adapter_v5.missing_inputs(operator_v5, tail_v5)
+            if gaps:
+                print(f"ⓘ v5.0 inputs defaulted ({len(gaps)}):")
+                for gap in gaps:
+                    print(f"    - {gap}")
+
+            print(
+                f"✓ TrustScore calculated (v5.0): {trust_score_result['trust_score']} "
+                f"({trust_score_result['tier']})"
             )
 
-            # Initialize calculator with LLM for AI insights
+            # §9 Risk Audit narrative. Strictly read-only: it consumes the
+            # score above and cannot alter it, and returns None on any failure.
             try:
                 llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
-                calculator = TrustScoreCalculator(llm_client=llm_client)
-                print("✓ Using LLM for AI insights")
             except Exception as e:
-                print(f"⚠️  LLM unavailable, using calculator without AI insights: {e}")
-                calculator = TrustScoreCalculator(llm_client=None)
+                print(f"⚠️  LLM unavailable, skipping narrative: {e}")
+                llm_client = None
 
-            # Calculate TrustScore
-            trust_score_result = await calculator.calculate_trust_score(
-                fleet_data, tail_data
+            narrative = await narrative_v5.generate_narrative(
+                operator_v5, tail_v5, trust_score_result,
+                llm_client=llm_client, missing_inputs=gaps,
             )
-            print(f"✓ TrustScore calculated: {trust_score_result['trust_score']}")
+            if narrative:
+                trust_score_result["risk_audit"] = {
+                    "narrative": narrative["narrative"],
+                    "flags": narrative["flags"],
+                }
+                print(f"✓ Risk audit narrative generated ({len(narrative['narrative'])} chars)")
 
         except Exception as e:
             trust_score_error = str(e)
@@ -839,6 +895,68 @@ async def faa_ingest():
         raise HTTPException(
             status_code=500,
             detail=f"FAA enforcement ingestion failed: {str(e)}",
+        )
+
+
+@scoring_router.post(
+    "/scoring/dot-ingest",
+    summary="Ingest DOT OACP enforcement orders",
+    description=(
+        "Scrape the full DOT aviation enforcement-orders list (all rows), "
+        "LLM-format new rows in batches of 125 (record_id mapping), "
+        "and store in gtj.dot_enforcement_orders (match by name at score time). "
+        "Idempotent — skips already-ingested source URLs or titles. "
+        "Pass dry_run=true to scrape/log only (no LLM, no DB)."
+    ),
+    tags=["scoring"],
+)
+async def dot_ingest(
+    limit: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Max number of NEW rows to send to the LLM (omit for all)",
+    ),
+    dry_run: bool = Query(
+        False,
+        description="If true, scrape/log only — no LLM, no DB. If false, run LLM and insert.",
+    ),
+):
+    """
+    Trigger DOT OACP enforcement-order ingestion.
+
+    Query params:
+        limit: Max number of NEW rows to send to the LLM (omit for all).
+        dry_run: If true, scrape/log only — no LLM, no DB. If false, run LLM and insert.
+
+    Returns:
+        Summary dict with rows_found, rows_logged, records_inserted,
+        already_ingested, llm_failures.
+    """
+    try:
+        print("\n" + "=" * 80)
+        print("DOT ENFORCEMENT INGESTION STARTED")
+        print("=" * 80 + "\n")
+
+        result = await DOTEnforcementService.run_full_ingestion(
+            limit=limit,
+            dry_run=dry_run,
+        )
+
+        print(
+            f"\n✓ DOT ingestion complete: "
+            f"{result.get('rows_logged', 0)} rows logged, "
+            f"{result.get('records_inserted', 0)} inserted, "
+            f"{result.get('already_ingested', 0)} already ingested"
+        )
+        return result
+
+    except Exception as e:
+        print(f"❌ DOT ingestion failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"DOT enforcement ingestion failed: {str(e)}",
         )
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, Float, DECIMAL, DateTime, Enum, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Integer, Float, DECIMAL, DateTime, Date, Enum, Boolean, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -302,6 +302,24 @@ class FAAEnforcementAction(Base):
   closed_date = Column(DateTime, nullable=True)
   initial_action_narrative = Column(Text, nullable=True)
   created_at = Column(DateTime, nullable=False, server_default="now()")
+
+
+class DOTEnforcementOrder(Base):
+  """DOT OACP enforcement orders. All list rows stored, including dismissals."""
+  __tablename__ = "dot_enforcement_orders"
+  __table_args__ = {'schema': 'gtj'}
+
+  id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+  order_number = Column(String(50), nullable=True)
+  source_url = Column(Text, nullable=False)
+  title = Column(Text, nullable=False)
+  effective_date = Column(Date, nullable=True)
+  operator_name_raw = Column(String(512), nullable=True)
+  operator_name_normalized = Column(String(512), nullable=True, index=True)
+  order_type = Column(String(50), nullable=True)
+  last_verified_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
 
 
 class TrustScore(Base):

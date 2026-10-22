@@ -42,8 +42,11 @@ class DocumentAnalyzer:
     """
 
     def __init__(self) -> None:
+        from src.trustscore.llm_client import OPENROUTER_DEFAULT_MODEL
+
         self.api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
-        self.model: str = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
+        # Match gtj-backend llm service (model in code, not OPENROUTER_MODEL env).
+        self.model: str = OPENROUTER_DEFAULT_MODEL
         self.client: Optional[openai.OpenAI] = None
 
         if not self.api_key:

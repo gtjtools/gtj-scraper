@@ -121,7 +121,9 @@ def save_trust_score_to_supabase(
                 regulatory_score=Decimal(str(operator_score)),
                 aog_score=Decimal(str(100)),  # Default, no AOG data yet
                 factors=factors,
-                version="3.0",  # Algorithm v3
+                # Read from the result rather than hardcoded, so the stored
+                # version always matches the engine that produced the score.
+                version=trust_score_result.get("algorithm_version", "3.0"),
                 expires_at=datetime.utcnow() + timedelta(days=30),
                 confidence_level=Decimal(str(confidence_score))
             )
@@ -162,11 +164,17 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
     from src.operator.charter_service import get_charter_operators, get_charter_operator_by_id
     from src.scoring.service import NTSBService
     from src.scoring.ucc_service import UCCVerificationService
-    from src.trustscore.calculator import (
-        TrustScoreCalculator,
-        FleetScoreData,
-        TailScoreData,
-    )
+    # Algorithm v3 — superseded by v5.0 (TrustScore Algorithm v5.0.docx).
+    # Kept importable for rollback; re-enable this block and the v3 call below
+    # together if v5.0 has to be backed out.
+    # from src.trustscore.calculator import (
+    #     TrustScoreCalculator,
+    #     FleetScoreData,
+    #     TailScoreData,
+    # )
+    from src.trustscore.calculator import TrustScoreCalculator  # get_score_tier only
+    from src.trustscore import adapter_v5, narrative_v5
+    from src.trustscore.calculator_v5 import calculate_trust_score as calculate_trust_score_v5
     from src.trustscore.llm_client import LLMClient, LLMProvider
     from src.common.models import Operator as OperatorModel
     from src.common.config import SessionLocal
@@ -372,10 +380,21 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                     fleet_events = fleet_events + faa_events
                     print(f"  ✓ Found {len(faa_events)} FAA enforcement action(s)")
 
+                # Query FAA service difficulty reports and append.
+                # SDRSService swallows its own failures and returns [], so an
+                # SDRS outage leaves the score exactly as it would have been.
+                from src.scoring.sdrs_service import SDRSService
+
+                sdr_events = await SDRSService.query_as_fleet_events(operator.company)
+                if sdr_events:
+                    fleet_events = fleet_events + sdr_events
+                    print(f"  ✓ Found {len(sdr_events)} service difficulty report(s)")
+
                 operator_age_years = 10.0
                 fleet_size = 1
                 argus_rating = None
                 wyvern_rating = None
+                certificate_designator = None
 
                 try:
                     db = SessionLocal()
@@ -394,40 +413,95 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                     if db_operator:
                         argus_rating = db_operator.argus_rating
                         wyvern_rating = db_operator.wyvern_rating
+                        # §8: anchor to the immutable 4-char FAA certificate ID
+                        # rather than the trade name, so a rebrand cannot shed
+                        # the operator's history.
+                        certificate_designator = db_operator.faa_dsgn_code
 
                     db.close()
                 except Exception as e:
                     print(f"  ⚠️  Could not fetch operator data from gtj.operators: {e}")
 
-                fleet_data = FleetScoreData(
+                # ─── Algorithm v3 (superseded by v5.0) ───────────────────────
+                # fleet_data = FleetScoreData(
+                #     operator_name=operator.company,
+                #     operator_age_years=operator_age_years,
+                #     fleet_size=fleet_size,
+                #     fleet_events=fleet_events,
+                #     ucc_filings=ucc_filings,
+                #     argus_rating=argus_rating,
+                #     wyvern_rating=wyvern_rating,
+                #     bankruptcy_history=None,
+                # )
+                #
+                # tail_data = TailScoreData(
+                #     aircraft_age_years=5.0,
+                #     operator_name=operator.company,
+                #     registered_owner=operator.company,
+                #     fractional_owner=False,
+                #     tail_events=fleet_events,   # BUG: fleet-wide list as tail events
+                # )
+                #
+                # try:
+                #     llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
+                #     calculator = TrustScoreCalculator(llm_client=llm_client)
+                # except Exception:
+                #     calculator = TrustScoreCalculator(llm_client=None)
+                #
+                # trust_score_result = await calculator.calculate_trust_score(
+                #     fleet_data, tail_data
+                # )
+                # ─────────────────────────────────────────────────────────────
+
+                # Algorithm v5.0. The adapter splits the mixed fleet_events list
+                # into accidents / SDRs / legal, which v5.0 routes to separate
+                # health multipliers rather than one additive pool.
+                operator_v5 = adapter_v5.build_operator_data(
                     operator_name=operator.company,
-                    operator_age_years=operator_age_years,
-                    fleet_size=fleet_size,
+                    certificate_designator=certificate_designator,
+                    certificate_age_years=operator_age_years,
+                    # fleet_size omitted: the adapter counts active tails from
+                    # gtj.aircraft. The local `fleet_size = 1` above is a v3
+                    # leftover and must not be passed through.
                     fleet_events=fleet_events,
                     ucc_filings=ucc_filings,
-                    argus_rating=argus_rating,
-                    wyvern_rating=wyvern_rating,
-                    bankruptcy_history=None,
                 )
 
-                tail_data = TailScoreData(
-                    aircraft_age_years=5.0,
-                    operator_name=operator.company,
-                    registered_owner=operator.company,
-                    fractional_owner=False,
-                    tail_events=fleet_events,
+                # No per-tail data in the batch flow, so this scores the
+                # operator's profile rather than a specific airframe. Tail
+                # events are intentionally NOT passed: Iht carries a 5x
+                # multiplier, and charging fleet-wide incidents against one
+                # airframe is the v3 bug this rewrite removes.
+                tail_v5 = adapter_v5.build_tail_data(tail_number="")
+
+                trust_score_result = calculate_trust_score_v5(operator_v5, tail_v5)
+
+                gaps = adapter_v5.missing_inputs(operator_v5, tail_v5)
+                if gaps:
+                    print(f"  ⓘ v5.0 inputs defaulted ({len(gaps)}): {gaps[0]}")
+
+                print(
+                    f"  ✓ TrustScore (v5.0): {trust_score_result['trust_score']} "
+                    f"({trust_score_result['tier']})"
                 )
 
+                # §9 Risk Audit narrative. Read-only: cannot alter the score
+                # above, and returns None on any failure.
                 try:
                     llm_client = LLMClient(provider=LLMProvider.OPENROUTER)
-                    calculator = TrustScoreCalculator(llm_client=llm_client)
                 except Exception:
-                    calculator = TrustScoreCalculator(llm_client=None)
+                    llm_client = None
 
-                trust_score_result = await calculator.calculate_trust_score(
-                    fleet_data, tail_data
+                narrative = await narrative_v5.generate_narrative(
+                    operator_v5, tail_v5, trust_score_result,
+                    llm_client=llm_client, missing_inputs=gaps,
                 )
-                print(f"  ✓ TrustScore: {trust_score_result['trust_score']}")
+                if narrative:
+                    trust_score_result["risk_audit"] = {
+                        "narrative": narrative["narrative"],
+                        "flags": narrative["flags"],
+                    }
+                    print("  ✓ Risk audit narrative generated")
 
             except Exception as e:
                 trust_score_error = str(e)
