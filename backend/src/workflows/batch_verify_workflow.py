@@ -109,6 +109,10 @@ def save_trust_score_to_supabase(
                     "wyvern_rating": wyvern_rating
                 },
                 "ai_insights": trust_score_result.get('ai_insights', None),
+                # v5.0 §9 Risk Audit: executive narrative plus the six
+                # traffic-light category flags. Separate from `ai_insights`,
+                # which held v3's free-text insight and has a different shape.
+                "risk_audit": trust_score_result.get('risk_audit', None),
                 "document_analyses": document_analyses or []
             }
 
