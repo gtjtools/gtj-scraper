@@ -155,6 +155,22 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  GTJ Scraper Production Startup${NC}"
 echo -e "${GREEN}========================================${NC}"
 
+# Clear any previous instance before binding the port.
+#
+# This script starts uvicorn unconditionally, and `stop` only kills the PIDs it
+# recorded in logs/*.pid — so a process started by an earlier deploy, or by hand,
+# survives every restart. When that happens uvicorn dies with
+# "[Errno 98] Address already in use" while the worker starts anyway, leaving a
+# live worker and no API. A stale worker is the more dangerous half: it stays
+# registered with Hatchet and will happily claim jobs using months-old code.
+#
+# pkill matches on the command line, so it catches those orphans regardless of
+# which deploy started them.
+echo -e "\n${YELLOW}Stopping any existing instances...${NC}"
+pkill -f "uvicorn src.main" 2>/dev/null && echo -e "${GREEN}Stopped stale FastAPI${NC}" || true
+pkill -f "batch_verify_worker" 2>/dev/null && echo -e "${GREEN}Stopped stale Hatchet worker${NC}" || true
+sleep 2
+
 # Start FastAPI server
 echo -e "\n${YELLOW}Starting FastAPI server...${NC}"
 nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4 >> "$FASTAPI_LOG" 2>&1 &
