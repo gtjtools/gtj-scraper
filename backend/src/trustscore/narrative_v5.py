@@ -424,13 +424,17 @@ async def _complete(llm_client: Any, prompt: str) -> Optional[str]:
     underlying client is used directly when reachable, falling back to
     `get_completion` otherwise.
     """
-    import os
+    # Use the same model llm_client picks. That module chooses in code rather
+    # than from OPENROUTER_MODEL on purpose ("matching backend"), so reading
+    # the env var here would silently send narrative traffic to a different
+    # model than every other LLM call in the service — and to one the account
+    # may not even have access to.
+    from src.trustscore.llm_client import OPENROUTER_DEFAULT_MODEL
 
     inner = getattr(llm_client, "client", None)
     if inner is not None and hasattr(inner, "chat"):
-        model = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
         response = await inner.chat.completions.create(
-            model=model,
+            model=OPENROUTER_DEFAULT_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
