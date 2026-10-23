@@ -32,7 +32,12 @@ class ScoreCalculationResponse(BaseModel):
     ntsb_score: float
     total_incidents: int
     incidents: List[NTSBIncident]
-    calculated_at: str
+    # datetime, not str: ScoringService.run_score_calculation returns
+    # datetime.utcnow(). Declaring this `str` made Pydantic v2 reject every
+    # successful response with a validation error — json_encoders below does
+    # not help, because validation runs before encoding and a datetime is not
+    # a str. FastAPI serialises datetime to an ISO-8601 string on the way out.
+    calculated_at: datetime
 
     class Config:
         json_encoders = {
