@@ -57,3 +57,7 @@ tqdm==4.66.1
 hatchet-sdk>=1.22.0
 pypdf>=4.0.0
 openpyxl>=3.1.0
+
+# Test dependencies (imported by tests/, previously undeclared)
+pytest>=8.0.0
+faker>=37.0.0
