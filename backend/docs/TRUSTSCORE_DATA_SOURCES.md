@@ -22,7 +22,7 @@ today, and how the scraping actually works.
 | 5 | Aviation Safety Network (ASN) Wikibase | `L_Risk` | **Not implemented** |
 | 6 | FAA SDRS | `SDR_Penalty` | **Implemented (Phase 1)** — see §6.6 |
 | 7 | B2B Watchdogs (privatejetcardcomparisons, ch-aviation) | `ELI` | **Skipped — see §5** |
-| 8 | DOT OACP enforcement orders | `ELI` | **Deferred — see §5** |
+| 8 | DOT OACP enforcement orders | `ELI` | **Implemented end-to-end** — ingest per `DOT_OACP_ENFORCEMENT_ORDERS.md`; scored into `ELI` via `adapter_v5.dot_orders_to_legal_events` |
 | 9 | TrustJet transactional telemetry | Future | **Out of scope** (document says so) |
 
 ### Metric symbols
@@ -252,17 +252,24 @@ headless scrape of each site's news feed, then a low-cost LLM prompted to emit:
 Output feeds `ELI`, so it is blocked on that metric regardless of the legal
 question.
 
-### Source 8 — DOT OACP — **deferred, no home for the output**
+### Source 8 — DOT OACP — **implemented end-to-end**
 
-Technically the easiest unimplemented source: the endpoint accepts
-`items_per_page=All`, so it is a single request plus LLM extraction of operator
-names from case titles (the document notes there is no operator filter, so every
-case must be classified).
+Full documentation: **[`DOT_OACP_ENFORCEMENT_ORDERS.md`](../DOT_OACP_ENFORCEMENT_ORDERS.md)**
+(API, scrape, `order_type` criteria, ELI purpose).
 
-Deferred because **the output has nowhere to go.** It feeds `ELI`, which has no
-`FleetScoreData` field and no term in `OS = 100 - ORF + FSF - CSF`. It can be
-scraped and persisted harmlessly, but it cannot affect a score until `ELI` is
-defined — see §6.
+Ingest: `POST /scoring/dot-ingest` → `gtj.dot_enforcement_orders`.
+
+Scoring: `adapter_v5.dot_orders_to_legal_events` maps each order onto the §6.3
+taxonomy as `DOT_OACP_CONSENT_ORDER` (25 points), feeding `ELI` and therefore
+`Hconduct`. `adapter_v5.fetch_dot_orders_for_operator` performs the score-time
+lookup by `operator_name_normalized`.
+
+Only adverse outcomes score. `dismissal` and `unknown` are skipped — a
+dismissed complaint means the operator was cleared, and an unclassified row is
+not evidence of wrongdoing.
+
+Known limitation: matching is by normalized operator name, not certificate
+designator, so §8's DBA-rebranding defence does not yet apply to this source.
 
 ### Source 9 — telemetry — **out of scope**
 
@@ -271,6 +278,36 @@ The document marks it "NOT YET IMPLEMENTING IN CURRENT BUILD."
 ---
 
 ## 6. Open questions blocking TrustScore 5.0
+
+> **RESOLVED — `TrustScore Algorithm v5.0.docx` is now the source of truth.**
+>
+> The full specification arrived and answers every question in this section.
+> The algorithm is implemented in `src/trustscore/calculator_v5.py`, with 76
+> tests in `tests/trustscore/test_calculator_v5.py`. v3 (`calculator.py`) is
+> untouched and still in service.
+>
+> | Was open | v5.0 answer |
+> |---|---|
+> | `ELI` formula and weights | §4.2 + §6.3 — decayed sum over an 8-value taxonomy (35/25/20/15) |
+> | `ELI` vs `FSF` overlap | `FSF` is gone. v5.0 has no additive financial term; liens feed `ELI`, and a tail-specific lien additionally feeds `Lientail` |
+> | `SDR_Penalty` | §5.3 — `MIN(30, decayed sum)`, inside `Htailhistory` |
+> | Square-root denominator | §4.1 — confirmed: `/ MAX(1, SQRT(Vf))` |
+> | `Age_cert` | §3 — years since **original certificate issuance**, not business registration |
+> | `ORF_True` | §4.1 — named `Orfbase`; the fleet accident term |
+> | `Churn_Fleet` | §3 — `Churneffective`, asymmetric, from 12-month D085 snapshot diffs |
+> | Commercial conduct metric | §4.2 — `Hconduct`, a non-compensatory multiplicative gate |
+>
+> **The `IH_T` bug flagged in §6.6 is fixed by construction.** `Iht` (§5.3) is
+> defined over tail-specific accidents only, and `calculator_v5.py` reads them
+> from `TailData.tail_accident_events` — a distinct field from the fleet list,
+> so v3's `tail_events=fleet_events` mistake cannot recur.
+>
+> One structural note: v3's additive model permitted negative sub-scores;
+> v5.0's cannot. Every health factor lies in (0, 1], so the composite
+> approaches the 50-point floor asymptotically rather than being clamped from
+> below.
+>
+> The historical analysis below is retained for context.
 
 Phase 1 sources land independently of these, but the **5.0 algorithm cannot be
 implemented** until they are answered.

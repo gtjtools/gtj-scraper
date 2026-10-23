@@ -140,8 +140,9 @@ class ImageAnalyzer:
             # Encode image to base64
             image_base64 = base64.b64encode(image_data).decode('utf-8')
 
-            # Get model from environment or use default
-            model = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
+            # Match gtj-backend llm service (model in code, not OPENROUTER_MODEL env).
+            from src.trustscore.llm_client import OPENROUTER_DEFAULT_MODEL
+            model = OPENROUTER_DEFAULT_MODEL
 
             # Call OpenRouter Vision API using OpenAI format
             response = self.client.chat.completions.create(

@@ -57,18 +57,33 @@ _FIELD_ALIASES = {
     "stage": ("stageofoperation", "stage"),
 }
 
-# Narrative keywords that mark a report as materially more serious than a
-# routine finding. Ordered most severe first; the first match wins.
+# Narrative keywords mapped to the TrustScore v5.0 §6.2 maintenance severity
+# schedule. Ordered most severe first; the first match wins.
+#
+#   20  In-flight shutdown (IFSD), uncontained engine failure
+#   15  Precautionary aborted takeoff, flight control malfunction, emergency descent
+#   10  In-flight cabin smoke or toxic fume event
+#    5  Unscheduled landing or divert on secondary subsystem failure
+#
+# SDRS carries no severity field, so severity is inferred from the discrepancy
+# narrative. These buckets are fixed by the specification — do not retune them
+# without a corresponding change to the document.
 _SEVERITY_KEYWORDS = (
-    (("emergency landing", "emergency descent", "declared an emergency",
-      "forced landing", "in-flight shutdown", "inflight shutdown"), 15.0),
-    (("fire", "smoke", "engine failure", "failed in flight", "uncommanded",
-      "loss of control", "depressurization"), 10.0),
-    (("crack", "corrosion", "fracture", "separation", "leak", "worn",
+    (("in-flight shutdown", "inflight shutdown", "ifsd", "uncontained",
+      "engine failure", "engine shutdown"), 20.0),
+    (("aborted takeoff", "rejected takeoff", "emergency descent",
+      "flight control", "declared an emergency", "forced landing",
+      "emergency landing", "loss of control", "uncommanded"), 15.0),
+    (("cabin smoke", "smoke", "toxic fume", "fumes", "fire",
+      "depressurization"), 10.0),
+    (("unscheduled landing", "divert", "diversion", "precautionary",
+      "crack", "corrosion", "fracture", "separation", "leak", "worn",
       "fatigue", "delamination"), 5.0),
 )
 
-# Severity applied when nothing in the narrative stands out.
+# Severity applied when nothing in the narrative matches a §6.2 bucket. Below
+# the lowest schedule value, so an unclassifiable report cannot outweigh a
+# categorized one.
 _DEFAULT_SEVERITY = 3.0
 
 # Business suffixes stripped when matching operator names. Kept local rather
