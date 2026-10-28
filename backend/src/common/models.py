@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, Float, DECIMAL, DateTime, Date, Enum, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Integer, Float, DECIMAL, DateTime, Date, Enum, Boolean, ForeignKey, JSON, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -320,6 +320,57 @@ class DOTEnforcementOrder(Base):
   last_verified_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
   created_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
   updated_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
+
+
+class FleetSnapshot(Base):
+  """
+  Monthly point-in-time record of which tails sit on which operator.
+
+  Exists to make TrustScore v5.0's `Churn_Fleet` computable (§3). Churn is a
+  12-month differential — TailsAdded and TailsRemoved against a baseline fleet
+  size — so it cannot be derived from current state alone. gtj.aircraft is
+  updated in place and keeps no history, so without these rows there is nothing
+  to diff and `Churneffective` stays 0, meaning no operator is ever penalised
+  for shedding or rapidly onboarding aircraft.
+
+  That is why this table is worth populating before the metric is implemented:
+  every month not captured is a month that cannot be reconstructed later.
+
+  One row per (operator, tail, snapshot month). Deliberately denormalised —
+  operator_name and make_model are copied in rather than joined — so a snapshot
+  still describes the fleet as it was even after an operator is renamed or an
+  aircraft row is deleted.
+  """
+  __tablename__ = "fleet_snapshots"
+  __table_args__ = (
+    # One row per tail per operator per month. Makes the job idempotent: a
+    # re-run in the same month updates rather than duplicating.
+    UniqueConstraint('operator_id', 'tail_number', 'snapshot_month',
+                     name='uq_fleet_snapshot_operator_tail_month'),
+    # Churn queries read "all rows for this operator across months", so the
+    # composite index matches the access pattern.
+    Index('ix_fleet_snapshot_operator_month', 'operator_id', 'snapshot_month'),
+    {'schema': 'gtj'},
+  )
+
+  snapshot_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+  operator_id = Column(UUID(as_uuid=True), ForeignKey("gtj.operators.operator_id"), nullable=False)
+  # Copied, not joined: a snapshot must stay readable if the operator is
+  # renamed or the aircraft row is later removed.
+  operator_name = Column(String(255), nullable=True)
+  tail_number = Column(String(10), nullable=False)
+  make_model = Column(String(100), nullable=True)
+
+  # First day of the month the snapshot represents, so comparisons are exact
+  # rather than depending on which day the job happened to run.
+  snapshot_month = Column(Date, nullable=False, index=True)
+  # Actual run time, kept separately for auditing a late or re-run job.
+  captured_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
+
+  # Where the fleet list came from: 'gtj.aircraft' today, 'opspecs_d085' once
+  # the JETNET pipeline exists (§7 Pipeline 2). Recorded so a future churn
+  # calculation can tell whether two months are comparable.
+  source = Column(String(32), nullable=False, server_default="'gtj.aircraft'")
 
 
 class TrustScore(Base):
