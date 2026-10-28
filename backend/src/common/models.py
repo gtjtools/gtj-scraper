@@ -65,7 +65,13 @@ class Operator(Base):
   trust_score = Column(DECIMAL(5, 2), nullable=True)
   trust_score_updated_at = Column(DateTime, nullable=True)
   financial_health_score = Column(DECIMAL(5, 2), nullable=True)
-  regulatory_status = Column(ENUM('COMPLIANT', 'WARNING', 'VIOLATION', 'SUSPENDED', name='regulatory_status'), nullable=False)
+  # UNKNOWN was added to the Postgres type by gtj-backend migration 077 and is
+  # the status of 16 operators. SQLAlchemy validates enums on LOAD, so omitting
+  # it here made every read of those rows raise
+  # "'UNKNOWN' is not among the defined enum values" — which surfaced as a
+  # scoring failure, since save_trust_score_to_supabase queries the operator
+  # row before writing. The model must list every value the database can hold.
+  regulatory_status = Column(ENUM('COMPLIANT', 'WARNING', 'VIOLATION', 'SUSPENDED', 'UNKNOWN', name='regulatory_status'), nullable=False)
   is_verified = Column(Boolean, nullable=False, server_default="false")
   business_started_date = Column(DateTime, nullable=True)
   argus_rating = Column(String(50), nullable=True)
