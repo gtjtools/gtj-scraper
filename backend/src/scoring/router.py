@@ -538,6 +538,10 @@ async def full_scoring_flow(
             certificate_designator = None  # Resolved from gtj.operators below
             wyvern_rating = None  # Default fallback
 
+            # `db` is bound before the try so the finally can always close it:
+            # if SessionLocal() itself raises, there is nothing to close, and if
+            # the query raises, the session must still be returned to the pool.
+            db = None
             try:
                 db = SessionLocal()
                 operator = (
@@ -570,9 +574,16 @@ async def full_scoring_flow(
                 else:
                     print(f"⚠️  Operator not found in database, using default values")
 
-                db.close()
             except Exception as e:
                 print(f"⚠️  Error fetching operator data: {e}, using default values")
+            finally:
+                # Previously `db.close()` was the last statement inside the try,
+                # so any exception above it leaked the connection for the life of
+                # the process. With pool_size=5 + max_overflow=10, fifteen such
+                # failures exhausted the pool and every later save timed out
+                # ("QueuePool limit of size 5 overflow 10 reached").
+                if db is not None:
+                    db.close()
 
             # ─── Algorithm v3 (superseded by v5.0) ───────────────────────────
             # fleet_data = FleetScoreData(

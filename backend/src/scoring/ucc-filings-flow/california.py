@@ -31,6 +31,25 @@ class CaliforniaFlow(BaseUCCFlow):
             print(f"❌ California navigation error: {str(e)}")
             return False
 
+    # bizfileonline.sos.ca.gov sits behind Imperva Incapsula bot protection.
+    # A plain request gets a 212-byte JavaScript challenge page with no form in
+    # it; adding the challenge cookies and retrying the underlying
+    # /api/Records/uccsearch endpoint returns HTTP 429 "This request was blocked
+    # by our security service". So the search input genuinely never renders.
+    #
+    # The long waits below used to be 100000ms each. Two of them meant ~200
+    # seconds burned per operator waiting for an element that cannot appear —
+    # roughly 100 hours across a full 1,837-operator batch. Failing in ~12s
+    # instead keeps the state in the pipeline (so it starts working again if the
+    # block lifts or Browserbase stealth is enabled) without paying for a
+    # timeout we already know the outcome of.
+    #
+    # Fixing this properly means either Browserbase stealth mode, or solving the
+    # challenge in-browser and reusing its cookies against the JSON API.
+    # Worth noting first: v5.0 sources liens from FAA DOCINDEX (§7 Pipeline 3),
+    # not state UCC registries, so this data does not currently reach any score.
+    BLOCKED_ELEMENT_TIMEOUT_MS = 12000
+
     async def fill_search_form(self, page: Page, search_query: str) -> bool:
         """
         Fill California UCC search form
@@ -39,6 +58,10 @@ class CaliforniaFlow(BaseUCCFlow):
         1. Find and fill the search input: //input[@placeholder="Search by name or file number"]
         2. Click the advanced search button: //button[contains(@class,"advanced-search-button")]
         3. Wait for results
+
+        Returns False rather than raising when the page is unavailable: the
+        caller records the state as unsuccessful and carries on with the others,
+        which is why a blocked California never fails a scoring run.
         """
         try:
             print(f"📝 Filling California UCC search form for: {search_query}")
@@ -49,7 +72,9 @@ class CaliforniaFlow(BaseUCCFlow):
                 search_input = page.locator(
                     '//input[@placeholder="Search by name or file number"]'
                 )
-                await search_input.wait_for(state="visible", timeout=100000)
+                await search_input.wait_for(
+                    state="visible", timeout=self.BLOCKED_ELEMENT_TIMEOUT_MS
+                )
                 print("   ✓ Found search input field")
 
                 await search_input.fill(search_query)
@@ -57,7 +82,15 @@ class CaliforniaFlow(BaseUCCFlow):
                 print(f"   ✓ Entered search query: {search_query}")
 
             except Exception as e:
-                print(f"   ❌ Could not find or fill search input: {str(e)}")
+                # Expected while Incapsula is blocking: the form never renders.
+                # Reported as a known condition rather than a bare timeout so a
+                # reader does not go hunting for a selector bug that is not there.
+                print("   ⏭️  California UCC unavailable — the search form did not")
+                print("      render within "
+                      f"{self.BLOCKED_ELEMENT_TIMEOUT_MS // 1000}s. The site is behind "
+                      "Incapsula bot protection;")
+                print("      skipping this state and continuing with the others.")
+                print(f"      (detail: {str(e).splitlines()[0][:80]})")
                 await self.take_screenshot(page, f"california_input_error.png")
                 return False
 
@@ -67,14 +100,21 @@ class CaliforniaFlow(BaseUCCFlow):
                 search_button = page.locator(
                     '//button[contains(@class,"search-button")]'
                 )
-                await search_button.wait_for(state="visible", timeout=100000)
+                await search_button.wait_for(
+                    state="visible", timeout=self.BLOCKED_ELEMENT_TIMEOUT_MS
+                )
                 print("   ✓ Found advanced search button")
 
                 await search_button.click()
                 print("   ✓ Advanced search button clicked")
 
             except Exception as e:
-                print(f"   ❌ Could not find or click search button: {str(e)}")
+                # Unreachable while the input above is also blocked, but kept
+                # short for the same reason: no value in waiting out a timeout
+                # whose answer is already known.
+                print("   ⏭️  California UCC unavailable — search button did not render;")
+                print("      skipping this state and continuing with the others.")
+                print(f"      (detail: {str(e).splitlines()[0][:80]})")
                 await self.take_screenshot(page, f"california_button_error.png")
                 return False
 
