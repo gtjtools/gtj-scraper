@@ -596,6 +596,63 @@ def build_tail_data(
     )
 
 
+# Stable identifiers for each coverage gap, so callers can branch on them
+# without pattern-matching the prose in missing_inputs(). The narrative layer
+# uses these to decide whether a category's GREEN is evidenced or merely
+# unexamined.
+GAP_CERTIFICATE_UNRESOLVED = "certificate_designator_unresolved"
+#: Raised whenever evidence was gathered by trade name rather than by
+#: certificate designator — which, until §8 entity resolution exists, is always.
+#: Distinct from GAP_CERTIFICATE_UNRESOLVED: an operator can have a perfectly
+#: good designator (Red Wing has R3WA) and still have every lookup run against
+#: its marketing name, which is the failure the specification describes.
+GAP_NAME_ANCHORED_LOOKUPS = "lookups_anchored_to_trade_name"
+GAP_CERTIFICATE_AGE = "certificate_age_unknown"
+GAP_FLEET_SIZE = "fleet_size_unknown"
+GAP_CHURN = "churn_not_captured"
+GAP_LATENT_RISK = "asn_latent_risk_not_ingested"
+GAP_DOT_ORDERS = "dot_orders_unmatched"
+GAP_TAIL_TENURE = "tail_tenure_unknown"
+GAP_SAME_TYPE_FLEET = "same_type_fleet_unknown"
+GAP_TAIL_LIENS = "docindex_liens_not_parsed"
+
+
+def missing_input_keys(operator: OperatorData, tail: TailData) -> List[str]:
+    """
+    The same findings as `missing_inputs`, as stable keys rather than prose.
+
+    Prose is for humans and changes freely; these identifiers are what code
+    should branch on.
+
+    Returns:
+        GAP_* identifiers for every input left at its neutral default.
+    """
+    keys: List[str] = []
+    if operator.certificate_designator == operator.operator_name:
+        keys.append(GAP_CERTIFICATE_UNRESOLVED)
+    # Always, for now: no pipeline queries by certificate designator, so every
+    # source was searched with a marketing name. Remove this once §8 entity
+    # resolution lands and lookups are certificate-anchored.
+    keys.append(GAP_NAME_ANCHORED_LOOKUPS)
+    if not operator.certificate_age_years:
+        keys.append(GAP_CERTIFICATE_AGE)
+    if not operator.fleet_size:
+        keys.append(GAP_FLEET_SIZE)
+    if not operator.tails_added_12m and not operator.tails_removed_12m:
+        keys.append(GAP_CHURN)
+    if not operator.latent_risk_events:
+        keys.append(GAP_LATENT_RISK)
+    if not any(event.source == "DOT_OACP" for event in operator.legal_events):
+        keys.append(GAP_DOT_ORDERS)
+    if tail.certificate_tenure_months >= 999.0:
+        keys.append(GAP_TAIL_TENURE)
+    if tail.same_type_fleet_count <= 1:
+        keys.append(GAP_SAME_TYPE_FLEET)
+    if not tail.tail_lien_events:
+        keys.append(GAP_TAIL_LIENS)
+    return keys
+
+
 def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
     """
     Report which v5.0 inputs were left at their neutral default.
@@ -603,6 +660,8 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
     Every entry means a real risk signal the score cannot currently see. Callers
     should log this alongside the score so a high number is never mistaken for a
     fully-evidenced one.
+
+    See `missing_input_keys` for the same findings in a form code can branch on.
 
     Returns:
         Human-readable descriptions of defaulted inputs.
@@ -614,6 +673,10 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
             "certificate_designator unresolved (anchored to trade name; §8 requires "
             "the immutable 4-char FAA ID to defeat DBA rebranding)"
         )
+    gaps.append(
+        "evidence gathered by trade name, not certificate designator (§8): an "
+        "operator that has rebranded will not match its own history"
+    )
     if not operator.certificate_age_years:
         gaps.append("certificate_age_years is 0 (Agecert unknown; Cs will be near 0)")
     if not operator.fleet_size:

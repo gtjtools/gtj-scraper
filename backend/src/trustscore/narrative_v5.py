@@ -30,6 +30,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
+from src.trustscore import adapter_v5
 from src.trustscore.calculator_v5 import (
     ELI_TAXONOMY,
     OperatorData,
@@ -46,6 +47,56 @@ logger = logging.getLogger(__name__)
 GREEN = "GREEN"
 YELLOW = "YELLOW"
 RED = "RED"
+
+# A fourth state the specification does not name, added because the three it
+# does name cannot express "we did not look".
+#
+# The flag functions below infer a category from the evidence gathered. With no
+# evidence they return GREEN — which reads as "clean" but actually means
+# "nothing found". For a category whose sources are not ingested at all
+# (DOCINDEX liens, ASN latent risk, D085 churn), or for an operator whose
+# lookups ran against a trade name rather than its certificate designator
+# (§8), that is an overclaim: the operator may be spotless, or may have a
+# record filed under a name nobody searched.
+#
+# GREY is therefore applied only where a GREEN would have rested on an
+# unqueried source. RED and YELLOW are never downgraded — evidence of a problem
+# stands regardless of what else is missing.
+GREY = "GREY"
+
+#: Which coverage gaps undermine a clean finding in each category. A GREEN in
+#: one of these categories becomes GREY when any listed gap is present.
+# GAP_NAME_ANCHORED_LOOKUPS appears in every entry: while lookups run on trade
+# names, a clean result in ANY category may simply mean the operator's history
+# is filed under a name nobody searched. That is the §8 failure, and it is not
+# specific to one category.
+_NAME_ANCHORED = (adapter_v5.GAP_NAME_ANCHORED_LOOKUPS,
+                  adapter_v5.GAP_CERTIFICATE_UNRESOLVED)
+
+_CATEGORY_DEPENDENCIES = {
+    "flight_fulfillment": _NAME_ANCHORED + (adapter_v5.GAP_SAME_TYPE_FLEET,),
+    "commercial_integrity": _NAME_ANCHORED + (adapter_v5.GAP_DOT_ORDERS,),
+    "flight_safety": _NAME_ANCHORED + (adapter_v5.GAP_LATENT_RISK,),
+    "maintenance_discipline": _NAME_ANCHORED,
+    "asset_stability": _NAME_ANCHORED + (adapter_v5.GAP_CHURN,
+                                         adapter_v5.GAP_TAIL_TENURE,
+                                         adapter_v5.GAP_CERTIFICATE_AGE),
+    "legal_title": _NAME_ANCHORED + (adapter_v5.GAP_TAIL_LIENS,),
+}
+
+
+def _apply_coverage(flag: str, category: str, gap_keys: frozenset) -> str:
+    """
+    Downgrade a GREEN to GREY when the category's sources were not consulted.
+
+    Only GREEN is affected. A RED or YELLOW rests on evidence that was actually
+    found, and missing *other* sources does not make that finding less real.
+    """
+    if flag != GREEN:
+        return flag
+    if any(dep in gap_keys for dep in _CATEGORY_DEPENDENCIES.get(category, ())):
+        return GREY
+    return GREEN
 
 #: §6.3 violations severe enough to force a RED commercial-integrity flag.
 _CRITICAL_VIOLATIONS = frozenset(
@@ -197,13 +248,22 @@ def build_audit_payload(
 
     churn = calculate_churn_effective(operator)
 
-    flags = {
+    raw_flags = {
         "flight_fulfillment": _flag_flight_fulfillment(operator, tail),
         "commercial_integrity": _flag_commercial_integrity(operator),
         "flight_safety": _flag_flight_safety(operator, tail),
         "maintenance_discipline": _flag_maintenance(operator, tail),
         "asset_stability": _flag_asset_stability(operator, tail, churn),
         "legal_title": _flag_legal_title(operator, tail),
+    }
+
+    # Downgrade any GREEN whose sources were never consulted. Without this a
+    # rebranded operator — whose lookups all ran against a name nobody filed
+    # under — reads as six green flags and a Pinnacle score.
+    gap_keys = frozenset(adapter_v5.missing_input_keys(operator, tail))
+    flags = {
+        name: _apply_coverage(flag, name, gap_keys)
+        for name, flag in raw_flags.items()
     }
 
     return {
@@ -294,7 +354,14 @@ internal variable names.
 descriptions provided directly in the input payload. Do not speculate or \
 invent private financial data. If a category has no entries, say so plainly.
 - Respect the supplied flags: the payload assigns each category a GREEN, \
-YELLOW or RED flag. Use them exactly as given; do not re-derive or override.
+YELLOW, RED or GREY flag. Use them exactly as given; do not re-derive or \
+override.
+- GREY means NOT ASSESSED, not "clean". It is applied when the sources behind \
+that category were not consulted — an uningested feed, or a lookup that ran \
+against a trade name rather than the operator's certificate. For a GREY \
+category, state plainly that it could not be assessed and name the missing \
+source from `data_coverage_gaps`. Never describe a GREY category as clear, \
+satisfactory, or without findings.
 - Objective Tone: Maintain a clinical, institutional tone. Attribute all \
 adverse findings directly to official public repositories (NTSB, FAA SDRS, \
 FAA Document Index, DOT OACP) or verified watchdog reporting.

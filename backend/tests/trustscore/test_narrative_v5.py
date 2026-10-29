@@ -150,7 +150,17 @@ class TestBlackBoxRule:
 # ── Flag derivation ──────────────────────────────────────────────────────────
 
 class TestFlagDerivation:
-    def test_clean_operator_is_all_green(self):
+    def test_clean_operator_with_uningested_sources_is_grey_not_green(self):
+        """
+        An operator with no adverse findings is not thereby clean.
+
+        Until §8 entity resolution lands, every lookup runs against a trade
+        name, so "nothing found" may only mean "nothing found under the name we
+        searched". Several sources (DOCINDEX liens, ASN latent risk, D085
+        churn) are not ingested at all. Reporting GREEN here is the overclaim
+        that let Red Wing Aeroplane — the specification's own example of a
+        rebranded bad actor — score Pinnacle with six green flags.
+        """
         operator = adapter_v5.build_operator_data(
             operator_name="Clean", certificate_designator="ABCD",
             certificate_age_years=25.0, fleet_size=30,
@@ -165,7 +175,37 @@ class TestFlagDerivation:
             operator, tail, calculate_trust_score(operator, tail)
         )
         flags = {name: c["flag"] for name, c in payload["audit_categories"].items()}
-        assert set(flags.values()) == {narrative_v5.GREEN}
+        assert set(flags.values()) == {narrative_v5.GREY}
+
+    def test_grey_never_overrides_an_adverse_finding(self):
+        """Missing sources must not soften evidence that WAS found."""
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=20.0, fleet_size=10,
+            fleet_events=[{"event_type": "Accident", "injury_level": "Fatal",
+                           "event_date": "2025-01-01"}],
+            include_dot_orders=False, lookup_fleet_size=False,
+        )
+        tail = adapter_v5.build_tail_data(tail_number="N1", same_type_fleet_count=5,
+                                          certificate_tenure_months=24.0)
+        payload = narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail)
+        )
+        assert payload["audit_categories"]["flight_safety"]["flag"] == narrative_v5.RED
+
+    def test_coverage_downgrade_only_touches_green(self):
+        gaps = frozenset([adapter_v5.GAP_NAME_ANCHORED_LOOKUPS])
+        assert narrative_v5._apply_coverage(
+            narrative_v5.GREEN, "flight_safety", gaps) == narrative_v5.GREY
+        assert narrative_v5._apply_coverage(
+            narrative_v5.YELLOW, "flight_safety", gaps) == narrative_v5.YELLOW
+        assert narrative_v5._apply_coverage(
+            narrative_v5.RED, "flight_safety", gaps) == narrative_v5.RED
+
+    def test_green_survives_when_nothing_is_missing(self):
+        """A fully-evidenced category must still be able to read GREEN."""
+        assert narrative_v5._apply_coverage(
+            narrative_v5.GREEN, "maintenance_discipline", frozenset()
+        ) == narrative_v5.GREEN
 
     def test_fatal_accident_forces_red_safety(self):
         operator = adapter_v5.build_operator_data(
