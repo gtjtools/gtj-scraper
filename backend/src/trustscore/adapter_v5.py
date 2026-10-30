@@ -324,10 +324,19 @@ def fetch_dot_orders_for_operator(operator_name: str, db_session_factory: Any = 
         if not normalized:
             return []
 
+        # Match every name on this certificate (§8). A DOT order names the
+        # respondent as filed, so an operator that has since rebranded would
+        # otherwise appear to have no enforcement history.
+        from src.common.entity_resolution import resolve_operator_names
+
+        names = resolve_operator_names(
+            operator_name, db_session_factory=db_session_factory
+        ) or [normalized]
+
         session = db_session_factory()
         return (
             session.query(DOTEnforcementOrder)
-            .filter(DOTEnforcementOrder.operator_name_normalized == normalized)
+            .filter(DOTEnforcementOrder.operator_name_normalized.in_(names))
             .all()
         )
     except Exception as exc:  # pragma: no cover - defensive

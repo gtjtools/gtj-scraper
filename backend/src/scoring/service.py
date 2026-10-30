@@ -23,6 +23,34 @@ NTSB_API_URL = "https://data.ntsb.gov/carol-main-public/api/Query/Main"
 NTSB_TIMEOUT = 30.0  # seconds
 
 
+def _operator_name_variants(operator_name: str) -> list:
+    """
+    Every name the operator's certificate has been known by (§8).
+
+    NTSB records an accident against whatever name the operator held at the
+    time, so searching only the current name hides the history of anyone who
+    has rebranded. Resolution failures degrade to the supplied name alone,
+    which is the behaviour this had before.
+    """
+    try:
+        from src.common.entity_resolution import resolve_operator_names
+        from src.trustscore.adapter_v5 import normalize_operator_name
+
+        names = resolve_operator_names(operator_name)
+        if not names:
+            return [operator_name]
+
+        # Keep the caller's spelling first: NTSB matches on the raw string, and
+        # the normalized forms are uppercased with suffixes stripped, so the
+        # original is the likeliest to match an exact-match query.
+        primary = normalize_operator_name(operator_name)
+        variants = [operator_name]
+        variants += [n for n in names if n != primary]
+        return variants
+    except Exception:
+        return [operator_name]
+
+
 class NTSBService:
     """Service for interacting with NTSB API"""
 
@@ -212,7 +240,18 @@ class NTSBService:
                     "QueryRules": [
                         {
                             "RuleType": "Simple",
-                            "Values": [operator_name],
+                            # Every name this certificate has operated under
+                            # (§8), not just the current one. NTSB files an
+                            # accident against the operator name of the day, so
+                            # a rebranded operator would otherwise read clean.
+                            #
+                            # CAROL's schema takes a list here. Its multi-value
+                            # semantics could not be verified against the live
+                            # API — every probe returned zero results, for any
+                            # query — so if a rebranded operator still shows no
+                            # history, check this before assuming the DBA array
+                            # is at fault.
+                            "Values": _operator_name_variants(operator_name),
                             "Columns": ["AviationOperation.OperatorName"],
                             # "Operator": "contains",
                             "Operator": "is",

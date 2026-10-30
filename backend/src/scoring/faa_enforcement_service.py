@@ -325,14 +325,29 @@ class FAAEnforcementService:
         if not normalized:
             return []
 
+        # Match against every name this certificate has operated under (§8),
+        # not just the one the caller supplied. Enforcement actions are filed
+        # against whatever name the operator held at the time, so a rebranded
+        # operator would otherwise show a clean record. Falls back to the
+        # single supplied name when the DBA array has nothing for it.
+        from src.common.entity_resolution import resolve_operator_names
+
+        names = resolve_operator_names(operator_name) or [normalized]
+
         db = SessionLocal()
         try:
             actions = (
                 db.query(FAAEnforcementAction)
-                .filter(FAAEnforcementAction.operator_name_normalized == normalized)
+                .filter(FAAEnforcementAction.operator_name_normalized.in_(names))
                 .order_by(FAAEnforcementAction.date_known.desc())
                 .all()
             )
+
+            if len(names) > 1:
+                logger.info(
+                    "FAA enforcement: matched %d action(s) across %d name(s) for %s",
+                    len(actions), len(names), operator_name,
+                )
 
             return [_action_to_dict(action) for action in actions]
         finally:
