@@ -82,6 +82,26 @@ def save_trust_score_to_supabase(
         # Find the operator
         operator = db.query(Operator).filter(Operator.name == operator_name).first()
 
+        # Same DBA fallback as the scoring flow: a score computed under a
+        # historical or newer trade name must still attach to its certificate's
+        # operator row. Without this the score is computed, returned to the
+        # caller, and then silently discarded.
+        if not operator:
+            from src.common.entity_resolution import resolve_certificate
+
+            resolved = resolve_certificate(operator_name)
+            if resolved:
+                operator = (
+                    db.query(Operator)
+                    .filter(Operator.faa_dsgn_code == resolved)
+                    .first()
+                )
+                if operator:
+                    print(
+                        f"  ✓ '{operator_name}' resolved via certificate "
+                        f"{resolved} to '{operator.name}'"
+                    )
+
         if not operator:
             print(f"  ⚠️  Operator '{operator_name}' not found in gtj.operators table")
             return False
@@ -547,6 +567,37 @@ async def full_scoring_flow(
                 operator = (
                     db.query(Operator).filter(Operator.name == operator_name).first()
                 )
+
+                # The caller may have used a name the operator no longer trades
+                # under — or a newer one than gtj.operators records. An exact
+                # match then misses, and everything downstream silently
+                # degrades: certificate_designator falls back to the raw string,
+                # fleet_size stays 0, and the result is not saved at all.
+                #
+                # Resolve through the DBA array instead: find the certificate
+                # this name belongs to (§8), then the operator row holding that
+                # designator. Costs one extra query only when the direct match
+                # has already failed.
+                if not operator:
+                    from src.common.entity_resolution import resolve_certificate
+
+                    resolved = resolve_certificate(operator_name)
+                    if resolved:
+                        operator = (
+                            db.query(Operator)
+                            .filter(Operator.faa_dsgn_code == resolved)
+                            .first()
+                        )
+                        if operator:
+                            print(
+                                f"✓ '{operator_name}' resolved via certificate "
+                                f"{resolved} to '{operator.name}'"
+                            )
+                        else:
+                            print(
+                                f"⚠️  '{operator_name}' maps to certificate {resolved}, "
+                                f"but no gtj.operators row carries that designator"
+                            )
 
                 if operator:
                     # Calculate operator age in years from business_started_date
