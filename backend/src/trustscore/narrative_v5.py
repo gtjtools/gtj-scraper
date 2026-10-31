@@ -66,10 +66,12 @@ GREY = "GREY"
 
 #: Which coverage gaps undermine a clean finding in each category. A GREEN in
 #: one of these categories becomes GREY when any listed gap is present.
-# GAP_NAME_ANCHORED_LOOKUPS appears in every entry: while lookups run on trade
-# names, a clean result in ANY category may simply mean the operator's history
-# is filed under a name nobody searched. That is the §8 failure, and it is not
-# specific to one category.
+# GAP_NAME_ANCHORED_LOOKUPS appears in every entry because, when it does fire,
+# a clean result in ANY category may simply mean the operator's history is
+# filed under a name nobody searched. That is the §8 failure, and it is not
+# specific to one category. It fires only for operators absent from
+# gtj.certificate_dbas — for the rest, resolution searched every name on the
+# certificate and a clean finding there is evidenced.
 _NAME_ANCHORED = (adapter_v5.GAP_NAME_ANCHORED_LOOKUPS,
                   adapter_v5.GAP_CERTIFICATE_UNRESOLVED)
 

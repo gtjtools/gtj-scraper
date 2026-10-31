@@ -366,3 +366,63 @@ class TestCertificateAgeProvenance:
         tail = adapter_v5.build_tail_data(tail_number="")
         gaps = " ".join(adapter_v5.missing_inputs(operator, tail))
         assert "estimate" in gaps and "issuance" in gaps
+
+
+class TestCertificateAnchoredLookups:
+    """
+    §8 — GAP_NAME_ANCHORED_LOOKUPS must reflect whether entity resolution ran.
+
+    It was once appended unconditionally, as a placeholder from before
+    resolution existed. That made every operator show the gap forever, so the
+    flag could not distinguish a certificate-anchored search from a bare name
+    match — which is the whole point of reporting it.
+    """
+
+    def _operator(self, anchored):
+        from src.trustscore.calculator_v5 import OperatorData
+
+        return OperatorData(
+            certificate_designator="1C6A",
+            operator_name="TEST OPERATOR",
+            certificate_age_years=20.0,
+            fleet_size=5,
+            lookups_certificate_anchored=anchored,
+        )
+
+    def test_gap_absent_when_lookups_were_certificate_anchored(self):
+        keys = adapter_v5.missing_input_keys(
+            self._operator(True), adapter_v5.build_tail_data(tail_number="")
+        )
+        assert adapter_v5.GAP_NAME_ANCHORED_LOOKUPS not in keys
+
+    def test_gap_present_when_only_one_name_was_searched(self):
+        """An operator missing from the Part 135 roster is still name-anchored."""
+        keys = adapter_v5.missing_input_keys(
+            self._operator(False), adapter_v5.build_tail_data(tail_number="")
+        )
+        assert adapter_v5.GAP_NAME_ANCHORED_LOOKUPS in keys
+
+    def test_anchoring_does_not_change_the_score(self):
+        """Disclosure only, exactly like certificate_age_is_estimated."""
+        from src.trustscore.calculator_v5 import calculate_trust_score
+
+        tail = adapter_v5.build_tail_data(tail_number="")
+        assert (
+            calculate_trust_score(self._operator(True), tail)["trust_score"]
+            == calculate_trust_score(self._operator(False), tail)["trust_score"]
+        )
+
+    def test_defaults_to_not_anchored(self):
+        """
+        An OperatorData built without the flag must report the gap. Unknown
+        coverage has to read as unexamined, never as verified.
+        """
+        from src.trustscore.calculator_v5 import OperatorData
+
+        operator = OperatorData(certificate_designator="X", operator_name="X",
+                                certificate_age_years=5.0, fleet_size=2)
+        assert operator.lookups_certificate_anchored is False
+        keys = adapter_v5.missing_input_keys(
+            operator, adapter_v5.build_tail_data(tail_number="")
+        )
+        assert adapter_v5.GAP_NAME_ANCHORED_LOOKUPS in keys

@@ -178,6 +178,22 @@ class OperatorData:
     # default must say so; the flag does not change the arithmetic, it makes
     # the uncertainty visible to `missing_input_keys` and the risk audit.
     certificate_age_is_estimated: bool = False
+
+    # Whether the risk lookups were anchored to the certificate (§8) or ran
+    # against a single trade name.
+    #
+    # §8 requires an event filed under *any* historical identity of a
+    # certificate to attach to that certificate. `common.entity_resolution`
+    # does this by expanding one name into every name recorded against the
+    # designator in `gtj.certificate_dbas`, then matching all of them.
+    #
+    # True means that expansion ran and the sources were searched under the
+    # certificate's full name array. False means the operator is not on the
+    # ingested Part 135 roster, so only the supplied name was searched and a
+    # clean result may simply mean the history is filed elsewhere. Like
+    # `certificate_age_is_estimated`, this changes no arithmetic — it tells
+    # `missing_input_keys` whether a clean finding is evidenced or unexamined.
+    lookups_certificate_anchored: bool = False
     fleet_size: int = 0                    # Vf — active tails on OpSpecs D085
 
     # §3 Churn, from trailing 12-month D085 snapshot diffs

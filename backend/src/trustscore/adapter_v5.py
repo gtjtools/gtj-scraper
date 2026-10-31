@@ -510,11 +510,30 @@ def build_operator_data(
         for event in (latent_risk_events or [])
     ]
 
+    # §8 — did the risk lookups run against the certificate's full name array,
+    # or just the one name the caller supplied? True only when this operator is
+    # in gtj.certificate_dbas, since that table is what resolution expands
+    # through. Checked here rather than inferred from the designator: a
+    # designator can arrive from the operators row while the DBA array is
+    # absent, and that combination is still a name-anchored search.
+    lookups_anchored = False
+    if include_dot_orders:  # proxy for "a database is available"
+        try:
+            from src.common.entity_resolution import resolve_certificate
+
+            lookups_anchored = resolve_certificate(operator_name) is not None
+        except Exception as exc:  # pragma: no cover - defensive
+            # Unknown coverage must read as "not anchored", never crash a score.
+            logger.warning(
+                "Could not determine §8 anchoring for %s: %s", operator_name, exc
+            )
+
     return OperatorData(
         certificate_designator=certificate_designator or operator_name,
         operator_name=operator_name,
         certificate_age_years=certificate_age_years,
         certificate_age_is_estimated=certificate_age_is_estimated,
+        lookups_certificate_anchored=lookups_anchored,
         fleet_size=fleet_size,
         tails_added_12m=tails_added_12m,
         tails_removed_12m=tails_removed_12m,
@@ -612,8 +631,10 @@ def build_tail_data(
 # uses these to decide whether a category's GREEN is evidenced or merely
 # unexamined.
 GAP_CERTIFICATE_UNRESOLVED = "certificate_designator_unresolved"
-#: Raised whenever evidence was gathered by trade name rather than by
-#: certificate designator — which, until §8 entity resolution exists, is always.
+#: Raised when evidence was gathered under a single trade name rather than
+#: under every name on the certificate. §8 resolution removes this for any
+#: operator present in `gtj.certificate_dbas`; it remains for one absent from
+#: the ingested Part 135 roster, where there is no DBA array to expand.
 #: Distinct from GAP_CERTIFICATE_UNRESOLVED: an operator can have a perfectly
 #: good designator (Red Wing has R3WA) and still have every lookup run against
 #: its marketing name, which is the failure the specification describes.
@@ -641,10 +662,13 @@ def missing_input_keys(operator: OperatorData, tail: TailData) -> List[str]:
     keys: List[str] = []
     if operator.certificate_designator == operator.operator_name:
         keys.append(GAP_CERTIFICATE_UNRESOLVED)
-    # Always, for now: no pipeline queries by certificate designator, so every
-    # source was searched with a marketing name. Remove this once §8 entity
-    # resolution lands and lookups are certificate-anchored.
-    keys.append(GAP_NAME_ANCHORED_LOOKUPS)
+    # §8 entity resolution now expands an operator into every name on its
+    # certificate before querying NTSB, FAA enforcement and DOT, so this is no
+    # longer unconditional. It still fires for an operator missing from the
+    # ingested Part 135 roster: there, resolution finds no DBA array and falls
+    # back to the single supplied name, which is the failure §8 describes.
+    if not operator.lookups_certificate_anchored:
+        keys.append(GAP_NAME_ANCHORED_LOOKUPS)
     # Fires for a missing age *or* an estimated one. A fallback of 10.0 is not
     # an observation, and treating it as one let Cs look fully evidenced on
     # operators whose certificate date nobody knows.
