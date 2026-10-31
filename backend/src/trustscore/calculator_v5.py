@@ -164,6 +164,20 @@ class OperatorData:
     certificate_designator: str            # immutable 4-char FAA ID (§8)
     operator_name: str = ""
     certificate_age_years: float = 0.0     # Agecert — since ORIGINAL certificate issuance
+
+    # Whether `certificate_age_years` came from a real date or a default.
+    #
+    # §3 defines Agecert as years since original certificate issuance. No
+    # ingested source carries that date: callers currently supply either
+    # `operators.business_started_date` (business registration — a different,
+    # usually earlier date) or a hardcoded fallback. Both produce a plausible
+    # number, so the score cannot tell them apart without being told.
+    #
+    # Agecert feeds Cs and the Dscale damping, so an invented value quietly
+    # props up every score derived from it. Callers that know the figure is a
+    # default must say so; the flag does not change the arithmetic, it makes
+    # the uncertainty visible to `missing_input_keys` and the risk audit.
+    certificate_age_is_estimated: bool = False
     fleet_size: int = 0                    # Vf — active tails on OpSpecs D085
 
     # §3 Churn, from trailing 12-month D085 snapshot diffs

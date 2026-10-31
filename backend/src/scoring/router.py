@@ -553,6 +553,10 @@ async def full_scoring_flow(
             from src.common.config import SessionLocal
 
             operator_age_years = 10.0  # Default fallback
+            # True until a real date is read below. §3 wants years since
+            # certificate issuance; business_started_date is the nearest
+            # thing we hold, and 47% of operators lack even that.
+            certificate_age_is_estimated = True
             fleet_size = 1  # Default fallback
             argus_rating = None  # Default fallback
             certificate_designator = None  # Resolved from gtj.operators below
@@ -606,6 +610,9 @@ async def full_scoring_flow(
                             datetime.now() - operator.business_started_date
                         ).days / 365.25
                         operator_age_years = round(years_diff, 1)
+                        # Still business registration rather than certificate issuance,
+                        # but it is an observed date rather than an invented one.
+                        certificate_age_is_estimated = False
                         print(
                             f"✓ Operator age calculated: {operator_age_years} years (started: {operator.business_started_date})"
                         )
@@ -672,6 +679,7 @@ async def full_scoring_flow(
                 operator_name=operator_name,
                 certificate_designator=certificate_designator,
                 certificate_age_years=operator_age_years,
+                certificate_age_is_estimated=certificate_age_is_estimated,
                 # fleet_size omitted: the adapter counts active tails from
                 # gtj.aircraft. The local `fleet_size = 1` above is a v3
                 # leftover and must not be passed through.

@@ -303,3 +303,66 @@ class TestFleetSize:
                 operator, adapter_v5.build_tail_data(tail_number="")
             )["trust_score"])
         assert scores[0] < scores[1] < scores[2]
+
+
+# ── Age_cert provenance ──────────────────────────────────────────────────────
+
+class TestCertificateAgeProvenance:
+    """
+    §3 defines Agecert as years since original certificate issuance. No ingested
+    source carries that date, so callers supply either business registration or
+    a hardcoded fallback. Both look like a real number to the calculator, which
+    let an invented 10.0 prop up Cs on operators nobody could date.
+    """
+
+    def test_estimated_age_raises_the_gap(self):
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0,
+            certificate_age_is_estimated=True, fleet_size=10,
+            include_dot_orders=False, lookup_fleet_size=False,
+        )
+        tail = adapter_v5.build_tail_data(tail_number="")
+        assert adapter_v5.GAP_CERTIFICATE_AGE in adapter_v5.missing_input_keys(operator, tail)
+
+    def test_observed_age_does_not(self):
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=33.9,
+            certificate_age_is_estimated=False, fleet_size=10,
+            include_dot_orders=False, lookup_fleet_size=False,
+        )
+        tail = adapter_v5.build_tail_data(tail_number="")
+        assert adapter_v5.GAP_CERTIFICATE_AGE not in adapter_v5.missing_input_keys(operator, tail)
+
+    def test_zero_age_still_raises_it(self):
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=0.0,
+            include_dot_orders=False, lookup_fleet_size=False,
+        )
+        tail = adapter_v5.build_tail_data(tail_number="")
+        assert adapter_v5.GAP_CERTIFICATE_AGE in adapter_v5.missing_input_keys(operator, tail)
+
+    def test_the_flag_does_not_change_the_score(self):
+        """Disclosure only — the arithmetic must be untouched."""
+        from src.trustscore.calculator_v5 import calculate_trust_score
+
+        def score(estimated):
+            operator = adapter_v5.build_operator_data(
+                operator_name="X", certificate_age_years=10.0,
+                certificate_age_is_estimated=estimated, fleet_size=10,
+                include_dot_orders=False, lookup_fleet_size=False,
+            )
+            return calculate_trust_score(
+                operator, adapter_v5.build_tail_data(tail_number="")
+            )["trust_score"]
+
+        assert score(True) == score(False)
+
+    def test_prose_names_the_estimate(self):
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0,
+            certificate_age_is_estimated=True, fleet_size=10,
+            include_dot_orders=False, lookup_fleet_size=False,
+        )
+        tail = adapter_v5.build_tail_data(tail_number="")
+        gaps = " ".join(adapter_v5.missing_inputs(operator, tail))
+        assert "estimate" in gaps and "issuance" in gaps

@@ -5,8 +5,12 @@ Reference for the data sources behind the TrustJet TrustScore, tracking what the
 today, and how the scraping actually works.
 
 - **Source document:** `backend/TrustScore 5.0 Data Sources.docx`
-- **Last updated:** 2026-10-07
-- **Algorithm implemented in code:** v3 Refined2 (the document describes 5.0)
+- **Last updated:** 2026-10-31
+- **Algorithm implemented in code:** **v5.0** (`src/trustscore/calculator_v5.py`),
+  live at both call sites. v3 (`calculator.py`) is retained but no longer called.
+- **Verified end to end** on Maine Instrument Flight (`BFYA`): 3 NTSB accidents
+  + 1 FAA enforcement action produced **80.2 Premier**, with `Orfbase` 16.17,
+  `Hsafety` 0.730, `ELI` 16.21 and `Hconduct` 0.667 — every term live.
 
 ---
 
@@ -14,16 +18,25 @@ today, and how the scraping actually works.
 
 | # | Source | Populates | Status |
 |---|--------|-----------|--------|
-| 1 | FAA Releasable Part 135 Database | `Age_cert` | **Not implemented** |
-| 2 | Operator Specifications (OpSpecs) via JETNET | `V_F`, `Churn_Fleet` | **Not implemented** |
-| 3 | FAA Releasable Aircraft Registry | `MR_T`, `OS_T`, `ELI` | **Not implemented** |
-| 4a | NTSB CAROL | `ORF_True`, `IH_T` | **Implemented** |
+| 1 | FAA Part 135 roster | DBA array, `V_F` | **Implemented** — `scripts/ingest_part135.py`; 1,914 names across 1,870 certificates. Does **not** yield `Age_cert` (no issue date in the file). |
+| 2 | OpSpecs (JETNET) | `V_F`, `Churn_Fleet` | **Substituted.** `V_F` counts `gtj.aircraft`; `Churn_Fleet` needs `scripts/snapshot_fleet.py` history — **1 month recorded, 12 required**. JETNET itself is unused here (gtj-serverless owns that client). |
+| 3 | FAA Aircraft Registry | `MR_T`, `OS_T`, `ELI` | **Partial.** `MR_T` and `OS_T` come from `gtj.aircraft`. DOCINDEX lien parsing (`Lientail`) is **not implemented**. |
+| 4a | NTSB CAROL | `ORF_True`, `IH_T` | **Implemented** — returns real accidents; searches every DBA name. |
 | 4b | FAA AIDS | `ORF_True`, `IH_T` | **Not implemented** |
-| 5 | Aviation Safety Network (ASN) Wikibase | `L_Risk` | **Not implemented** |
-| 6 | FAA SDRS | `SDR_Penalty` | **Implemented (Phase 1)** — see §6.6 |
-| 7 | B2B Watchdogs (privatejetcardcomparisons, ch-aviation) | `ELI` | **Skipped — see §5** |
-| 8 | DOT OACP enforcement orders | `ELI` | **Implemented end-to-end** — ingest per `DOT_OACP_ENFORCEMENT_ORDERS.md`; scored into `ELI` via `adapter_v5.dot_orders_to_legal_events` |
-| 9 | TrustJet transactional telemetry | Future | **Out of scope** (document says so) |
+| 5 | ASN Wikibase | `L_Risk` | **Not implemented** — `Lrisk` is 0 for every operator |
+| 6 | FAA SDRS | `SDR_Penalty` | **Implemented** — severities aligned to §6.2; pooled into `ORF_True` rather than its own term (see §6.6) |
+| 7 | B2B Watchdogs | `ELI` | **Skipped** — ToS/licensing decision pending (§5) |
+| 8 | DOT OACP | `ELI` | **Implemented end-to-end** — 675 orders; searches every DBA name |
+| 9 | First-party telemetry | `Bespenalty`, `FFR` | **Out of scope** (the specification defers it) |
+
+### Also implemented, beyond the source list
+
+| Capability | Where | Notes |
+|---|---|---|
+| **Entity resolution (§8)** | `src/common/entity_resolution.py` | Resolves an operator to every name its certificate has used, in both directions. NTSB, FAA and DOT lookups all search the full array. 40 certificates currently carry more than one name. |
+| **Coverage-aware flags** | `narrative_v5._apply_coverage` | A fourth state, `GREY`, for "not assessed". Only ever downgrades `GREEN`; `RED` and `YELLOW` stand on their own evidence. |
+| **Risk Audit narrative (§9)** | `src/trustscore/narrative_v5.py` | Executive summary, six-category audit, broker guidance. Read-only with respect to scoring. |
+| **Fleet snapshots** | `scripts/snapshot_fleet.py` | 11,163 tails captured monthly. The only input that cannot be backfilled.
 
 ### Metric symbols
 
@@ -33,15 +46,15 @@ equation objects and do not survive plain-text extraction of the `.docx`).
 | Symbol | Meaning | In code today? |
 |--------|---------|----------------|
 | `Age_cert` | Operator age from **original certificate issuance date** | Partially — `operator_age_years` exists, but is read from `operators.business_started_date`, which is business registration, **not** certificate issuance |
-| `V_F` | Current fleet size, used as the **square root denominator** | Partially — `fleet_size` exists but is hardcoded to `1`, and the denominator is linear, not square root |
-| `Churn_Fleet` | Fleet size month-over-month differential | **No** — no such metric |
+| `V_F` | Current fleet size, used as the **square root denominator** | **Yes** — counted from `gtj.aircraft`; denominator is `MAX(1, SQRT(Vf))` |
+| `Churn_Fleet` | Fleet size month-over-month differential | **Implemented, unfed** — `calculate_churn_effective` is live; needs 12 months of `fleet_snapshots`, has 1 |
 | `MR_T` | Tail maintenance risk (from tail age) | **Yes** — `MRT`, `_calculate_tail_maintenance_risk` |
 | `OS_T` | Tail ownership status, verified against the Part 135 certificate holder | **Yes** — `OST`, `_calculate_tail_ownership_status` |
-| `ELI` | Fed by **three** sources: source 3 (mechanic's liens, tax claims, rapid ownership transfers), source 7 (watchdog violations), source 8 (DOT legal actions and federal fines) | **No** — new metric, no field and no term in the OS equation |
+| `ELI` | **Implemented.** Fed by **three** sources: source 3 (mechanic's liens, tax claims, rapid ownership transfers), source 7 (watchdog violations), source 8 (DOT legal actions and federal fines) | **No** — new metric, no field and no term in the OS equation |
 | `ORF_True` | Fleet operational risk, from fleet severities | **Yes** — `ORF`, `_calculate_fleet_operational_risk`. The `_True` suffix suggests 5.0 distinguishes it from a raw/unnormalized variant; confirm whether the definition changed or only the name. |
 | `IH_T` | Tail incident history, from tail severities | **Yes** — `IHT`, `_calculate_tail_incident_history`. **But see §6.6 — the wiring is wrong today.** |
-| `L_Risk` | Latent risk from ASN wikibase, via LLM text-to-JSON | **No** — new metric, no field and no term |
-| `SDR_Penalty` | Mechanical deterioration and emergency procedures from SDRS | **No** — implemented as shared-pool severity instead; see §6.6 |
+| `L_Risk` | Latent risk from ASN wikibase, via LLM text-to-JSON | **Field exists, no pipeline** — `latent_risk_events` is accepted and scored; ASN is not ingested |
+| `SDR_Penalty` | Mechanical deterioration and emergency procedures from SDRS | **Partial** — SDRs score, but pooled into `ORF_True` rather than a separate term; see §6.6 |
 
 Also live but **not in the source document:**
 
@@ -51,6 +64,89 @@ Also live but **not in the source document:**
 | UCC state filing registries (~50 states) | Implemented — `ucc_service.py` |
 
 ---
+
+---
+
+## 1a. What is still missing
+
+Ordered by how much each would change a score. Everything here is a *data*
+gap — the v5.0 formulas themselves are implemented and verified.
+
+### Blocking, and time-sensitive
+
+**`Churn_Fleet` — 1 of 12 months captured.**
+`scripts/snapshot_fleet.py` runs monthly and has recorded one snapshot. Churn is
+a 12-month differential, so `Churneffective` is 0 for everyone and no operator is
+penalised for shedding or rapidly absorbing aircraft. **This is the only gap that
+gets worse with delay**: a month not captured cannot be reconstructed, because
+nothing records what a fleet looked like in the past. Partial signal from month
+two; the specification's figure at month twelve.
+
+**`Age_cert` — wrong source, and absent for 47% of operators.**
+§3 defines it as years since *original certificate issuance*. The code reads
+`operators.business_started_date`, which is business registration — a different
+date, usually earlier. Only 972 of 1,839 operators have one at all; the rest
+fall back to a hardcoded 10.0 years. `Age_cert` feeds both `Cs` and the `V_F`
+denominator, so this moves every score twice over. The Part 135 roster does not
+carry an issue date, so this needs a source not yet identified.
+
+### Significant
+
+**`Lientail` / DOCINDEX — not parsed.**
+§5.3 charges 25 points per active mechanic's or tax lien against a tail, on top
+of certificate-level `ELI`. `gtj.aircraft` has no lien data and FAA DOCINDEX.txt
+is not ingested, so `Lientail` is 0 for every airframe. Legal & Title Clearness
+is therefore `GREY` on every report.
+
+**`L_Risk` / ASN Wikibase — not ingested.**
+§4.1's latent-risk term — runway excursions, gear malfunctions, bird strikes —
+capped at 15 points. Zero for everyone, so sub-regulatory occurrences are
+invisible. Needs scraping plus LLM extraction; `llm_client.py` already exists.
+
+**`SDR_Penalty` is not its own term.**
+§6 names it as a distinct metric. SDRs are currently pooled into `ORF_True`
+alongside accidents, so they do affect scores but are not separable and are
+weighted by the shared severity scale rather than whatever 5.0 intends.
+`sdrs_service.py` needs no change; only the aggregation point moves.
+
+**FAA AIDS (Pipeline 4b) — not implemented.**
+NTSB CAROL is live, but its companion incident database is not, so incidents
+that never reach NTSB are missed.
+
+### Known-wrong rather than missing
+
+**`IH_T` is structurally sound but unexercised.**
+`TailData.tail_accident_events` is a separate field from the fleet list, so v3's
+bug cannot recur. But no deployed endpoint scores a specific tail — both call
+sites pass `build_tail_data(tail_number="")`, which yields a neutral airframe.
+TrustScore therefore collapses into FleetScore. `scripts/score_tail.py` exists
+for single-tail scoring but is not wired to an endpoint.
+
+**Entity resolution only looks forward.**
+The DBA array is built from the current Part 135 roster plus `gtj.operators`.
+A rename that happened *before* ingestion began is invisible unless
+`--backfill` is run against web.archive.org, which reaches roughly March 2023.
+Anything earlier — plausibly including the specification's own Red Wing example
+— cannot be recovered.
+
+**California UCC is blocked.**
+`bizfileonline.sos.ca.gov` sits behind Imperva Incapsula; the search form never
+renders and the underlying API returns HTTP 429. Fails fast (12s) rather than
+waiting out a 100s timeout. Note UCC data does not feed v5.0 at all — liens are
+specified to come from DOCINDEX — so this costs nothing but time.
+
+**Alaska UCC returns junk.**
+Reports `success: true` with filings like `×` and `Sort by` — page furniture
+matched by the wrong selectors. A false positive, which is worse than an honest
+failure. Harmless today for the same reason as California.
+
+### What the gaps do to a score
+
+Every missing input defaults to **neutral, which means no penalty**. A high score
+with several `GREY` flags therefore reads "nothing adverse found in the sources
+we could consult" — not "verified clean". `adapter_v5.missing_inputs()` reports
+the gaps per operator, and the narrative is instructed to name them rather than
+describe an unexamined category as satisfactory.
 
 ## 2. How a data source plugs in
 
@@ -182,38 +278,21 @@ been without it. Never let a scraper failure fail a scoring run.
 
 ## 4. Not yet implemented
 
-### 4.1 Blocked on a decision, not on effort
+### 4.1 Resolved — the hardcoded inputs are gone
 
-**Sources 1, 2, 3 — these are not purely additive.** They feed values currently
-**hardcoded** in `batch_verify_workflow.py`:
+This section previously described three values pinned in the workflow
+(`fleet_size = 1`, `aircraft_age_years = 5.0`, `operator_age_years = 10.0`) and
+a linear ORF denominator. v5.0 replaced all of it:
 
-```python
-fleet_size = 1            # source 2 (OpSpecs/JETNET), or countable from source 3
-aircraft_age_years = 5.0  # source 3 (Aircraft Registry)
-operator_age_years = 10.0 # source 1 (Part 135 DB) — fallback when DB value is null
-```
+| Was | Now |
+|---|---|
+| `fleet_size = 1` | `adapter_v5.fetch_fleet_size()` counts `gtj.aircraft` |
+| `vf = fleet_size * ln(age+1)` | `/ MAX(1, SQRT(Vf))` per §4.1 |
+| `aircraft_age_years = 5.0` | neutral tail for operator-level scoring; real age for tail scoring |
+| `operator_age_years = 10.0` | read from `business_started_date` **when present** — still a fallback for 47% of operators, and still the wrong date (see §1a) |
 
-`fleet_size` feeds the ORF denominator:
-
-```python
-vf = fleet_size * math.log(operator_age_years + 1)
-```
-
-With it pinned at `1`, **a 50-aircraft operator and a single-aircraft operator
-are penalized identically per incident.** This is the largest accuracy gap in
-the current implementation — larger than any missing feed.
-
-Wiring these **changes every operator's score**. That is correct, but it is not
-a silent change, and it should ship deliberately:
-
-> Recommended: run shadow-mode first — compute both old and new, log the delta,
-> review which operators move and by how much, then cut over.
-
-**JETNET is available.** `gtj-backend` holds working credentials and a client
-(`src/jetnet/service.py`, `customer.jetnetconnect.com`) with `getAircraftList`
-implemented. `JETNET_USER` / `JETNET_PWD` are already carried in this repo's
-`.env`, though no code here reads them yet. Fleet size may also be countable
-from the FAA Registry directly, which would avoid the dependency.
+Verified on Maine Instrument Flight: `d_scale` 0.777 from a real fleet of 5,
+`Cs` 0.99999 from a real 33.9-year certificate.
 
 ### 4.2 Straightforward, just not done
 

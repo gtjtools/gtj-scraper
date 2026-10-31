@@ -395,6 +395,8 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                     print(f"  ✓ Found {len(sdr_events)} service difficulty report(s)")
 
                 operator_age_years = 10.0
+                # True until a real date is read below (see router.py).
+                certificate_age_is_estimated = True
                 fleet_size = 1
                 argus_rating = None
                 wyvern_rating = None
@@ -413,6 +415,10 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                             datetime.now() - db_operator.business_started_date
                         ).days / 365.25
                         operator_age_years = round(years_diff, 1)
+                        # Still business registration rather than certificate
+                        # issuance, but an observed date rather than an
+                        # invented one.
+                        certificate_age_is_estimated = False
 
                     if db_operator:
                         argus_rating = db_operator.argus_rating
@@ -464,6 +470,7 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                     operator_name=operator.company,
                     certificate_designator=certificate_designator,
                     certificate_age_years=operator_age_years,
+                    certificate_age_is_estimated=certificate_age_is_estimated,
                     # fleet_size omitted: the adapter counts active tails from
                     # gtj.aircraft. The local `fleet_size = 1` above is a v3
                     # leftover and must not be passed through.

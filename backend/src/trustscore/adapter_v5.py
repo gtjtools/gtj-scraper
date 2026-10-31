@@ -443,6 +443,7 @@ def build_operator_data(
     operator_name: str,
     certificate_designator: Optional[str] = None,
     certificate_age_years: float = 0.0,
+    certificate_age_is_estimated: bool = False,
     fleet_size: Optional[int] = None,
     fleet_events: Optional[List[Dict[str, Any]]] = None,
     ucc_filings: Optional[List[Dict[str, Any]]] = None,
@@ -513,6 +514,7 @@ def build_operator_data(
         certificate_designator=certificate_designator or operator_name,
         operator_name=operator_name,
         certificate_age_years=certificate_age_years,
+        certificate_age_is_estimated=certificate_age_is_estimated,
         fleet_size=fleet_size,
         tails_added_12m=tails_added_12m,
         tails_removed_12m=tails_removed_12m,
@@ -643,7 +645,10 @@ def missing_input_keys(operator: OperatorData, tail: TailData) -> List[str]:
     # source was searched with a marketing name. Remove this once §8 entity
     # resolution lands and lookups are certificate-anchored.
     keys.append(GAP_NAME_ANCHORED_LOOKUPS)
-    if not operator.certificate_age_years:
+    # Fires for a missing age *or* an estimated one. A fallback of 10.0 is not
+    # an observation, and treating it as one let Cs look fully evidenced on
+    # operators whose certificate date nobody knows.
+    if not operator.certificate_age_years or operator.certificate_age_is_estimated:
         keys.append(GAP_CERTIFICATE_AGE)
     if not operator.fleet_size:
         keys.append(GAP_FLEET_SIZE)
@@ -688,6 +693,12 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
     )
     if not operator.certificate_age_years:
         gaps.append("certificate_age_years is 0 (Agecert unknown; Cs will be near 0)")
+    elif operator.certificate_age_is_estimated:
+        gaps.append(
+            f"certificate age is an estimate ({operator.certificate_age_years:.1f}y), "
+            "not an observed issuance date — §3 wants years since the certificate "
+            "was issued; no ingested source carries that date"
+        )
     if not operator.fleet_size:
         gaps.append("fleet_size is 0 (Vf unknown; no exposure normalization)")
     if not operator.tails_added_12m and not operator.tails_removed_12m:
