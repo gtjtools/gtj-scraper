@@ -19,6 +19,23 @@ session that will not start, an FAA timeout, a dropped connection — and succee
 on a second attempt minutes later. Whatever still fails is written to the
 progress file with its error so it can be chased individually.
 
+Two kinds of failure are treated differently:
+
+  * A *degraded* result — HTTP 200, so a score exists, but a source named in
+    --retry-on-source-error failed. Retried, because a missing NTSB record is
+    indistinguishable from a clean safety history. After --accept-after
+    attempts (default 5) the score is accepted as-is and the missing sources
+    are recorded on the progress row as `accepted_degraded` /
+    `degraded_sources`, so a four-day run is never held up by one dead
+    endpoint. Grep those rows later to re-score once the source recovers.
+
+  * A *hard* failure — no score at all (HTTP 500, timeout, connection
+    refused). Never accepted, because there is nothing to accept. These remain
+    in the failing list for --resume.
+
+UCC is excluded from retries by default: California is permanently blocked by
+Incapsula, and UCC does not feed v5.0 scoring. Its failure is still recorded.
+
 Progress is flushed to disk after every operator, so a kill -9 loses at most
 one operator's work and `--resume` picks up from there.
 
@@ -30,6 +47,14 @@ USAGE
     python scripts/rescore_all_operators.py                   # everything
 
     python scripts/rescore_all_operators.py --resume ~/rescore_progress.jsonl
+
+PACING
+------
+30s between operators by default. Each operator already spends ~150s mostly on
+network calls, so the pause adds about 16% to a run already measured in days —
+cheap insurance against a rate-limit block from NTSB, FAA SDRS or FAA AGC
+partway through, which would cost far more to recover from. Matches the pacing
+used by scripts/score_all_tails.py against the same endpoints.
 
 RUN IT DETACHED — a full pass takes days:
 
@@ -82,6 +107,18 @@ _REQUEST_TIMEOUT = 900.0
 _DEFAULT_STATE = "TX"
 
 DEFAULT_PROGRESS = Path.home() / "rescore_progress.jsonl"
+
+#: Sources whose failure is worth another attempt, because it is usually
+#: transient — an FAA timeout, a dropped connection, a Browserbase session that
+#: would not start.
+#:
+#: `ucc` is deliberately absent. California sits behind Incapsula and fails on
+#: every run, by design rather than by accident; including it would retry all
+#: 1,839 operators three times for a result that cannot change, turning a
+#: 92-hour pass into roughly 276 hours of guaranteed-futile work. UCC also
+#: feeds nothing in v5.0 — liens are specified to come from DOCINDEX — so its
+#: failure costs no score accuracy at all.
+_DEFAULT_RETRY_SOURCES = ("ntsb", "trust_score")
 
 _stop_requested = False
 
@@ -172,9 +209,20 @@ def score_operator(client: httpx.Client, operator: Dict[str, Any]) -> Dict[str, 
 
         body = response.json()
         trust = body.get("trust_score") or {}
+
+        # The endpoint isolates each source, so a scrape that failed still
+        # yields HTTP 200 with the failure named here. Carried through so the
+        # caller can decide whether a partial result is worth retrying.
+        source_errors = {
+            source: message
+            for source, message in (body.get("errors") or {}).items()
+            if message
+        }
+
         return {
             "ok": True,
             "operator_name": name,
+            "source_errors": source_errors or None,
             "certificate_designator": trust.get("certificate_designator"),
             "trust_score": trust.get("trust_score"),
             "tier": trust.get("tier"),
@@ -210,6 +258,22 @@ def run(args: argparse.Namespace) -> int:
     completed = load_completed(progress_path if args.resume else None)
     pending = [o for o in operators if o["name"] not in completed]
 
+    # Sources whose failure demotes an HTTP 200 to a retry. Normalised here so
+    # "--retry-on-source-error ''" cleanly means "accept any 200".
+    retry_sources = {
+        part.strip().lower()
+        for part in args.retry_on_source_error.split(",")
+        if part.strip()
+    }
+
+    # Not an error -- the operator may know something we don't -- but loud,
+    # because it multiplies runtime by --max-attempts for no gain.
+    if "ucc" in retry_sources:
+        print("  ⚠️  'ucc' is in --retry-on-source-error. California is permanently")
+        print("      blocked, so nearly every operator will exhaust its retries and")
+        print("      still fail. Runtime grows ~{}x. Remove it unless deliberate.\n"
+              .format(args.max_attempts))
+
     eta_hours = len(pending) * (150 + args.delay) / 3600
 
     print(f"\n{'=' * 72}")
@@ -220,6 +284,9 @@ def run(args: argparse.Namespace) -> int:
     print(f"  to score     : {len(pending):,}")
     print(f"  delay        : {args.delay}s between operators")
     print(f"  max attempts : {args.max_attempts} per operator")
+    print(f"  accept after : {args.accept_after} attempts (degraded score kept, "
+          f"missing sources recorded)")
+    print(f"  retry on     : {', '.join(sorted(retry_sources)) or 'request failure only'}")
     print(f"  rough ETA    : {eta_hours:.1f} hours ({eta_hours / 24:.1f} days)")
     print(f"  progress     : {progress_path}")
     print(f"{'=' * 72}\n")
@@ -248,6 +315,11 @@ def run(args: argparse.Namespace) -> int:
     # Operators that errored, with their attempt count. Drained after the main
     # pass — retrying immediately would usually hit the same transient fault.
     retry_queue: List[Dict[str, Any]] = []
+
+    # Scored, but on incomplete evidence after exhausting --accept-after
+    # attempts. Reported at the end so these are not silently equivalent to
+    # clean scores.
+    accepted_degraded: List[Dict[str, Any]] = []
     scored = failed = 0
     started = datetime.now(timezone.utc)
 
@@ -257,6 +329,39 @@ def run(args: argparse.Namespace) -> int:
             nonlocal scored, failed
             result = score_operator(client, operator)
             result["attempt"] = operator.get("_attempts", 0) + 1
+
+            # A partial result — HTTP 200, but a source we care about errored —
+            # is treated as a failure so it goes to the retry queue. Without
+            # this, an operator scored while NTSB was timing out is
+            # indistinguishable from one that genuinely has no accidents.
+            #
+            # Demoted before _append so the persisted row carries ok=false;
+            # logging the pre-demotion result would make --resume skip it.
+            degraded = sorted(
+                set(result.get("source_errors") or {}) & set(retry_sources)
+            )
+            if result["ok"] and degraded:
+                detail = "; ".join(
+                    f"{d}: {result['source_errors'][d][:60]}" for d in degraded
+                )
+
+                # Past --accept-after attempts, stop fighting it. The score on
+                # the server is real — the request returned 200 — it is just
+                # based on thinner evidence. Keep ok=true so --resume does not
+                # retry it forever, but record what was missing so the score can
+                # be audited or re-run later.
+                if result["attempt"] >= args.accept_after:
+                    result["accepted_degraded"] = True
+                    result["degraded_sources"] = degraded
+                    result["error"] = (
+                        f"accepted after {result['attempt']} attempts without "
+                        f"{', '.join(degraded)} — {detail}"
+                    )
+                else:
+                    result["ok"] = False
+                    result["degraded_sources"] = degraded
+                    result["error"] = f"scored, but {detail}"
+
             _append(progress_path, result)
 
             if result["ok"]:
@@ -264,8 +369,12 @@ def run(args: argparse.Namespace) -> int:
                 flags = result.get("flags") or {}
                 reds = sum(1 for v in flags.values() if v == "RED")
                 greys = sum(1 for v in flags.values() if v == "GREY")
+                suffix = ""
+                if result.get("accepted_degraded"):
+                    accepted_degraded.append(result)
+                    suffix = f"  ⚠️  no {','.join(result['degraded_sources'])}"
                 print(f"{label}  {result['trust_score']} ({result['tier']})"
-                      f"  {reds}R/{greys}G  {result['elapsed_s']}s")
+                      f"  {reds}R/{greys}G  {result['elapsed_s']}s{suffix}")
                 return True
 
             failed += 1
@@ -290,8 +399,12 @@ def run(args: argparse.Namespace) -> int:
         # Most failures are transient (Browserbase session refused, FAA
         # timeout). Retrying after the main pass gives them minutes to clear
         # rather than seconds.
+        # Enough rounds to let a degraded operator reach --accept-after, since
+        # acceptance only happens on an attempt that actually runs.
+        max_rounds = max(args.max_attempts, args.accept_after)
+
         round_number = 1
-        while retry_queue and not _stop_requested and round_number < args.max_attempts:
+        while retry_queue and not _stop_requested and round_number < max_rounds:
             round_number += 1
             backoff = args.delay * round_number
             print(f"\n{'─' * 72}")
@@ -322,12 +435,33 @@ def run(args: argparse.Namespace) -> int:
     elapsed_h = (datetime.now(timezone.utc) - started).total_seconds() / 3600
     print(f"\n{'=' * 72}")
     print(f"  scored        : {scored:,}")
+    if accepted_degraded:
+        print(f"    of which    : {len(accepted_degraded):,} on incomplete evidence")
     print(f"  still failing : {len(retry_queue):,}")
     print(f"  elapsed       : {elapsed_h:.1f} hours")
     print(f"  progress file : {progress_path}")
 
+    if accepted_degraded:
+        # These carry a real score but thinner evidence. Surfaced explicitly so
+        # they can be re-run once the failing source recovers.
+        by_source: Dict[str, int] = {}
+        for row in accepted_degraded:
+            for source in row.get("degraded_sources") or []:
+                by_source[source] = by_source.get(source, 0) + 1
+
+        print(f"\n  Accepted after {args.accept_after} attempts, missing data:")
+        for source, count in sorted(by_source.items(), key=lambda kv: -kv[1]):
+            print(f"    {source:<14} {count:,} operator(s)")
+        for row in accepted_degraded[:10]:
+            print(f"    {row['operator_name'][:44]:<46} "
+                  f"no {','.join(row['degraded_sources'])}")
+        if len(accepted_degraded) > 10:
+            print(f"    … and {len(accepted_degraded) - 10:,} more "
+                  f"(grep '\"accepted_degraded\": true' {progress_path})")
+
     if retry_queue:
-        print(f"\n  Exhausted {args.max_attempts} attempts on:")
+        print(f"\n  No score at all after {max(args.max_attempts, args.accept_after)} "
+              f"attempts:")
         for operator in retry_queue[:20]:
             print(f"    {operator['name']}")
         if len(retry_queue) > 20:
@@ -344,12 +478,22 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--delay", type=float, default=5.0,
-                        help="seconds between operators (default: 5)")
+    parser.add_argument("--delay", type=float, default=30.0,
+                        help="seconds between operators (default: 30)")
     parser.add_argument("--limit", type=int, default=None, help="score at most N")
     parser.add_argument("--state", default=None, help="only this faa_state, e.g. TX")
+    parser.add_argument("--retry-on-source-error", default=",".join(_DEFAULT_RETRY_SOURCES),
+                        metavar="ntsb,trust_score",
+                        help="sources whose failure forces a retry even on HTTP 200 "
+                             "(default: %(default)s; empty string disables; avoid 'ucc', "
+                             "permanently blocked so retries cannot help)")
     parser.add_argument("--max-attempts", type=int, default=3,
                         help="attempts per operator before giving up (default: 3)")
+    parser.add_argument("--accept-after", type=int, default=5,
+                        help="after N attempts, accept a degraded score (one that "
+                             "returned 200 but lost a source in --retry-on-source-error) "
+                             "and record the missing sources (default: 5). Does not "
+                             "apply to hard failures, which have no score to accept")
     parser.add_argument("--resume", default=None,
                         help="progress .jsonl to append to, skipping successes")
     parser.add_argument("--dry-run", action="store_true", help="list, score nothing")
