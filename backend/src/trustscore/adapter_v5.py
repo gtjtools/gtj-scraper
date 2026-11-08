@@ -593,6 +593,28 @@ def fetch_tail_liens(
     unresolved encumbrances, and a lien discharged by a later REL/REP is not
     one.
 
+    ONE ENCUMBRANCE PER FINANCING, NOT PER DOCUMENT
+    -----------------------------------------------
+    Rows are grouped by (doc_type, doc_date, party). Aircraft financing is
+    routinely recorded as one document per collateral item — airframe, each
+    engine, avionics — so a single secured loan arrives as a run of
+    sequentially numbered filings:
+
+        N402XT  S/A  2025-01-08  ARE016566074  GUNTRACK AVIATION LLC
+        N402XT  S/A  2025-01-08  ARE016566076  GUNTRACK AVIATION LLC
+        …16 documents, DOC-IDs stepping by 2, one party, one day
+
+    That is one encumbrance. Charged per document it cost N402XT 18 §4.2
+    penalties and drove the tail to 67.45 against 95.92 unencumbered — a normal
+    secured loan scored as catastrophic distress.
+
+    Note this is deliberately the INVERSE of the storage key (migration 082
+    keys rows on DOC-ID *including* party-duplicates). The two serve different
+    purposes and both are correct: the table is the factual record of what was
+    filed, one row per document; this function answers "how many distinct
+    encumbrances exist", which is what §4.2 charges. `reference` carries the
+    document count so a risk audit can still say 16 documents were recorded.
+
     Returns None when the table has never been populated, and [] when it has
     been populated but holds nothing for this tail. The caller needs that
     distinction: [] is "looked, found nothing in the window", None is "never
@@ -638,10 +660,11 @@ def fetch_tail_liens(
 
         rows = session.execute(
             text("""
-                SELECT doc_type, doc_date, party
+                SELECT doc_type, doc_date, party, COUNT(*) AS documents
                 FROM gtj.tail_liens
                 WHERE tail_number = :tail
                   AND superseded_by_release = false
+                GROUP BY doc_type, doc_date, party
                 ORDER BY doc_date DESC NULLS LAST
             """),
             {"tail": normalized},
@@ -651,7 +674,9 @@ def fetch_tail_liens(
             {
                 "date": row["doc_date"].isoformat() if row["doc_date"] else None,
                 "reference": f"DOCINDEX {row['doc_type']} {normalized}"
-                             + (f" {row['party']}" if row["party"] else ""),
+                             + (f" {row['party']}" if row["party"] else "")
+                             + (f" ({row['documents']} documents)"
+                                if row["documents"] > 1 else ""),
             }
             for row in rows
         ]

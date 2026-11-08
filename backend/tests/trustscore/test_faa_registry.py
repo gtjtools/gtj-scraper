@@ -266,3 +266,104 @@ class TestOneFilingPerLienNotPerParty:
         records = self._rows("PROGRESSIVE BANK", "AERIS HOLDINGS LLC", doc_id="")
         keys = {(r.tail_number, r.doc_type, r.doc_date, r.doc_id or "") for r in records}
         assert len(keys) == 1
+
+
+class TestOneEncumbrancePerFinancing:
+    """
+    fetch_tail_liens must return one event per financing, not per document.
+
+    Aircraft lending records one document per collateral item — airframe, each
+    engine, avionics — so a single secured loan arrives as a run of
+    sequentially numbered DOC-IDs. N402XT carried 16 from GUNTRACK AVIATION LLC
+    on one day; charged per document that was 18 §4.2 penalties and drove the
+    tail to 67.45 against 95.92 unencumbered, scoring a normal loan as
+    catastrophic distress.
+
+    This is deliberately the INVERSE of the storage key, which keys per
+    DOC-ID. Both are right: the table records what was filed, one row per
+    document; this function answers how many distinct encumbrances exist.
+    """
+
+    def _session(self, rows):
+        """Stub session returning pre-grouped rows, as the SQL now does."""
+        class _Result:
+            def __init__(self, r): self._r = r
+            def mappings(self): return self
+            def all(self): return self._r
+            def scalar(self): return True
+
+        class _Session:
+            def execute(self, statement, params=None):
+                if "EXISTS" in str(statement):
+                    return _Result([])
+                return _Result(rows)
+            def close(self): pass
+
+        return _Session
+
+    def test_document_count_is_disclosed_in_the_reference(self):
+        """A risk audit must still be able to say 16 documents were recorded."""
+        from datetime import date
+        from src.trustscore import adapter_v5
+
+        rows = [{"doc_type": "S/A", "doc_date": date(2025, 1, 8),
+                 "party": "GUNTRACK AVIATION LLC", "documents": 16}]
+        result = adapter_v5.fetch_tail_liens(
+            "N402XT", db_session_factory=self._session(rows)
+        )
+        assert len(result) == 1, "16 documents from one party is one encumbrance"
+        assert "16 documents" in result[0]["reference"]
+
+    def test_single_document_reference_has_no_count(self):
+        from datetime import date
+        from src.trustscore import adapter_v5
+
+        rows = [{"doc_type": "S/A", "doc_date": date(2025, 1, 24),
+                 "party": "CITIBANK NA", "documents": 1}]
+        result = adapter_v5.fetch_tail_liens(
+            "N102JE", db_session_factory=self._session(rows)
+        )
+        assert "documents" not in result[0]["reference"]
+
+    def test_distinct_parties_stay_distinct(self):
+        """Three lenders on one day is three encumbrances, not one."""
+        from datetime import date
+        from src.trustscore import adapter_v5
+
+        rows = [
+            {"doc_type": "S/A", "doc_date": date(2025, 1, 8),
+             "party": "GUNTRACK AVIATION LLC", "documents": 16},
+            {"doc_type": "S/A", "doc_date": date(2025, 1, 8),
+             "party": "MOSER AVIATION LLC", "documents": 1},
+            {"doc_type": "S/A", "doc_date": date(2025, 1, 8),
+             "party": "WORLD FUEL SERVICES INC", "documents": 1},
+        ]
+        result = adapter_v5.fetch_tail_liens(
+            "N402XT", db_session_factory=self._session(rows)
+        )
+        assert len(result) == 3
+
+    def test_multi_document_financing_costs_less_than_many_real_liens(self):
+        """
+        The regression guard: 16 documents must not cost 16 encumbrances.
+        """
+        from src.trustscore import adapter_v5
+        from src.trustscore.calculator_v5 import calculate_trust_score
+
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=15.0, fleet_size=10,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+
+        def score(n_events):
+            records = [
+                {"date": "2025-01-08", "reference": f"R{i}"} for i in range(n_events)
+            ]
+            return calculate_trust_score(operator, adapter_v5.build_tail_data(
+                tail_number="N402XT", aircraft_age_years=10.0,
+                same_type_fleet_count=3, tail_lien_records=records,
+                lookup_liens=False,
+            ))["trust_score"]
+
+        # One financing recorded as 16 documents must score as 1 encumbrance.
+        assert score(1) > score(16)
