@@ -118,14 +118,16 @@ one wrong number for another.
 
 **Remaining options, in order of preference:**
 
-1. **FAA AVInfo Air Operator Search** (`av-info.faa.gov`) is the one source that
-   actually holds certificate issue dates, queried per operator. Currently
-   HTTP 503 from the developer machine; **untested from the server**. One curl
-   decides whether this is buildable, and if it responds this is the correct
-   fix — a ~1,839-operator scrape of similar shape to the DOT work.
+1. ~~**FAA AVInfo Air Operator Search** (`av-info.faa.gov`)~~ — **unreachable,
+   tested 2026-11-08.** This was the one source that actually holds certificate
+   issue dates per operator, and it returns **HTTP 503 from the production
+   server** as well as from the developer machine. Not buildable. See §9.6 for
+   why this is the same obstacle as CARES rather than a coincidence.
 2. **A data request to AFS-900**, who publish the Part 135 roster. Authoritative
-   and slow; the only route to a number that is not inferred.
-3. **Accept the estimate and keep marking it.** `certificate_age_is_estimated`
+   and slow; now the *only* remaining route to a number that is not inferred,
+   and a procurement path rather than an engineering one.
+3. **Accept the estimate and keep marking it — the current state, and the
+   recommended one.** `certificate_age_is_estimated`
    and `GAP_CERTIFICATE_AGE` already fire for every operator on the fallback, so
    the score is explicitly "computed on an estimated certificate age" — which is
    accurate. The hardcoded 10.0 also happens to sit near the real median (10.7
@@ -797,7 +799,7 @@ provisional even once access exists.
 so `legal_title` reads "not assessed" — which is true, and is the correct thing
 to show a broker. Nothing is being overclaimed by leaving this unbuilt.
 
-### 9.5 Summary
+### 9.5 Summary of the addendum items
 
 | Addendum item | Status |
 |---|---|
@@ -811,4 +813,49 @@ to show a broker. Nothing is being overclaimed by leaving this unbuilt.
 | MASTER/DEREG serial match for prior owners | **Does not work** — serial is not a key; DEREG holds dead registrations |
 | MASTER snapshot diffs for title velocity | **Not implemented** — needs accrued history |
 | `DEREG.txt` for prior N-numbers | **Not usable** for currently-flying tails |
-| FAA CARES packets | **Not implemented** — 403 here, and a large build |
+| FAA CARES packets | **Blocked** — HTTP 403 from the server too; registered access needed (§9.6) |
+| AVInfo for `Age_cert` (not in the addendum, but the same obstacle) | **Blocked** — HTTP 503 from the server too (§9.6) |
+
+### 9.6 FAA host reachability — the shared obstacle behind two dead ends
+
+Both remaining FAA gaps — permanent lien history (`GAP_TAIL_LIENS`) and
+`Age_cert` — are blocked by the same thing, and it is worth stating once rather
+than rediscovering per source.
+
+Measured 2026-11-08. The dev-machine column and the IPs were tested directly;
+the server column is from runs on the production host.
+
+| Host | Resolves to | Dev machine | Production server | Holds |
+|---|---|---|---|---|
+| `www.faa.gov` | `23.198.135.73` | **200** | **200** (implied — the D085 ingest downloads from it successfully) | Part 135 D085 `.xlsx` |
+| `registry.faa.gov` | `23.198.132.191` | 403 | **200** | `ReleasableAircraft.zip` |
+| `cares.faa.gov` | `23.198.132.191` | 403 | **403** | permanent title packets |
+| `av-info.faa.gov` | `23.198.132.191` | 503 | **503** | certificate issue dates |
+
+The pattern is the informative part. Three hostnames share one IP, and the
+server reaches exactly one of them. So this is **not** an IP-level or
+geographic block that a proxy, a different egress or a headless browser would
+route around — those would fail or succeed uniformly. Per-hostname rules at the
+Akamai edge, with `registry` open and `cares`/`av-info` closed, is what
+registered-access-only services look like.
+
+**Consequence: neither gap is an engineering problem.**
+
+- Everything implemented in §9 comes from the two open hosts, which is why the
+  D085 and DOCINDEX pipelines work.
+- `cares.faa.gov` is the only source that can clear title, so `legal_title`
+  stays GREY indefinitely. That is honest — the flag says "not assessed".
+- `av-info.faa.gov` was the only source of certificate issue dates, so
+  `Age_cert` stays an acknowledged estimate. Both inference routes are now
+  tested and dead: `MASTER.txt` `CERT ISSUE DATE` agrees with
+  `business_started_date` 16% of the time (§1a), and this host is unreachable.
+
+The remaining path for both is an FAA data request or registered access — a
+procurement decision. **No further scraping work should be attempted against
+these two hosts**; a 403 and a 503 that reproduce from two independent networks
+are not transient, and retrying them is the kind of thing that gets rediscovered
+every few months.
+
+Worth re-testing only if the FAA announces a change, or if someone obtains
+credentials — in which case §9.4's effort estimate (OCR over ~11,000 scanned
+packets, with mis-read lien releases failing silently) still applies.
