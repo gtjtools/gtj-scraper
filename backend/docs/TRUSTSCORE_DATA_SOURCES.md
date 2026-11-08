@@ -4,8 +4,9 @@ Reference for the data sources behind the TrustJet TrustScore, tracking what the
 **TrustScore 5.0 Data Sources** document requires against what the code does
 today, and how the scraping actually works.
 
-- **Source document:** `backend/TrustScore 5.0 Data Sources.docx`
-- **Last updated:** 2026-10-31
+- **Source document:** `backend/TrustScore 5.0 Data Sources.docx`, plus the
+  **Asset Stability & Churn / Legal & Title Clearness** addendum (assessed in §9)
+- **Last updated:** 2026-11-08
 - **Algorithm implemented in code:** **v5.0** (`src/trustscore/calculator_v5.py`),
   live at both call sites. v3 (`calculator.py`) is retained but no longer called.
 - **Verified end to end** on Maine Instrument Flight (`BFYA`): 3 NTSB accidents
@@ -19,8 +20,8 @@ today, and how the scraping actually works.
 | # | Source | Populates | Status |
 |---|--------|-----------|--------|
 | 1 | FAA Part 135 roster | DBA array, `V_F` | **Implemented** — `scripts/ingest_part135.py`; 1,914 names across 1,870 certificates. Does **not** yield `Age_cert` (no issue date in the file). |
-| 2 | OpSpecs (JETNET) | `V_F`, `Churn_Fleet` | **Substituted.** `V_F` counts `gtj.aircraft`; `Churn_Fleet` needs `scripts/snapshot_fleet.py` history — **1 month recorded, 12 required**. JETNET itself is unused here (gtj-serverless owns that client). |
-| 3 | FAA Aircraft Registry | `MR_T`, `OS_T`, `ELI` | **Partial.** `MR_T` and `OS_T` come from `gtj.aircraft`. DOCINDEX lien parsing (`Lientail`) is **not implemented**. |
+| 2 | OpSpecs D085 | `V_F`, `Churn_Fleet` | **Implemented, not yet usable.** `scripts/ingest_d085.py` ingests the FAA's public weekly Part 135 table — 11,188 authorized tails across 1,663 operators — so JETNET is not needed. `Churn_Fleet` is wired but **withheld**: only 31 days of history exists and `fetch_churn` refuses a window under 180 days (§9.1). |
+| 3 | FAA Aircraft Registry | `MR_T`, `OS_T`, `ELI` | **Mostly implemented.** `MR_T`/`OS_T` from `gtj.aircraft`. `Lientail` now live — `src/common/faa_registry.py` parses MASTER/DOCINDEX/DEREG; 99 active encumbrances across 240 tails. Title-transfer velocity is **not** obtainable this way (§9.2). |
 | 4a | NTSB CAROL | `ORF_True`, `IH_T` | **Implemented** — returns real accidents; searches every DBA name. |
 | 4b | FAA AIDS | `ORF_True`, `IH_T` | **Not implemented** |
 | 5 | ASN Wikibase | `L_Risk` | **Not implemented** — `Lrisk` is 0 for every operator |
@@ -36,7 +37,10 @@ today, and how the scraping actually works.
 | **Entity resolution (§8)** | `src/common/entity_resolution.py` | Resolves an operator to every name its certificate has used, in both directions. NTSB, FAA and DOT lookups all search the full array. 40 certificates currently carry more than one name. |
 | **Coverage-aware flags** | `narrative_v5._apply_coverage` | A fourth state, `GREY`, for "not assessed". Only ever downgrades `GREEN`; `RED` and `YELLOW` stand on their own evidence. |
 | **Risk Audit narrative (§9)** | `src/trustscore/narrative_v5.py` | Executive summary, six-category audit, broker guidance. Read-only with respect to scoring. |
-| **Fleet snapshots** | `scripts/snapshot_fleet.py` | 11,163 tails captured monthly. The only input that cannot be backfilled.
+| **Fleet snapshots** | `scripts/snapshot_fleet.py` | 22,327 rows, 2 months, from `gtj.aircraft` (JETNET's view of what an operator holds). |
+| **D085 fleet ingest** | `scripts/ingest_d085.py` | 11,188 tails from the FAA's weekly Part 135 table — the *legally authorized* fleet. Written to the same table under `source='opspecs_d085'`, so the two are comparable. **2,097 tails are in JETNET but absent from D085** — held, but not authorized for charter. |
+| **Tail liens** | `scripts/ingest_tail_liens.py` | 303 DOCINDEX filings → **99 active encumbrances** across 240 tails. Feeds `Lientail`. |
+| **Registry parsers** | `src/common/faa_registry.py` | MASTER (184 MB), DOCINDEX, DEREG (275 MB). Header-name based, not fixed-offset. |
 
 ### Metric symbols
 
@@ -47,7 +51,7 @@ equation objects and do not survive plain-text extraction of the `.docx`).
 |--------|---------|----------------|
 | `Age_cert` | Operator age from **original certificate issuance date** | Partially — `operator_age_years` exists, but is read from `operators.business_started_date`, which is business registration, **not** certificate issuance |
 | `V_F` | Current fleet size, used as the **square root denominator** | **Yes** — counted from `gtj.aircraft`; denominator is `MAX(1, SQRT(Vf))` |
-| `Churn_Fleet` | Fleet size month-over-month differential | **Implemented, unfed** — `calculate_churn_effective` is live; needs 12 months of `fleet_snapshots`, has 1 |
+| `Churn_Fleet` | Fleet size month-over-month differential | **Implemented, deliberately withheld** — `adapter_v5.fetch_churn` diffs D085 snapshots and is live, but returns `None` below a 180-day window. Has 31 days. See §9.1 for why this cannot be backfilled. |
 | `MR_T` | Tail maintenance risk (from tail age) | **Yes** — `MRT`, `_calculate_tail_maintenance_risk` |
 | `OS_T` | Tail ownership status, verified against the Part 135 certificate holder | **Yes** — `OST`, `_calculate_tail_ownership_status` |
 | `ELI` | **Implemented.** Fed by **three** sources: source 3 (mechanic's liens, tax claims, rapid ownership transfers), source 7 (watchdog violations), source 8 (DOT legal actions and federal fines) | **No** — new metric, no field and no term in the OS equation |
@@ -55,6 +59,7 @@ equation objects and do not survive plain-text extraction of the `.docx`).
 | `IH_T` | Tail incident history, from tail severities | **Yes** — `IHT`, `_calculate_tail_incident_history`. **But see §6.6 — the wiring is wrong today.** |
 | `L_Risk` | Latent risk from ASN wikibase, via LLM text-to-JSON | **Field exists, no pipeline** — `latent_risk_events` is accepted and scored; ASN is not ingested |
 | `SDR_Penalty` | Mechanical deterioration and emergency procedures from SDRS | **Partial** — SDRs score, but pooled into `ORF_True` rather than a separate term; see §6.6 |
+| `Lientail` | Active mechanic's/tax liens against a specific airframe | **Implemented** — `adapter_v5.fetch_tail_liens` from `gtj.tail_liens`. One charge per *financing*, not per document (§9.3). `GAP_TAIL_LIENS` still fires regardless, because DOCINDEX cannot clear title. |
 
 Also live but **not in the source document:**
 
@@ -74,13 +79,17 @@ gap — the v5.0 formulas themselves are implemented and verified.
 
 ### Blocking, and time-sensitive
 
-**`Churn_Fleet` — 1 of 12 months captured.**
-`scripts/snapshot_fleet.py` runs monthly and has recorded one snapshot. Churn is
-a 12-month differential, so `Churneffective` is 0 for everyone and no operator is
-penalised for shedding or rapidly absorbing aircraft. **This is the only gap that
-gets worse with delay**: a month not captured cannot be reconstructed, because
-nothing records what a fleet looked like in the past. Partial signal from month
-two; the specification's figure at month twelve.
+**`Churn_Fleet` — pipeline done, 31 of 180 days of history.**
+The ingest and the differential are both implemented (`scripts/ingest_d085.py`,
+`adapter_v5.fetch_churn`) against the FAA's own weekly D085 table. What is
+missing is time: `fetch_churn` returns `None` below a 180-day window, so
+`Churneffective` stays 0 and `asset_stability` stays GREY.
+
+**This remains the only gap that gets worse with delay**, and the archive cannot
+rescue it — web.archive.org holds exactly one capture of the Part 135
+spreadsheet, not the "dozens" the addendum assumes (§9.1). A week not captured
+is a week that cannot be reconstructed. Usable signal around **May 2027**, the
+specification's full window November 2027, *provided the weekly cron runs*.
 
 **`Age_cert` — wrong source, and absent for 47% of operators.**
 §3 defines it as years since *original certificate issuance*. The code reads
@@ -90,13 +99,24 @@ fall back to a hardcoded 10.0 years. `Age_cert` feeds both `Cs` and the `V_F`
 denominator, so this moves every score twice over. The Part 135 roster does not
 carry an issue date, so this needs a source not yet identified.
 
+One lead, now that the registry is parsed: `MASTER.txt` carries
+`CERT ISSUE DATE` per **aircraft**. That is the airframe's registration date,
+not the operator's certificate date, so it is not a substitute — but the
+earliest such date across an operator's D085 fleet is a defensible *lower
+bound* and strictly better than an invented 10.0. `certificate_age_is_estimated`
+already exists to mark the result as inferred. Unvalidated; worth an hour before
+committing to it.
+
 ### Significant
 
-**`Lientail` / DOCINDEX — not parsed.**
-§5.3 charges 25 points per active mechanic's or tax lien against a tail, on top
-of certificate-level `ELI`. `gtj.aircraft` has no lien data and FAA DOCINDEX.txt
-is not ingested, so `Lientail` is 0 for every airframe. Legal & Title Clearness
-is therefore `GREY` on every report.
+**`Lientail` / DOCINDEX — implemented; title still cannot be cleared.**
+`scripts/ingest_tail_liens.py` ingests DOCINDEX weekly: **99 active encumbrances
+across 240 tails**, charged one per financing rather than per document (§9.3).
+
+Legal & Title Clearness nonetheless stays `GREY` on every report, by design.
+DOCINDEX is a ~180-day rolling suspense index, so an unreleased lien from three
+years ago is absent from it — finding nothing is not clear title. Only FAA CARES
+(§9.4) can retire that flag, and it is not implemented.
 
 **`L_Risk` / ASN Wikibase — not ingested.**
 §4.1's latent-risk term — runway excursions, gear malfunctions, bird strikes —
@@ -555,3 +575,190 @@ all are public FAA downloads.
 > **Known issue:** `src/common/config.py` ignores `SUPABASE_URL` for the actual
 > database connection and uses a hardcoded production password. That credential
 > is in git history; rotating it is the real fix.
+
+---
+
+## 9. Asset Stability & Churn / Legal & Title Clearness — addendum assessed
+
+The addendum proposes replacing a JETNET subscription with free FAA sources. It
+is largely right, and most of it is now implemented. Four of its specific
+claims do not survive contact with the real files, which is recorded here so
+nobody re-derives them.
+
+Everything below was measured against the live FAA download (73,154,051 bytes,
+ingested 2026-11-08) and the FAA's own `ardata.pdf` inside that archive.
+
+### 9.1 Fleet churn via the weekly Part 135 table — **implemented, output withheld**
+
+`scripts/ingest_d085.py`, weekly. Downloads the public `.xlsx`, groups by the
+4-character designator, and writes one row per authorized tail into
+`gtj.fleet_snapshots` under `source='opspecs_d085'`.
+
+Verified: **11,482 authorized aircraft parsed → 11,188 matched to our
+operators across 1,663 certificates.** 92 certificates in the roster are not in
+`gtj.operators`.
+
+`adapter_v5.fetch_churn` computes `TailsAdded` / `TailsRemoved` /
+`BaselineVf` as a set difference of N-numbers between snapshots. Confirmed
+working against a simulated 365-day baseline: `added=1, removed=0, baseline=2,
+window_days=365`.
+
+**The addendum's backfill claim is wrong, and this is the binding constraint.**
+It states the Wayback Machine holds "dozens of timestamped snapshots" of the
+Part 135 spreadsheet. The CDX API returns **exactly one**:
+
+```
+20261018  526,783 bytes
+```
+
+So a trailing 12-month baseline cannot be assembled from the archive. `--backfill`
+runs, finds that single capture, and writes it — which is why the database holds
+two snapshot months whose contents are 31 days apart and nearly identical.
+
+`fetch_churn` therefore refuses any window under **180 days** and returns
+`None`, so `GAP_CHURN` keeps firing and `asset_stability` stays GREY. This is
+deliberate: `Churneffective = 0` is a *full confidence* score under §3, so
+reporting a 31-day diff as churn would read as verified stability. Before the
+guard, Flexjet reported `3 added / 3 removed` from a three-week
+self-comparison.
+
+**Consequence:** churn has to accrue month by month. At the 180-day threshold
+that is roughly **May 2027**; for the full 12-month window, November 2027. Every
+missed weekly run pushes it out, which makes the cron load-bearing:
+
+```
+0 3 * * 1 cd /home/gtjadmin/gtj-scraper/backend && \
+          venv/bin/python3 scripts/ingest_d085.py >> ~/d085.log 2>&1
+```
+
+**Also unavailable:** the addendum's backup portal, `av-info.faa.gov/OpSpec.asp`,
+returns HTTP 503. It shares an IP (`23.198.132.191`) with `registry.faa.gov` and
+`cares.faa.gov`; all three refuse some networks while `www.faa.gov` serves
+normally. The production server reaches `registry.faa.gov`; this developer
+machine does not, which is why `ingest_tail_liens.py` accepts `--archive`.
+
+### 9.2 Tail ownership velocity via MASTER/DEREG — **not deliverable this way**
+
+The addendum says to match a tail's airframe serial across `MASTER.txt` and
+`DEREG.txt` to expose "every previous N-number and registered owner". Measured,
+it does not work, and the failure is quiet rather than loud.
+
+**Serial number alone is not a key.** In `DEREG.txt`, serial `'1'` appears
+**3,936 times** and `'001'` **1,967 times**, across unrelated manufacturers.
+Matching on serial reported **3,707 of 10,092** Part 135 tails as having prior
+owners. Adding `MFR MDL CODE` to the key reduced that to **0** — so the original
+figure was almost entirely collisions: one Cessna inheriting every prior owner
+of every other airframe numbered 1. Plausible-looking and entirely fabricated.
+
+**And 0 is the correct answer.** `DEREG.txt` holds *terminated* registrations —
+97% of sampled rows carry a `CANCEL-DATE` — while an airframe still flying is in
+`MASTER.txt` precisely because it has not been deregistered. The two files
+overlap on **46 keys out of 300,081 (MASTER) and 379,796 (DEREG)**.
+
+`src/common/faa_registry.py` documents this inline rather than exposing an API
+that returns empty lists a caller would read as "one owner since new".
+
+Two routes remain, neither implemented:
+
+- **`MASTER.txt` snapshot diffs.** `CERT ISSUE DATE` moves when a new
+  registration certificate is issued, so differencing two snapshots does detect
+  a transfer. This is the addendum's other suggestion and it is sound — but like
+  churn it needs accrued history, and Wayback coverage of the registry zip is
+  sparse and gapped (captures in 2016, 2017, 2020, 2021, 2024, 2025, 2026 — no
+  2018, 2019, 2022, 2023).
+- **FAA CARES** (§9.4).
+
+**The addendum's yearly-archive claim is also wrong.** It states the FAA hosts
+`ReleasableAircraft.year.zip` files under a "Yearly Aircraft Registration
+Database" heading "directly underneath the daily zip link". No such section
+exists on the live page: the only `.zip` link is the current
+`ReleasableAircraft.zip`, and `ReleasableAircraft.2025.zip` returns HTTP 403.
+
+### 9.3 Legal & Title via DOCINDEX — **implemented**
+
+`scripts/ingest_tail_liens.py`, weekly, into `gtj.tail_liens` (migrations 081
+and 082). Current state: **303 filings, 240 tails, 99 active encumbrances**,
+observation reaching back to 2026-05-12.
+
+**The addendum's DOC-TYPE codes are wrong.** It describes single letters — `'M'`
+mechanic's, `'T'` tax. The real codes are three characters, per `ardata.pdf`
+(positions 165–167):
+
+| Code | Meaning | Treated as |
+|---|---|---|
+| `S/A` | Security Conveyance/Lien | **lien** |
+| `CSC` | Evidence of Ownership w/Lien | **lien** |
+| `REL` | Lien Release | discharge |
+| `REP` | Repossession | discharge |
+| `BOS` | Evidence of Ownership | conveyance |
+| `DIS` / `CRT` | Disclaimer / Court Documents | neither |
+
+The index does **not** distinguish mechanic's from tax liens — both are `S/A` —
+so §4.2's separate charges cannot be told apart from this source. Both score as
+"active encumbrance", which is the distinction that matters.
+
+Three further corrections, each of which silently produced wrong output first:
+
+1. **The date field is `DRDATE`**, not `DOC-DATE`. There is no `DOC-DATE` column.
+2. **`COLLATERAL` holds an N-number, not a serial**, and only when
+   `TYPE-COLLATERAL = 1`. Codes 2 and 3 carry engine and propeller
+   make/model/serial; parsing those as tails attributes an engine lien to
+   whichever airframe the string collides with.
+3. **Every file opens with a UTF-8 BOM.** Decoded as Latin-1 it becomes `Ï»¿`
+   welded onto the first header name, making that column unfindable. The parser
+   returned **0 rows with no error** — a pipeline that looks healthy and
+   ingests nothing.
+
+**One charge per financing, not per document.** Aircraft lending records one
+document per collateral item — airframe, each engine, avionics — so a single
+secured loan arrives as a run of sequential DOC-IDs. `N402XT` carried 16 from
+`GUNTRACK AVIATION LLC` on one day (`ARE016566074`–`6108`, stepping by 2).
+Charged per document that was 18 §4.2 penalties, scoring **67.45** against
+95.92 unencumbered — a routine loan read as catastrophic distress.
+`fetch_tail_liens` groups by `(doc_type, doc_date, party)`, giving 3
+encumbrances and **74.09**.
+
+Note the deliberate asymmetry: `gtj.tail_liens` stores **one row per document**
+(the factual record of what was filed), while the scoring query returns **one
+event per financing**. Both are correct. The `reference` string carries the
+volume — `GUNTRACK AVIATION LLC (16 documents)` — so an audit can still
+disclose it.
+
+**`GAP_TAIL_LIENS` fires unconditionally, even when liens are found.** DOCINDEX
+is a ~180-day rolling suspense index: a lien recorded years ago and never
+released is simply absent. Finding filings proves encumbrance; finding none
+proves nothing about title. Without this, ingesting liens would have flipped
+`legal_title` from GREY to GREEN for ~11,000 tails on the strength of a 180-day
+lookback.
+
+### 9.4 FAA CARES — **not implemented**
+
+`cares.faa.gov` holds the permanent life-of-airframe packets: every Bill of
+Sale, Security Agreement, mechanic's lien and release since manufacture. It is
+the only source that can actually clear title, and therefore the only thing
+that can retire `GAP_TAIL_LIENS` or deliver §9.2's ownership velocity.
+
+Not started. Two obstacles:
+
+- The host returns **HTTP 403** from this network (same IP as `registry.faa.gov`).
+  Whether the production server reaches it is untested.
+- It serves scanned PDF packets per airframe, so ~2,000 Part 135 tails means
+  ~2,000 Playwright sessions plus OCR — a different order of effort from parsing
+  a flat file, and the only item here that needs a real build rather than a
+  parser.
+
+### 9.5 Summary
+
+| Addendum item | Status |
+|---|---|
+| Weekly Part 135 D085 ingest | **Implemented** — 11,188 tails |
+| Group by designator for `V_F` / `S_current` | **Implemented** |
+| Rolling churn diff | **Implemented**, output withheld until ≥180 days of history |
+| Wayback backfill for churn | **Not possible** — 1 capture exists, not "dozens" |
+| AVInfo backup portal | **Unreachable** — HTTP 503 |
+| DOCINDEX lien parsing | **Implemented** — 99 active encumbrances |
+| FAA yearly registry archives | **Do not exist** on the live page; HTTP 403 |
+| MASTER/DEREG serial match for prior owners | **Does not work** — serial is not a key; DEREG holds dead registrations |
+| MASTER snapshot diffs for title velocity | **Not implemented** — needs accrued history |
+| `DEREG.txt` for prior N-numbers | **Not usable** for currently-flying tails |
+| FAA CARES packets | **Not implemented** — 403 here, and a large build |
