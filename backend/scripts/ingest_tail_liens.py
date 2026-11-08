@@ -279,7 +279,9 @@ def report(db) -> None:
     summary = db.execute(text("""
         SELECT COUNT(*) AS filings,
                COUNT(DISTINCT tail_number) AS tails,
-               COUNT(*) FILTER (WHERE superseded_by_release = false) AS active,
+               COUNT(*) FILTER (WHERE superseded_by_release = false) AS active_docs,
+               COUNT(DISTINCT (doc_type, doc_date, party))
+                   FILTER (WHERE superseded_by_release = false) AS active_enc,
                MIN(observed_in_window_until) AS window_from,
                MAX(last_seen) AS last_run
         FROM gtj.tail_liens
@@ -287,28 +289,39 @@ def report(db) -> None:
 
     print(f"\n  filings stored    : {summary['filings']:,}")
     print(f"  distinct tails    : {summary['tails']:,}")
-    print(f"  active encumbrances: {summary['active']:,}")
+    # Documents filed vs encumbrances charged -- see the per-tail note below.
+    print(f"  active documents  : {summary['active_docs']:,}")
+    print(f"  active encumbrances: {summary['active_enc']:,}  (what §4.2 charges)")
     print(f"  observed back to  : {summary['window_from']}")
     print(f"  last ingest       : {summary['last_run']}")
 
     if not summary["filings"]:
         return
 
+    # Both counts, because they differ and the difference matters. A financing
+    # is filed once per collateral item, so `docs` is the raw filing volume
+    # while `enc` is the number of distinct encumbrances §4.2 actually charges
+    # — grouped the same way adapter_v5.fetch_tail_liens groups them. N402XT
+    # reads 18 documents / 3 encumbrances; showing only the first invites
+    # reading a routine loan as eighteen liens.
     print("\n  tails with active encumbrances:")
     rows = db.execute(text("""
-        SELECT tail_number, COUNT(*) AS n,
+        SELECT tail_number,
+               COUNT(*) AS docs,
+               COUNT(DISTINCT (doc_type, doc_date, party)) AS enc,
                MIN(doc_date) AS earliest, MAX(doc_date) AS latest,
                string_agg(DISTINCT doc_type, ',') AS types
         FROM gtj.tail_liens
         WHERE superseded_by_release = false
         GROUP BY tail_number
-        ORDER BY COUNT(*) DESC, tail_number
+        ORDER BY COUNT(DISTINCT (doc_type, doc_date, party)) DESC,
+                 COUNT(*) DESC, tail_number
         LIMIT 20
     """)).mappings().all()
-    print(f"    {'tail':<10}{'n':>3}  {'earliest':<12}{'latest':<12}types")
-    print(f"    {'-' * 52}")
+    print(f"    {'tail':<10}{'enc':>4}{'docs':>6}  {'earliest':<12}{'latest':<12}types")
+    print(f"    {'-' * 58}")
     for row in rows:
-        print(f"    {row['tail_number']:<10}{row['n']:>3}  "
+        print(f"    {row['tail_number']:<10}{row['enc']:>4}{row['docs']:>6}  "
               f"{str(row['earliest']):<12}{str(row['latest']):<12}{row['types']}")
 
     print("\n  NOTE: DOCINDEX is a ~180-day rolling window. A tail absent from")

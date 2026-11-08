@@ -31,10 +31,24 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:ForTestingLang123456@db.spttnizdxfnajghkbnvh.supabase.co:6543/postgres",
 )
 
+# SQL statement logging. Off unless SQL_ECHO is set truthy.
+#
+# This was hardcoded True, which logs every statement *and its full bound
+# parameters*. A batched ingest sends 500-row multi-value INSERTs, so one
+# statement is tens of thousands of characters; the D085 and lien ingests each
+# buried their own summary under megabytes of parameter dumps, and a full
+# operator rescore (~1,800 operators over ~41 hours) would produce gigabytes
+# and make the log useless for the thing it exists to show.
+#
+# It also prints the connection string's password on engine construction.
+#
+# Set SQL_ECHO=1 to turn it back on for a single debugging session.
+SQL_ECHO = os.getenv("SQL_ECHO", "").strip().lower() in ("1", "true", "yes", "on")
+
 # Create the SQLAlchemy engine with connection pooling and keepalive
 engine = create_engine(
     DATABASE_URL,
-    echo=True,
+    echo=SQL_ECHO,
     connect_args={
         "sslmode": "require",
         "connect_timeout": 10,
