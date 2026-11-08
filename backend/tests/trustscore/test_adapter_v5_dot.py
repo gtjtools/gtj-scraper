@@ -508,3 +508,62 @@ class TestD085Churn:
             raise RuntimeError("connection refused")
 
         assert adapter_v5.fetch_churn("X", db_session_factory=broken) is None
+
+
+class TestChurnWindowGuard:
+    """
+    A window shorter than _MIN_CHURN_WINDOW_DAYS must report unmeasured.
+
+    §3 defines churn over 12 months. A three-week diff is not a weak version of
+    that metric but a different, far noisier one — a fleet turning over twice a
+    year looks identical to a stable one when sampled three weeks apart.
+
+    Reporting a figure would be worse than reporting nothing: Churneffective of
+    0 is a FULL confidence score, so every operator would clear GAP_CHURN and
+    read as evidenced-stable. This fired for real — two D085 snapshots 31 days
+    apart had Flexjet reporting 3 added / 3 removed as though measured.
+    """
+
+    def test_threshold_is_half_the_spec_window(self):
+        """
+        180 days: long enough to understate churn without inventing it, short
+        enough to be reachable before a full year of snapshots exists.
+        """
+        assert adapter_v5._MIN_CHURN_WINDOW_DAYS == 180
+
+    def test_short_window_reports_unmeasured(self):
+        """
+        Two snapshots a month apart must yield None, not zeroes.
+
+        Driven through a stub session so the test does not depend on what the
+        database currently holds.
+        """
+        from datetime import date
+
+        class _Result:
+            def __init__(self, rows): self._rows = rows
+            def __iter__(self): return iter(self._rows)
+            def mappings(self): return self
+            def all(self): return self._rows
+            def scalar(self): return self._rows[0][0] if self._rows else None
+
+        class _Session:
+            """Months 31 days apart, with an identical tail set."""
+            def execute(self, statement, params=None):
+                sql = str(statement)
+                if "DISTINCT snapshot_month" in sql:
+                    return _Result([(date(2026, 11, 1),), (date(2026, 10, 1),)])
+                if "SELECT operator_id, name" in sql:
+                    return _Result([("00000000-0000-0000-0000-000000000001", "X")])
+                return _Result([("N1",), ("N2",)])
+            def close(self): pass
+
+        assert adapter_v5.fetch_churn("X", db_session_factory=_Session) is None
+
+    def test_gap_stays_raised_when_the_window_is_too_short(self):
+        tail = adapter_v5.build_tail_data(tail_number="", lookup_liens=False)
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0, fleet_size=5,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        assert adapter_v5.GAP_CHURN in adapter_v5.missing_input_keys(operator, tail)

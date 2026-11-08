@@ -414,6 +414,18 @@ def fetch_fleet_size(operator_name: str, db_session_factory: Any = None) -> int:
 #: an operator holds.
 D085_SOURCE = "opspecs_d085"
 
+#: Shortest snapshot span that may be reported as churn.
+#:
+#: §3 asks for 12 months. Half of that is the point below which the figure
+#: stops approximating the metric and starts misrepresenting it — a fleet with
+#: real annual turnover is indistinguishable from a stable one over a few
+#: weeks. Below this, fetch_churn returns None so GAP_CHURN keeps firing.
+#:
+#: Not set to the full 12 months because a 6-to-12-month window understates
+#: churn without inventing it, and `window_days` is returned so a caller can
+#: see how much history actually backed the number.
+_MIN_CHURN_WINDOW_DAYS = 180
+
 
 def fetch_churn(
     operator_name: str,
@@ -507,6 +519,30 @@ def fetch_churn(
             (m for m in months if (current - m).days >= months_back * 28),
             months[-1],
         )
+
+        # Refuse a window too short to mean anything.
+        #
+        # §3 defines churn over 12 months. A three-week diff is not a weak
+        # version of that metric — it is a different and far noisier one: a
+        # fleet that turns over twice a year looks identical to a stable one
+        # when sampled three weeks apart.
+        #
+        # Returning a number here would be actively worse than returning
+        # nothing, because Churneffective = 0 is a FULL confidence score under
+        # §3. Every operator would clear GAP_CHURN and read as evidenced-stable
+        # on evidence that cannot support it.
+        #
+        # This fires today and will keep firing: web.archive.org holds exactly
+        # one usable capture of the D085 file (2026-10-18), so the trailing
+        # window cannot be backfilled and has to accrue month by month.
+        window_days = (current - baseline).days
+        if window_days < _MIN_CHURN_WINDOW_DAYS:
+            logger.info(
+                "Churn window for %s is only %d days (need %d); reporting "
+                "unmeasured rather than a figure §3 cannot support",
+                operator_name, window_days, _MIN_CHURN_WINDOW_DAYS,
+            )
+            return None
 
         def tails_at(month) -> set:
             return {
