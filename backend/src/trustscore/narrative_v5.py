@@ -153,22 +153,85 @@ def _flag_commercial_integrity(operator: OperatorData) -> str:
     return YELLOW
 
 
-def _flag_flight_safety(operator: OperatorData, tail: TailData) -> str:
-    """NTSB/AIDS accidents across both the certificate and this airframe."""
+#: Fraction of its original severity an event must retain to still drive a
+#: flag by itself.
+#:
+#: §4.1 decays severity on a five-year half-life, so the arithmetic forgets an
+#: old event: a 1988 accident retains ~0.5% of its weight by 2026 and Hsafety
+#: reads 0.9988 — effectively perfect. The flags did not decay, so that
+#: operator still showed RED flight safety. A broker reads RED as a current
+#: hazard, and nothing in the score supported it.
+#:
+#: Expressed as a *fraction* rather than an absolute severity on purpose.
+#: Comparing a decayed value against the raw §6 thresholds cannot work: decay
+#: only ever reduces, so `decayed >= SUBSTANTIAL_DAMAGE` is unreachable for
+#: anything but a brand-new maximum-severity event, and every finding collapses
+#: to YELLOW. The fraction separates the two questions the flag actually asks —
+#: how bad was it (the §6 schedule) and how recent is it (the decay).
+#:
+#: 0.25 is two half-lives, i.e. ten years. An event inside that window still
+#: flags at its §6 severity; beyond it the finding is disclosed but no longer
+#: presented as a current condition.
+_FLAG_RECENCY_FLOOR = 0.25
+
+
+def _retained(event: RiskEvent, now=None) -> float:
+    """
+    Fraction of its original severity this event still carries, in (0, 1].
+
+    Computed via `decayed_sum` so the flag and the score share one decay
+    constant and cannot drift apart. An event with no usable date is treated as
+    fully retained: undated risk is not discounted, matching §4.1.
+    """
+    if not event.severity:
+        return 0.0
+    return decayed_sum([event], now=now) / float(event.severity)
+
+
+def _flag_flight_safety(operator: OperatorData, tail: TailData, now=None) -> str:
+    """
+    NTSB/AIDS accidents across both the certificate and this airframe.
+
+    Severity is compared *after* decay, so the flag agrees with the score. An
+    event old enough that Hsafety has effectively forgotten it no longer shows
+    RED — it drops to YELLOW while still being disclosed in the narrative,
+    because the event did happen and a reader should know.
+    """
     all_events = list(operator.fleet_accident_events) + list(tail.tail_accident_events)
     if not all_events:
         return GREEN
-    if any(event.severity >= Severity.SUBSTANTIAL_DAMAGE for event in all_events):
+
+    # RED needs a finding that is both serious (§6) and still current (decay).
+    if any(
+        event.severity >= Severity.SUBSTANTIAL_DAMAGE
+        and _retained(event, now=now) >= _FLAG_RECENCY_FLOOR
+        for event in all_events
+    ):
         return RED
+
+    # Something is on record but has either decayed or was never severe enough
+    # to read as a current hazard. Never GREEN: the event did happen, and
+    # presenting that as clean would overstate the operator.
     return YELLOW
 
 
-def _flag_maintenance(operator: OperatorData, tail: TailData) -> str:
-    """SDRS critical precautionary procedures, airframe and fleet level."""
+def _flag_maintenance(operator: OperatorData, tail: TailData, now=None) -> str:
+    """
+    SDRS critical precautionary procedures, airframe and fleet level.
+
+    Decay-aware for the same reason as flight safety: an in-flight shutdown
+    from 2009 says little about maintenance discipline today, and the score has
+    already discounted it to nearly nothing.
+    """
     all_sdrs = list(operator.fleet_sdr_events) + list(tail.tail_sdr_events)
     if not all_sdrs:
         return GREEN
-    if any(event.severity >= Severity.SDR_IFSD for event in all_sdrs):
+
+    if any(
+        event.severity >= Severity.SDR_IFSD
+        and _retained(event, now=now) >= _FLAG_RECENCY_FLOOR
+        for event in all_sdrs
+    ):
         return RED
     return YELLOW
 

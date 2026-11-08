@@ -290,3 +290,121 @@ class TestCoverageGaps:
     def test_system_prompt_states_the_guardrails(self):
         assert "Zero Formula Leakage" in narrative_v5.SYSTEM_PROMPT
         assert "Strict Evidentiary Grounding" in narrative_v5.SYSTEM_PROMPT
+
+
+class TestFlagDecay:
+    """
+    A flag must agree with the score it accompanies.
+
+    §4.1 decays severity on a five-year half-life, so Hsafety forgets an old
+    event. The flags did not, so N722BD showed RED flight safety on a 1988
+    accident while Hsafety read 0.9988 — a ~0.1% deduction presented to a
+    broker as a current hazard.
+    """
+
+    def _operator(self, year, severity):
+        from src.trustscore.calculator_v5 import OperatorData, RiskEvent
+
+        return OperatorData(
+            certificate_designator="BFYA", operator_name="X",
+            certificate_age_years=33.9, fleet_size=5,
+            fleet_accident_events=[RiskEvent(
+                severity=float(severity), event_date=f"{year}-08-25",
+                event_type="accident", source="NTSB", reference=f"X{year}",
+            )],
+        )
+
+    def _tail(self):
+        from src.trustscore.calculator_v5 import TailData
+        return TailData(tail_number="N722BD")
+
+    def test_recent_serious_accident_is_red(self):
+        from src.trustscore.calculator_v5 import Severity
+
+        flag = narrative_v5._flag_flight_safety(
+            self._operator(2024, Severity.SUBSTANTIAL_DAMAGE), self._tail()
+        )
+        assert flag == narrative_v5.RED
+
+    def test_decades_old_accident_is_not_red(self):
+        """The 1988 case. Yellow, not red — and never green."""
+        from src.trustscore.calculator_v5 import Severity
+
+        flag = narrative_v5._flag_flight_safety(
+            self._operator(1988, Severity.SUBSTANTIAL_DAMAGE), self._tail()
+        )
+        assert flag == narrative_v5.YELLOW
+
+    def test_old_event_is_never_green(self):
+        """
+        A decayed finding is disclosed, not erased. GREEN would claim the
+        operator has no accident on record, which is false.
+        """
+        from src.trustscore.calculator_v5 import Severity
+
+        for year in (1988, 2000, 2010):
+            flag = narrative_v5._flag_flight_safety(
+                self._operator(year, Severity.FATAL_ACCIDENT), self._tail()
+            )
+            assert flag != narrative_v5.GREEN
+
+    def test_no_events_is_green(self):
+        from src.trustscore.calculator_v5 import OperatorData
+
+        flag = narrative_v5._flag_flight_safety(
+            OperatorData(certificate_designator="B", operator_name="X",
+                         certificate_age_years=10.0, fleet_size=5),
+            self._tail(),
+        )
+        assert flag == narrative_v5.GREEN
+
+    def test_severity_still_matters_independently_of_recency(self):
+        """A recent but minor incident must not reach RED."""
+        from src.trustscore.calculator_v5 import Severity
+
+        flag = narrative_v5._flag_flight_safety(
+            self._operator(2026, Severity.MAJOR_INCIDENT), self._tail()
+        )
+        assert flag == narrative_v5.YELLOW
+
+    def test_threshold_is_two_half_lives(self):
+        """
+        0.25 retained = ten years. Pinned because comparing a decayed value
+        against the raw §6 thresholds instead makes RED unreachable — decay
+        only reduces, so every finding collapses to YELLOW.
+        """
+        assert narrative_v5._FLAG_RECENCY_FLOOR == 0.25
+
+    def test_undated_events_are_fully_retained(self):
+        """§4.1 does not discount undated risk, so it must still flag."""
+        from src.trustscore.calculator_v5 import OperatorData, RiskEvent, Severity
+
+        operator = OperatorData(
+            certificate_designator="B", operator_name="X",
+            certificate_age_years=10.0, fleet_size=5,
+            fleet_accident_events=[RiskEvent(
+                severity=float(Severity.SUBSTANTIAL_DAMAGE), event_date=None,
+                event_type="accident", source="NTSB", reference="U",
+            )],
+        )
+        assert narrative_v5._flag_flight_safety(operator, self._tail()) \
+            == narrative_v5.RED
+
+    def test_maintenance_flag_decays_too(self):
+        """An IFSD from 2009 says little about maintenance discipline today."""
+        from src.trustscore.calculator_v5 import OperatorData, RiskEvent, Severity
+
+        def sdr(year):
+            return OperatorData(
+                certificate_designator="B", operator_name="X",
+                certificate_age_years=10.0, fleet_size=5,
+                fleet_sdr_events=[RiskEvent(
+                    severity=float(Severity.SDR_IFSD), event_date=f"{year}-01-01",
+                    event_type="sdr", source="SDRS", reference=f"S{year}",
+                )],
+            )
+
+        assert narrative_v5._flag_maintenance(sdr(2025), self._tail()) \
+            == narrative_v5.RED
+        assert narrative_v5._flag_maintenance(sdr(2009), self._tail()) \
+            == narrative_v5.YELLOW
