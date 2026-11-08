@@ -99,13 +99,38 @@ fall back to a hardcoded 10.0 years. `Age_cert` feeds both `Cs` and the `V_F`
 denominator, so this moves every score twice over. The Part 135 roster does not
 carry an issue date, so this needs a source not yet identified.
 
-One lead, now that the registry is parsed: `MASTER.txt` carries
-`CERT ISSUE DATE` per **aircraft**. That is the airframe's registration date,
-not the operator's certificate date, so it is not a substitute — but the
-earliest such date across an operator's D085 fleet is a defensible *lower
-bound* and strictly better than an invented 10.0. `certificate_age_is_estimated`
-already exists to mark the result as inferred. Unvalidated; worth an hour before
-committing to it.
+**The `MASTER.txt` lead was tested and does not work.** `CERT ISSUE DATE` has
+98% coverage (294,592 of 300,082 rows), so it looked promising. Taking the
+earliest such date across each operator's D085 fleet yields a date for 1,616 of
+1,659 operators — but measured against the 870 operators that also have a
+`business_started_date`, it agrees exactly only **16%** of the time, and the
+disagreements split evenly in both directions (363 later, 340 earlier, median
+delta 0.0 years). That is noise, not signal.
+
+The reason is structural: `CERT ISSUE DATE` is the *current registration* date
+and resets on every re-registration or sale — 39,435 of the dates fall in 2023
+alone, for a fleet that includes 1940s airframes. So "earliest across the
+fleet" measures when the operator last acquired an aircraft nobody has since
+re-registered, which is unrelated to when the FAA issued their Part 135
+certificate. A long-established operator that refreshed its fleet looks new; a
+new operator that bought an old aeroplane looks established. It would substitute
+one wrong number for another.
+
+**Remaining options, in order of preference:**
+
+1. **FAA AVInfo Air Operator Search** (`av-info.faa.gov`) is the one source that
+   actually holds certificate issue dates, queried per operator. Currently
+   HTTP 503 from the developer machine; **untested from the server**. One curl
+   decides whether this is buildable, and if it responds this is the correct
+   fix — a ~1,839-operator scrape of similar shape to the DOT work.
+2. **A data request to AFS-900**, who publish the Part 135 roster. Authoritative
+   and slow; the only route to a number that is not inferred.
+3. **Accept the estimate and keep marking it.** `certificate_age_is_estimated`
+   and `GAP_CERTIFICATE_AGE` already fire for every operator on the fallback, so
+   the score is explicitly "computed on an estimated certificate age" — which is
+   accurate. The hardcoded 10.0 also happens to sit near the real median (10.7
+   years, derived above), so it is not wildly wrong on average, merely
+   unevidenced per operator.
 
 ### Significant
 
@@ -738,14 +763,39 @@ Sale, Security Agreement, mechanic's lien and release since manufacture. It is
 the only source that can actually clear title, and therefore the only thing
 that can retire `GAP_TAIL_LIENS` or deliver §9.2's ownership velocity.
 
-Not started. Two obstacles:
+**Blocked, not merely unbuilt.** `cares.faa.gov` returns **HTTP 403** from the
+developer machine *and from the production server* (tested 2026-11-08). The body
+is an Akamai edge denial (`errors.edgesuite.net`), the same refusal
+`registry.faa.gov` gives this developer machine — but the server reaches
+`registry.faa.gov` fine and still cannot reach CARES. So this is not a
+network-location problem that a different host would solve, and no amount of
+scraping engineering changes it. Access would need whatever FAA
+registration/credentialing CARES expects, which is a procurement question rather
+than an engineering one.
 
-- The host returns **HTTP 403** from this network (same IP as `registry.faa.gov`).
-  Whether the production server reaches it is untested.
-- It serves scanned PDF packets per airframe, so ~2,000 Part 135 tails means
-  ~2,000 Playwright sessions plus OCR — a different order of effort from parsing
-  a flat file, and the only item here that needs a real build rather than a
-  parser.
+Were it reachable, it would still be a materially larger build than anything
+else in this document — the only item needing a real pipeline rather than a
+parser:
+
+| | DOCINDEX | CARES |
+|---|---|---|
+| Format | one 3.5 MB CSV | scanned PDF packets |
+| Access | bulk download | per-airframe request |
+| Volume | 1 file | **~11,000 tails** |
+| Extraction | `csv.reader` | OCR + LLM |
+| Runtime | ~10 seconds | days |
+
+(The addendum says "~2,000 active Part 135 charter tails"; the real D085 count
+is 11,066–11,188.)
+
+The failure mode would also be quiet: a mis-OCR'd lien *release* turns a cleared
+title into an active encumbrance, or an active lien into a clean one, with
+nothing downstream to catch it. That argues for treating OCR output as
+provisional even once access exists.
+
+**Meanwhile the current state is honest.** `GAP_TAIL_LIENS` fires on every tail,
+so `legal_title` reads "not assessed" — which is true, and is the correct thing
+to show a broker. Nothing is being overclaimed by leaving this unbuilt.
 
 ### 9.5 Summary
 
