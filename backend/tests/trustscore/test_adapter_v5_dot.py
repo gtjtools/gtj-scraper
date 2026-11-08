@@ -426,3 +426,85 @@ class TestCertificateAnchoredLookups:
             operator, adapter_v5.build_tail_data(tail_number="")
         )
         assert adapter_v5.GAP_NAME_ANCHORED_LOOKUPS in keys
+
+
+class TestD085Churn:
+    """
+    §3 Churn from FAA D085 snapshot diffs.
+
+    fetch_churn returns None rather than zeroes when history is too short. The
+    distinction matters: Churneffective of 0 is a *full* confidence score, so
+    reporting 0 for an operator with one snapshot would read as "verified
+    stable" when the truth is "never measured".
+    """
+
+    def test_build_operator_data_accepts_explicit_zero_churn(self):
+        """
+        An explicit 0 must not trigger the lookup, and must count as measured.
+
+        The parameters default to None so the adapter can tell "caller said
+        nothing" from "caller measured no movement"; passing 0 is the latter.
+        """
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0, fleet_size=5,
+            tails_added_12m=0, tails_removed_12m=0,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        assert operator.tails_added_12m == 0
+        assert operator.tails_removed_12m == 0
+
+    def test_churn_clears_the_gap(self):
+        tail = adapter_v5.build_tail_data(tail_number="")
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0, fleet_size=5,
+            tails_added_12m=1, tails_removed_12m=1,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        assert adapter_v5.GAP_CHURN not in adapter_v5.missing_input_keys(operator, tail)
+
+    def test_absent_churn_keeps_the_gap(self):
+        tail = adapter_v5.build_tail_data(tail_number="")
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0, fleet_size=5,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        assert adapter_v5.GAP_CHURN in adapter_v5.missing_input_keys(operator, tail)
+
+    def test_lookup_skipped_when_disabled(self):
+        """lookup_churn=False must not touch the database."""
+        def explode():
+            raise AssertionError("fetch_churn must not run when lookup_churn=False")
+
+        original = adapter_v5.fetch_churn
+        adapter_v5.fetch_churn = lambda *a, **k: explode()
+        try:
+            operator = adapter_v5.build_operator_data(
+                operator_name="X", certificate_age_years=10.0, fleet_size=5,
+                include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+            )
+            assert operator.tails_added_12m == 0
+        finally:
+            adapter_v5.fetch_churn = original
+
+    def test_none_churn_does_not_crash_the_score(self):
+        """An operator with no snapshot history still scores."""
+        from src.trustscore.calculator_v5 import calculate_trust_score
+
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0, fleet_size=5,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        result = calculate_trust_score(
+            operator, adapter_v5.build_tail_data(tail_number="")
+        )
+        assert result["trust_score"] > 0
+
+    def test_fetch_churn_returns_none_without_a_name(self):
+        assert adapter_v5.fetch_churn("") is None
+
+    def test_fetch_churn_survives_a_dead_database(self):
+        """A lookup failure must narrow the score, never raise."""
+        def broken():
+            raise RuntimeError("connection refused")
+
+        assert adapter_v5.fetch_churn("X", db_session_factory=broken) is None

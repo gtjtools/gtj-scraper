@@ -408,6 +408,230 @@ def fetch_fleet_size(operator_name: str, db_session_factory: Any = None) -> int:
                 pass
 
 
+#: Snapshot source holding the FAA Part 135 D085 authorization table — the
+#: legally authorized fleet, which is what §3 means by Vf. Written weekly by
+#: scripts/ingest_d085.py. Distinct from 'gtj.aircraft', JETNET's view of what
+#: an operator holds.
+D085_SOURCE = "opspecs_d085"
+
+
+def fetch_churn(
+    operator_name: str,
+    months_back: int = 12,
+    db_session_factory: Any = None,
+) -> Optional[Dict[str, int]]:
+    """
+    Trailing D085 fleet churn — TailsAdded, TailsRemoved and BaselineVf (§3).
+
+    Churn is a *differential*, so it cannot be derived from current state: it is
+    the set difference of authorized N-numbers between the newest D085 snapshot
+    and one about `months_back` earlier. gtj.aircraft is updated in place and
+    keeps no history, which is why gtj.fleet_snapshots exists.
+
+    Returns None — not zeroes — when churn cannot be computed, so the caller can
+    distinguish "no movement" from "no history yet". Reporting 0 for both would
+    make an operator with a single snapshot look stable rather than unmeasured,
+    and `Churneffective` of 0 is a full confidence score under §3.
+
+    Baseline selection: the oldest snapshot at or before the `months_back` mark,
+    or the oldest held if history is shorter. A shorter window understates churn
+    rather than inventing it, and `window_days` is returned so the caller can
+    see how much history actually backed the figure.
+
+    Args:
+        operator_name: Operator name as it appears in gtj.operators.
+        months_back: Target window. §3 specifies 12 months.
+        db_session_factory: Callable returning a session; defaults to
+            SessionLocal.
+
+    Returns:
+        {"tails_added", "tails_removed", "baseline_fleet_size", "window_days"},
+        or None when fewer than two D085 snapshots exist for this operator.
+    """
+    if not operator_name:
+        return None
+
+    session = None
+    try:
+        if db_session_factory is None:
+            from src.common.config import SessionLocal
+            db_session_factory = SessionLocal
+
+        from sqlalchemy import text
+
+        session = db_session_factory()
+
+        # Resolve through the certificate's full name array (§8), so an
+        # operator that rebranded still matches its own snapshot history.
+        try:
+            from src.common.entity_resolution import resolve_operator_names
+            names = resolve_operator_names(
+                operator_name, db_session_factory=db_session_factory
+            ) or [normalize_operator_name(operator_name)]
+        except Exception:
+            names = [normalize_operator_name(operator_name)]
+
+        # Resolve to operator_ids in Python rather than matching names in SQL.
+        # `names` are *normalized* ("TRITON AIR"), while gtj.operators holds the
+        # raw name ("Triton Air Llc") and has no normalized column to join on —
+        # unlike dot_enforcement_orders, where the ingestion pipeline stores
+        # one. Comparing the two directly never matches.
+        wanted = set(names)
+        operator_ids = [
+            str(r[0]) for r in session.execute(
+                text("SELECT operator_id, name FROM gtj.operators WHERE name IS NOT NULL")
+            )
+            if normalize_operator_name(r[1]) in wanted
+        ]
+        if not operator_ids:
+            return None
+
+        months = [
+            r[0] for r in session.execute(
+                text("""
+                    SELECT DISTINCT snapshot_month
+                    FROM gtj.fleet_snapshots
+                    WHERE source = :source
+                      AND operator_id = ANY(CAST(:ids AS uuid[]))
+                    ORDER BY snapshot_month DESC
+                """),
+                {"source": D085_SOURCE, "ids": operator_ids},
+            )
+        ]
+
+        if len(months) < 2:
+            return None
+
+        current = months[0]
+        baseline = next(
+            (m for m in months if (current - m).days >= months_back * 28),
+            months[-1],
+        )
+
+        def tails_at(month) -> set:
+            return {
+                r[0] for r in session.execute(
+                    text("""
+                        SELECT tail_number
+                        FROM gtj.fleet_snapshots
+                        WHERE source = :source
+                          AND snapshot_month = :month
+                          AND operator_id = ANY(CAST(:ids AS uuid[]))
+                    """),
+                    {"source": D085_SOURCE, "month": month, "ids": operator_ids},
+                )
+            }
+
+        now_set, then_set = tails_at(current), tails_at(baseline)
+        if not then_set:
+            return None
+
+        return {
+            "tails_added": len(now_set - then_set),
+            "tails_removed": len(then_set - now_set),
+            # §3 divides by the baseline, not the current fleet: an operator
+            # that halved its fleet must be measured against what it had.
+            "baseline_fleet_size": len(then_set),
+            "window_days": (current - baseline).days,
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Churn lookup failed for %s: %s", operator_name, exc)
+        return None
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
+
+
+def fetch_tail_liens(
+    tail_number: str,
+    db_session_factory: Any = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Active lien filings against one N-number — `Lientail` in §4.2.
+
+    Reads gtj.tail_liens, written weekly by scripts/ingest_tail_liens.py from
+    the FAA DOCINDEX index. Only unreleased filings are returned: §4.2 charges
+    unresolved encumbrances, and a lien discharged by a later REL/REP is not
+    one.
+
+    Returns None when the table has never been populated, and [] when it has
+    been populated but holds nothing for this tail. The caller needs that
+    distinction: [] is "looked, found nothing in the window", None is "never
+    looked", and only the first is evidence of anything.
+
+    Note that neither answer clears title. DOCINDEX is a ~180-day rolling
+    window, so a lien recorded years ago and never released is absent from it
+    entirely. GAP_TAIL_LIENS therefore stays raised regardless — see
+    missing_input_keys.
+
+    Args:
+        tail_number: N-number, with or without the leading N.
+        db_session_factory: Callable returning a session; defaults to
+            SessionLocal.
+
+    Returns:
+        Records shaped for `build_tail_data(tail_lien_records=…)`, or None.
+    """
+    if not tail_number:
+        return None
+
+    normalized = str(tail_number).strip().upper()
+    if normalized and not normalized.startswith("N"):
+        normalized = f"N{normalized}"
+
+    session = None
+    try:
+        if db_session_factory is None:
+            from src.common.config import SessionLocal
+            db_session_factory = SessionLocal
+
+        from sqlalchemy import text
+
+        session = db_session_factory()
+
+        # An empty table means the ingest has never run; that is "unknown", not
+        # "no liens", and must not be reported as a clean result.
+        populated = session.execute(
+            text("SELECT EXISTS (SELECT 1 FROM gtj.tail_liens)")
+        ).scalar()
+        if not populated:
+            return None
+
+        rows = session.execute(
+            text("""
+                SELECT doc_type, doc_date, party
+                FROM gtj.tail_liens
+                WHERE tail_number = :tail
+                  AND superseded_by_release = false
+                ORDER BY doc_date DESC NULLS LAST
+            """),
+            {"tail": normalized},
+        ).mappings().all()
+
+        return [
+            {
+                "date": row["doc_date"].isoformat() if row["doc_date"] else None,
+                "reference": f"DOCINDEX {row['doc_type']} {normalized}"
+                             + (f" {row['party']}" if row["party"] else ""),
+            }
+            for row in rows
+        ]
+    except Exception as exc:  # pragma: no cover - defensive
+        # A missing table or an unreachable database must narrow the score,
+        # never fail it.
+        logger.warning("Tail lien lookup failed for %s: %s", tail_number, exc)
+        return None
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
+
+
 def watchdog_to_legal_events(records: List[Dict[str, Any]]) -> List[RiskEvent]:
     """
     Map micro-LLM watchdog/OACP extractions onto §6.3.
@@ -452,8 +676,9 @@ def build_operator_data(
     dot_orders: Optional[List[Any]] = None,
     include_dot_orders: bool = True,
     lookup_fleet_size: bool = True,
-    tails_added_12m: int = 0,
-    tails_removed_12m: int = 0,
+    tails_added_12m: Optional[int] = None,
+    tails_removed_12m: Optional[int] = None,
+    lookup_churn: bool = True,
 ) -> OperatorData:
     """
     Assemble `OperatorData` from whatever the pipelines produced.
@@ -477,7 +702,11 @@ def build_operator_data(
             operator name.
         include_dot_orders: Set False to skip the DOT lookup entirely — useful
             in tests, or wherever a database is not available.
-        tails_added_12m / tails_removed_12m: D085 churn, when available.
+        tails_added_12m / tails_removed_12m: D085 churn. Leave as None to look
+            it up from gtj.fleet_snapshots; pass explicit values (including 0)
+            to skip the lookup.
+        lookup_churn: Set False to skip the churn lookup entirely — useful in
+            tests, or wherever a database is not available.
 
     Returns:
         OperatorData ready for the v5.0 calculator.
@@ -528,6 +757,20 @@ def build_operator_data(
                 "Could not determine §8 anchoring for %s: %s", operator_name, exc
             )
 
+    # §3 Churn, from D085 snapshot diffs. Looked up only when the caller did not
+    # supply figures, so an explicit 0 still means "measured, no movement".
+    #
+    # baseline_fleet_size is taken from the churn window rather than the current
+    # fleet: §3 divides by what the operator had at the start, so using today's
+    # count would understate an operator that has shed aircraft.
+    churn_baseline: Optional[int] = None
+    if lookup_churn and tails_added_12m is None and tails_removed_12m is None:
+        churn = fetch_churn(operator_name)
+        if churn:
+            tails_added_12m = churn["tails_added"]
+            tails_removed_12m = churn["tails_removed"]
+            churn_baseline = churn["baseline_fleet_size"]
+
     return OperatorData(
         certificate_designator=certificate_designator or operator_name,
         operator_name=operator_name,
@@ -535,8 +778,12 @@ def build_operator_data(
         certificate_age_is_estimated=certificate_age_is_estimated,
         lookups_certificate_anchored=lookups_anchored,
         fleet_size=fleet_size,
-        tails_added_12m=tails_added_12m,
-        tails_removed_12m=tails_removed_12m,
+        # None means "never measured"; the calculator's field is an int, so it
+        # becomes 0 — the same no-penalty default as before, and GAP_CHURN still
+        # reports the absence.
+        tails_added_12m=tails_added_12m or 0,
+        tails_removed_12m=tails_removed_12m or 0,
+        baseline_fleet_size=churn_baseline,
         fleet_accident_events=accidents,
         fleet_sdr_events=sdrs,
         latent_risk_events=latent,
@@ -553,6 +800,7 @@ def build_tail_data(
     certificate_tenure_months: float = 999.0,
     tail_events: Optional[List[Dict[str, Any]]] = None,
     tail_lien_records: Optional[List[Dict[str, Any]]] = None,
+    lookup_liens: bool = True,
 ) -> TailData:
     """
     Assemble `TailData` for one airframe.
@@ -602,6 +850,11 @@ def build_tail_data(
         )
 
     accidents, sdrs, _ = split_fleet_events(tail_events or [])
+
+    # §4.2 Lientail, from gtj.tail_liens. Looked up only when the caller did not
+    # supply records, so an explicit [] still means "measured, none found".
+    if lookup_liens and tail_lien_records is None:
+        tail_lien_records = fetch_tail_liens(tail_number)
 
     liens = [
         RiskEvent(
@@ -686,8 +939,17 @@ def missing_input_keys(operator: OperatorData, tail: TailData) -> List[str]:
         keys.append(GAP_TAIL_TENURE)
     if tail.same_type_fleet_count <= 1:
         keys.append(GAP_SAME_TYPE_FLEET)
-    if not tail.tail_lien_events:
-        keys.append(GAP_TAIL_LIENS)
+    # Raised unconditionally, even when liens WERE found.
+    #
+    # DOCINDEX — the only lien source ingested — is a ~180-day rolling suspense
+    # index, so a lien recorded years ago and never released is absent from it
+    # entirely. Finding filings proves encumbrance; finding none proves nothing
+    # about title. Neither outcome licenses a clean legal_title finding, so the
+    # gap stands until FAA CARES (permanent, life-of-airframe) is ingested.
+    #
+    # The found liens still score: they feed ELI through tail_lien_events. This
+    # only governs whether the *category* may read as evidenced.
+    keys.append(GAP_TAIL_LIENS)
     return keys
 
 

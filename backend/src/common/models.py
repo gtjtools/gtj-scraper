@@ -349,10 +349,17 @@ class FleetSnapshot(Base):
   """
   __tablename__ = "fleet_snapshots"
   __table_args__ = (
-    # One row per tail per operator per month. Makes the job idempotent: a
-    # re-run in the same month updates rather than duplicating.
-    UniqueConstraint('operator_id', 'tail_number', 'snapshot_month',
-                     name='uq_fleet_snapshot_operator_tail_month'),
+    # One row per tail per operator per month PER SOURCE. Makes each ingest
+    # idempotent: a re-run in the same month updates rather than duplicating.
+    #
+    # `source` is part of the key (migration 080) because the same tail legally
+    # appears in two sources in one month — JETNET's gtj.aircraft and the FAA
+    # D085 roster. Without it the second job to run would overwrite the first,
+    # so the two could never be compared, and a tail present in JETNET but
+    # absent from D085 — flying without charter authorization — would be
+    # invisible.
+    UniqueConstraint('operator_id', 'tail_number', 'snapshot_month', 'source',
+                     name='uq_fleet_snapshot_operator_tail_month_source'),
     # Churn queries read "all rows for this operator across months", so the
     # composite index matches the access pattern.
     Index('ix_fleet_snapshot_operator_month', 'operator_id', 'snapshot_month'),
@@ -377,6 +384,64 @@ class FleetSnapshot(Base):
   # the JETNET pipeline exists (§7 Pipeline 2). Recorded so a future churn
   # calculation can tell whether two months are comparable.
   source = Column(String(32), nullable=False, server_default="'gtj.aircraft'")
+
+
+class TailLien(Base):
+  """
+  One FAA DOCINDEX encumbrance filing against a specific N-number.
+
+  Makes TrustScore v5.0 `Lientail` (§4.2) computable: without these rows
+  `tail_lien_events` is always empty and no aircraft is ever charged for an
+  active mechanic's or tax lien.
+
+  One row per *filing*, not per tail — §4.2 charges per active encumbrance, so
+  two liens on one airframe is a different finding from one.
+
+  Written by gtj-scraper/backend/scripts/ingest_tail_liens.py. See migration
+  081 for why the natural key excludes DOC-ID (blank on 44% of lien rows) and
+  why exact duplicates are collapsed (DOCINDEX repeats byte-identical rows for
+  one filing indexed against several parties).
+  """
+  __tablename__ = "tail_liens"
+  __table_args__ = (
+    Index('ix_tail_liens_tail_active', 'tail_number', 'superseded_by_release'),
+    Index('ix_tail_liens_serial', 'serial_number', 'mfr_mdl_code'),
+    {'schema': 'gtj'},
+  )
+
+  lien_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+  tail_number = Column(String(10), nullable=False)
+  # Airframe identity, so a filing stays attributable after a re-registration
+  # changes the N-number.
+  serial_number = Column(String(64), nullable=True)
+  mfr_mdl_code = Column(String(16), nullable=True)
+
+  # Verbatim FAA DOC-TYPE, three characters: 'S/A' security conveyance/lien,
+  # 'CSC' ownership with lien, 'REL'/'REP' release/repossession. Not the single
+  # letters ('M', 'T') the v5.0 source document describes — those do not exist
+  # in this file, and the FAA index does not separate mechanic's from tax liens.
+  doc_type = Column(String(8), nullable=False)
+  # DRDATE, the date of receipt. DOCINDEX carries no DOC-DATE column.
+  doc_date = Column(Date, nullable=True)
+  party = Column(String(255), nullable=True)
+  doc_id = Column(String(32), nullable=True)
+
+  # True once a later REL/REP discharges this filing. §4.2 scores only
+  # unresolved encumbrances, so scoring reads `superseded_by_release = false`;
+  # the row is kept rather than deleted so the filed-then-released sequence
+  # stays reconstructable.
+  superseded_by_release = Column(Boolean, nullable=False, server_default="false")
+
+  # How far the DOCINDEX observation extends. The index is a ~180-day rolling
+  # window, so the absence of rows before this date is NOT evidence of clear
+  # title — it is the limit of what was looked at.
+  observed_in_window_until = Column(Date, nullable=True)
+
+  source = Column(String(48), nullable=False, server_default="'faa_docindex'")
+  first_seen = Column(Date, nullable=False)
+  last_seen = Column(Date, nullable=False)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
 
 
 class TrustScore(Base):
