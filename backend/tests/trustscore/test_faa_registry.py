@@ -217,3 +217,52 @@ class TestLienLookupSafety:
             assert tail.tail_lien_events == []
         finally:
             adapter_v5.fetch_tail_liens = original
+
+
+class TestOneFilingPerLienNotPerParty:
+    """
+    DOCINDEX indexes one filing once per party to it, so a single lien arrives
+    as several rows — lender, owning LLC, sometimes individuals. Keying on party
+    turned one encumbrance into three §4.2 charges; migration 082 re-keyed on
+    DOC-ID. These pin the shape so the regression cannot return.
+    """
+
+    def _rows(self, *parties, doc_id="ARE016569016"):
+        return [
+            reg.DocIndexRecord("N1029B", "1", p, doc_id, "S/A", date(2025, 1, 13))
+            for p in parties
+        ]
+
+    def test_same_filing_many_parties_is_one_key(self):
+        records = self._rows(
+            "BANTERRA BANK", "STONEWALL AVIATION LLC", "WANZOR CHRISTOPHER DEVIN"
+        )
+        keys = {(r.tail_number, r.doc_type, r.doc_date, r.doc_id or "") for r in records}
+        assert len(keys) == 1, "three parties to one lien must collapse to one filing"
+
+    def test_party_in_the_key_would_have_charged_three_times(self):
+        """Documents the defect 082 fixed, so nobody reintroduces it."""
+        records = self._rows(
+            "BANTERRA BANK", "STONEWALL AVIATION LLC", "WANZOR CHRISTOPHER DEVIN"
+        )
+        by_party = {(r.tail_number, r.doc_type, r.doc_date, r.party) for r in records}
+        assert len(by_party) == 3
+
+    def test_distinct_doc_ids_stay_distinct(self):
+        """Two real liens on one tail must not be collapsed together."""
+        records = (
+            self._rows("BANK A", doc_id="ARE000000001")
+            + self._rows("BANK B", doc_id="ARE000000002")
+        )
+        keys = {(r.tail_number, r.doc_type, r.doc_date, r.doc_id or "") for r in records}
+        assert len(keys) == 2
+
+    def test_blank_doc_id_collapses_to_tail_type_date(self):
+        """
+        DOC-ID is blank on 44% of rows. Blanks fall back to (tail, type, date),
+        which risks merging two genuinely distinct same-day liens — an
+        under-charge of one, chosen over multiplying one lien by its party count.
+        """
+        records = self._rows("PROGRESSIVE BANK", "AERIS HOLDINGS LLC", doc_id="")
+        keys = {(r.tail_number, r.doc_type, r.doc_date, r.doc_id or "") for r in records}
+        assert len(keys) == 1

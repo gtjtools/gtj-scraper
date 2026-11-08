@@ -173,30 +173,40 @@ def ingest(db, archive: Path, dry_run: bool) -> Dict[str, int]:
             latest and record.doc_date and record.doc_date <= latest
         )
 
-    # Collapse exact duplicates before the upsert. DOCINDEX repeats
-    # byte-identical rows — one filing indexed against several parties, or the
-    # same (tail, type, date, party) twice with nothing to tell them apart —
-    # and 144 of 2,145 distinct lien keys in the 2025-01 archive do this.
+    # One filing per (tail, type, date, DOC-ID) — deliberately NOT per party.
     #
-    # Postgres rejects a single INSERT ... ON CONFLICT whose own VALUES contain
-    # the same constrained key twice ("cannot affect row a second time"), so
-    # this is required for the statement to run at all. It is also correct:
-    # two identical filings are one encumbrance, and keeping both would double
-    # the §4.2 charge.
+    # DOCINDEX indexes one filing once per party to it, so a single lien arrives
+    # as a row for the lender, one for the owning LLC, and sometimes one per
+    # individual:
     #
-    # `superseded` is OR-ed across the duplicates: if any copy is discharged,
-    # the encumbrance is discharged.
+    #     N1029B  S/A  2025-01-13  ARE016569016  BANTERRA BANK
+    #     N1029B  S/A  2025-01-13  ARE016569016  STONEWALL AVIATION LLC
+    #     N1029B  S/A  2025-01-13  ARE016569016  WANZOR CHRISTOPHER DEVIN
+    #
+    # That is one encumbrance. Keying on party made it three, and therefore
+    # three §4.2 charges — 2,145 keys for 878 real filings across the 2025-01
+    # archive. See migration 082.
+    #
+    # DOC-ID is blank on 44% of rows, so blanks collapse to (tail, type, date).
+    # Verified on the archive: 419 of 422 such groups hold several rows with the
+    # same lender/owner pattern, so collapsing is right. The residual risk is
+    # two genuinely distinct same-day liens with no DOC-ID on either, which
+    # under-charges by one — safer than multiplying one lien by its party count.
+    #
+    # Postgres also rejects an INSERT ... ON CONFLICT whose own VALUES repeat a
+    # constrained key, so this is required for the statement to run at all.
+    #
+    # `superseded` is OR-ed across the collapsed rows: if any copy is
+    # discharged, the encumbrance is discharged.
     deduped: Dict[tuple, object] = {}
     for record in liens:
-        key = (record.tail_number, record.doc_type, record.doc_date, record.party)
+        key = (record.tail_number, record.doc_type, record.doc_date,
+               record.doc_id or "")
         existing = deduped.get(key)
         if existing is None:
             deduped[key] = record
         else:
             existing._superseded = existing._superseded or record._superseded
-            # Prefer a populated DOC-ID; it is blank on 44% of rows.
-            if not existing.doc_id and record.doc_id:
-                existing.doc_id = record.doc_id
     collapsed = len(liens) - len(deduped)
     liens = list(deduped.values())
 
@@ -248,7 +258,7 @@ def ingest(db, archive: Path, dry_run: bool) -> Dict[str, int]:
             VALUES {', '.join(values)}
             ON CONFLICT (tail_number, doc_type,
                          COALESCE(doc_date, DATE '1900-01-01'),
-                         COALESCE(party, ''))
+                         COALESCE(doc_id, ''))
             DO UPDATE SET
                 -- A release seen in a later run must be able to flip this on,
                 -- but never back off: a discharged lien stays discharged.
