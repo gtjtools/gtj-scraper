@@ -1,0 +1,277 @@
+================================================================================
+TRUSTJET TRUSTSCORE — WHERE THE DATA STANDS
+Plain-language status report                                9 November 2026
+================================================================================
+
+WHAT THIS DOCUMENT IS
+
+A non-technical companion to backend/docs/TRUSTSCORE_DATA_SOURCES.md. It
+answers three questions: what the TrustScore can tell a broker today, what it
+cannot yet see, and which of those gaps need a decision from the business
+rather than more engineering.
+
+Every number here was read from the live database on 9 November 2026.
+
+
+================================================================================
+1.  THE SHORT VERSION
+================================================================================
+
+The scoring algorithm is complete and running. All 1,839 operators have a
+score. Six public data sources feed it, and four of the six risk categories a
+broker sees are now backed by real evidence.
+
+Two categories cannot be fully assessed, and in both cases the obstacle is
+access to an FAA system rather than unfinished work on our side. We have
+confirmed this from two independent networks, so it is not a configuration
+problem we can engineer around.
+
+One further input — the age of an operator's charter certificate — is an
+acknowledged estimate. Both routes to a real figure have been tested and
+neither works.
+
+Nothing in the system currently overstates an operator. Where we cannot see
+something, the report says so.
+
+
+================================================================================
+2.  WHAT THE SCORE IS BUILT FROM TODAY
+================================================================================
+
+  Source                     What it tells us              Status
+  ------------------------------------------------------------------------
+  FAA accident records       Crashes and serious            Live
+  (NTSB)                     incidents
+
+  FAA enforcement actions    Regulatory penalties           Live
+                             against the operator
+
+  US DOT legal orders        Consumer-protection and        Live
+                             contract findings
+
+  FAA mechanical reports     Component failures and         Live
+  (SDRS)                     emergency procedures
+
+  FAA Part 135 roster        Which aircraft an operator     Live
+  (weekly)                   is legally allowed to fly
+                             for hire
+
+  FAA aircraft registry      Loans and liens recorded       Live
+  (daily)                    against a specific aircraft
+
+
+  Currently held in the database
+  ------------------------------------------------------------------------
+  Operators scored                                        1,839
+  Aircraft tracked                                       11,167
+  Aircraft legally authorised for charter                11,188
+  Charter certificates covered                            1,663
+  Accident records                                           247
+  DOT enforcement orders                                     677
+  Aircraft with an active lien                               175
+  Trading names resolved to a certificate                  1,914
+
+
+================================================================================
+3.  ONE THING WORTH KNOWING: TRADING NAMES
+================================================================================
+
+An operator that rebrands used to lose its entire history. Accident and
+enforcement records are filed under whatever name the company used at the
+time, so searching only the current name returned nothing and the operator
+scored as though it had a clean record.
+
+We now resolve every operator to all 1,914 names its certificate has traded
+under, in both directions. Searching finds the history regardless of renaming.
+
+This was not a theoretical risk. One operator scored 98.93 out of 100 — the
+top tier — purely because nothing matched its current name.
+
+
+================================================================================
+4.  WHAT THE SCORE CANNOT YET SEE
+================================================================================
+
+4.1  AIRCRAFT OWNERSHIP AND TITLE  —  needs FAA access
+
+  A broker wants to know whether an aircraft has clean title: no outstanding
+  loans, no mechanic's liens, no history of being shuffled between shell
+  companies.
+
+  We can see part of this. The FAA publishes a rolling index of documents
+  filed in roughly the last 180 days, and we read it — 99 active loans or
+  liens across 175 aircraft.
+
+  What we cannot see is anything older. A lien recorded three years ago and
+  never released simply does not appear in that index. So finding nothing
+  proves nothing, and the report correctly shows this category as
+  "not assessed" rather than "clear".
+
+  The permanent record exists, in an FAA system called CARES. It holds every
+  bill of sale, loan and lien release for an aircraft since it was built.
+
+  WE CANNOT REACH IT. The system refuses our requests, from the production
+  server and from a developer machine on a different network. This is not a
+  firewall or routing issue we can work around — the FAA appears to require
+  registered access.
+
+  >> DECISION NEEDED: obtain FAA registered access to CARES, or accept that
+     title verification stays incomplete. This is a procurement question, not
+     an engineering one.
+
+
+4.2  FLEET STABILITY  —  needs time, and the weekly job to keep running
+
+  Rapid fleet turnover is a recognised warning sign: an operator shedding or
+  absorbing aircraft quickly may be in trouble. Measuring it means comparing
+  today's fleet against the same fleet twelve months ago.
+
+  The measurement is built and working. What we lack is history. We began
+  recording fleet composition recently and currently hold 31 days.
+
+  We cannot backfill this. The FAA overwrites its weekly file, and the
+  Internet Archive — which we checked, expecting a few years of snapshots —
+  holds exactly ONE historical copy. So the only way to get this data is to
+  keep collecting it.
+
+  Usable signal: around MAY 2027.
+  Full twelve-month measure: around NOVEMBER 2027.
+
+  >> ACTION: a weekly automated job must run without interruption. Every week
+     missed pushes those dates back, and the data cannot be recovered later.
+
+
+4.3  CERTIFICATE AGE  —  an acknowledged estimate
+
+  How long an operator has held its charter certificate affects its score: a
+  thirty-year-old operation is treated differently from a six-month-old one.
+
+  We do not have this date. The FAA's published roster does not include it.
+
+  Two substitutes were tested and both failed:
+
+    - Business registration date. Available for about half of operators, and
+      it measures something different — when the company was formed, not when
+      it was certified to fly charters.
+
+    - Aircraft registration dates from the FAA registry. Looked promising at
+      98% coverage, but it agreed with the other source only 16% of the time,
+      with disagreements running equally in both directions. The reason is
+      structural: that date resets whenever an aircraft is sold, so it
+      measures recent purchases, not operator history.
+
+  The one system that holds the real date, FAA AVInfo, is unreachable for the
+  same reason as CARES above.
+
+  Current behaviour: where the date is unknown we assume ten years and FLAG
+  THE SCORE AS BASED ON AN ESTIMATE. The assumption is close to the real
+  median we measured (10.7 years), so it is reasonable on average — but it is
+  not evidence for any individual operator.
+
+  >> DECISION NEEDED: request certificate issue dates directly from the FAA
+     office that publishes the roster, or accept the flagged estimate. We
+     recommend accepting it; the uncertainty is disclosed, not hidden.
+
+
+4.4  TWO SMALLER GAPS
+
+  Minor safety occurrences. Runway excursions, gear problems and bird strikes
+  that never reach a formal accident report are not currently collected. A
+  public database exists; this is straightforward work, not blocked.
+
+  Industry watchdog reports. Commercial services publish operator complaint
+  and dispute data that would strengthen the commercial-integrity assessment.
+
+  >> DECISION NEEDED: whether to license watchdog data. This is a cost and
+     terms-of-service question.
+
+
+================================================================================
+5.  HOW WE HANDLE WHAT WE CANNOT SEE
+================================================================================
+
+Each operator report carries six categories, colour-coded:
+
+  GREEN    checked, nothing adverse found
+  YELLOW   something found, but not severe or not recent
+  RED      serious and current
+  GREY     NOT ASSESSED — we could not check this properly
+
+The grey state matters more than it sounds. Without it, "we found nothing"
+and "we could not look" produce the same clean-looking report, and the second
+is misleading. Any category resting on a source we could not query is marked
+grey rather than green.
+
+Two deliberate consequences:
+
+  - Aircraft title stays grey even when we DO find liens, because the index
+    we read cannot prove the absence of older ones.
+
+  - Fleet stability stays grey until enough history accumulates.
+
+We also corrected a related problem. An operator with a 1988 accident was
+showing RED on flight safety — reading to a broker as a current hazard —
+while the score itself had correctly discounted a 38-year-old event to
+almost nothing. Flags now age at the same rate as the score. The accident is
+still disclosed in the written report; it is no longer presented as current.
+
+
+================================================================================
+6.  WHAT WE RECOMMEND
+================================================================================
+
+  Now, no decision required
+  ------------------------------------------------------------------------
+  1  Re-score all 1,839 operators. Current scores predate the lien data and
+     several corrections, so they are out of date. Roughly two days of
+     unattended processing.
+
+  2  Confirm the weekly FAA collection jobs are scheduled and monitored.
+     This is the only gap that gets worse if ignored.
+
+  Needs a business decision
+  ------------------------------------------------------------------------
+  3  FAA registered access for CARES and AVInfo. Would complete title
+     verification and remove the certificate-age estimate. Procurement, not
+     engineering — no amount of development substitutes for it.
+
+  4  Industry watchdog data licensing. Cost and terms question.
+
+  Straightforward engineering, not blocked
+  ------------------------------------------------------------------------
+  5  Minor safety occurrence collection.
+
+
+================================================================================
+7.  THE HONEST SUMMARY
+================================================================================
+
+The TrustScore is built on six live public data sources and produces a
+defensible score for every operator in the database. Four of six risk
+categories are evidenced.
+
+The two that are not are limited by access to FAA systems, which we have
+verified from two networks. We have not worked around this and do not believe
+it can be worked around with development effort.
+
+Where the system cannot see something it says so, rather than implying a
+clean result. That is the single most important property to preserve: a score
+that overstates an operator is worse than one that admits uncertainty.
+
+--------------------------------------------------------------------------------
+Technical detail, measurements and source references:
+backend/docs/TRUSTSCORE_DATA_SOURCES.md
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+REGENERATING THE PDF
+
+  cd backend/docs
+  cupsfilter -o cpi=12 -o lpi=7 -o page-left=54 -o page-right=54 \
+             -o page-top=54 -o page-bottom=54 \
+             TRUSTSCORE_STATUS.txt > TRUSTSCORE_STATUS.pdf
+
+cupsfilter ships with macOS. The project venv has no PDF library and pip
+installs are unavailable in this environment, which is why this is a
+fixed-width text document rather than a designed one. Keep lines at or under
+80 characters or they will wrap awkwardly at 12 cpi.
