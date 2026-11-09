@@ -670,16 +670,28 @@ def fetch_tail_liens(
             {"tail": normalized},
         ).mappings().all()
 
-        return [
-            {
+        # Who filed matters: a bank recording a loan is routine, while a
+        # maintenance shop or fuel supplier files with the Registry only when
+        # unpaid. Annotated rather than scored — §4.2 charges every active
+        # encumbrance equally, and this classification is UNKNOWN for ~64% of
+        # real parties, so it informs the narrative without moving a number.
+        from src.common.lien_classification import classify_party, UNKNOWN
+
+        out = []
+        for row in rows:
+            kind = classify_party(row["party"])
+            reference = f"DOCINDEX {row['doc_type']} {normalized}"
+            if row["party"]:
+                reference += f" {row['party']}"
+            if row["documents"] > 1:
+                reference += f" ({row['documents']} documents)"
+            if kind != UNKNOWN:
+                reference += f" [{kind.lower()}]"
+            out.append({
                 "date": row["doc_date"].isoformat() if row["doc_date"] else None,
-                "reference": f"DOCINDEX {row['doc_type']} {normalized}"
-                             + (f" {row['party']}" if row["party"] else "")
-                             + (f" ({row['documents']} documents)"
-                                if row["documents"] > 1 else ""),
-            }
-            for row in rows
-        ]
+                "reference": reference,
+            })
+        return out
     except Exception as exc:  # pragma: no cover - defensive
         # A missing table or an unreachable database must narrow the score,
         # never fail it.
