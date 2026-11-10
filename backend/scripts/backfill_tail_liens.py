@@ -373,12 +373,19 @@ def main() -> int:
             print(f"    {discharged:,} lien(s) marked released")
 
             after = db.execute(text("SELECT COUNT(*) FROM gtj.tail_liens")).scalar()
+            # Must exclude REL/REP: the table stores releases so cross-window
+            # discharges can be matched, but a release is not an encumbrance.
+            # Without this filter the summary counted them and reported 419
+            # where the real figure was 209.
             active = db.execute(text("""
                 SELECT COUNT(DISTINCT (doc_type, doc_date, party))
-                FROM gtj.tail_liens WHERE superseded_by_release = false
+                FROM gtj.tail_liens
+                WHERE superseded_by_release = false
+                  AND doc_type IN ('S/A', 'CSC')
             """)).scalar()
             span = db.execute(text("""
                 SELECT MIN(doc_date), MAX(doc_date) FROM gtj.tail_liens
+                WHERE doc_type IN ('S/A', 'CSC')
             """)).first()
 
             print(f"\n{'=' * 72}")
