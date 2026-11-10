@@ -17,18 +17,33 @@ today, and how the scraping actually works.
 
 ## 1. Status at a glance
 
-| # | Source | Populates | Status |
-|---|--------|-----------|--------|
-| 1 | FAA Part 135 roster | DBA array, `V_F` | **Implemented** — `scripts/ingest_part135.py`; 1,914 names across 1,870 certificates. Does **not** yield `Age_cert` (no issue date in the file). |
-| 2 | OpSpecs D085 | `V_F`, `Churn_Fleet` | **Implemented, not yet usable.** `scripts/ingest_d085.py` ingests the FAA's public weekly Part 135 table — 11,188 authorized tails across 1,663 operators — so JETNET is not needed. `Churn_Fleet` is wired but **withheld**: only 31 days of history exists and `fetch_churn` refuses a window under 180 days (§9.1). |
-| 3 | FAA Aircraft Registry | `MR_T`, `OS_T`, `ELI` | **Mostly implemented.** `MR_T`/`OS_T` from `gtj.aircraft`. `Lientail` now live — `src/common/faa_registry.py` parses MASTER/DOCINDEX/DEREG; 99 active encumbrances across 240 tails. Title-transfer velocity is **not** obtainable this way (§9.2). |
-| 4a | NTSB CAROL | `ORF_True`, `IH_T` | **Implemented** — returns real accidents; searches every DBA name. |
-| 4b | FAA AIDS | `ORF_True`, `IH_T` | **Not implemented** |
-| 5 | ASN Wikibase | `L_Risk` | **Not implemented** — `Lrisk` is 0 for every operator |
-| 6 | FAA SDRS | `SDR_Penalty` | **Implemented** — severities aligned to §6.2; pooled into `ORF_True` rather than its own term (see §6.6) |
-| 7 | B2B Watchdogs | `ELI` | **Skipped** — ToS/licensing decision pending (§5) |
-| 8 | DOT OACP | `ELI` | **Implemented end-to-end** — 675 orders; searches every DBA name |
-| 9 | First-party telemetry | `Bespenalty`, `FFR` | **Out of scope** (the specification defers it) |
+How to read the **Access** column:
+
+- **Public scrape** — a free, unauthenticated download or page. No contract.
+- **Public, blocked** — public by policy, but the host refuses our requests.
+  Needs FAA registered access, not an engineering fix.
+- **Commercial** — a paid subscription or licence is required.
+- **Untested** — not probed from the production server; status unknown.
+
+No source in this table is behind a paid API *that we need*. JETNET was the one
+commercial dependency the specification assumed, and the D085 ingest replaced it
+(source 2). The two genuinely blocked items are free-but-gated FAA systems, and
+the one commercial item (source 7) is optional.
+
+| # | Source | Populates | Access | Status |
+|---|--------|-----------|--------|--------|
+| 1 | FAA Part 135 roster | DBA array, `V_F` | Public scrape | **Implemented** — `scripts/ingest_part135.py`; 1,914 names across 1,870 certificates. Does **not** yield `Age_cert` (no issue date in the file). |
+| 2 | OpSpecs D085 | `V_F`, `Churn_Fleet` | Public scrape — **replaces JETNET** | **Implemented, not yet usable.** `scripts/ingest_d085.py` ingests the FAA's public weekly Part 135 table — 11,188 authorized tails across 1,663 operators — so JETNET is not needed. `Churn_Fleet` is wired but **withheld**: only 31 days of history exists and `fetch_churn` refuses a window under 180 days (§9.1). |
+| 3 | FAA Aircraft Registry | `MR_T`, `OS_T`, `ELI` | Public scrape | **Mostly implemented.** `MR_T`/`OS_T` from `gtj.aircraft`. `Lientail` live and backfilled — **524 active encumbrances across 482 tails**, 2.2 years of history (§9.3, §9.7). Title-transfer velocity is **not** obtainable this way (§9.2). Reachable from the production server only. |
+| 4a | NTSB CAROL | `ORF_True`, `IH_T` | Public scrape | **Implemented** — returns real accidents; searches every DBA name. |
+| 4b | FAA AIDS | `ORF_True`, `IH_T` | Public, **untested** | **Not implemented.** No subscription known to be required — AIDS is a public FAA incident database. Returns 403 from the developer machine, but so does `registry.faa.gov`, which the server reaches; **probe from the server before assuming it is blocked**. |
+| 5 | ASN Wikibase | `L_Risk` | Public, **untested** | **Not implemented** — `Lrisk` is 0 for every operator. Free to read; no subscription. Returns 403 here (Cloudflare), untested from the server. Needs scraping plus LLM extraction, not a contract. |
+| 6 | FAA SDRS | `SDR_Penalty` | Public scrape | **Implemented** — severities aligned to §6.2; pooled into `ORF_True` rather than its own term (see §6.6) |
+| 7 | B2B Watchdogs | `ELI` | **Commercial** | **Skipped** — the only source here needing a paid licence. A cost and terms-of-service decision, not an engineering one (§5). |
+| 8 | DOT OACP | `ELI` | Public scrape | **Implemented end-to-end** — 675 orders; searches every DBA name |
+| 9 | First-party telemetry | `Bespenalty`, `FFR` | Internal | **Out of scope** (the specification defers it) |
+| — | FAA CARES | permanent lien/title record | **Public, blocked** | **Not implemented.** Free by policy; HTTP 403 from the production server *and* the developer machine. Needs FAA registered access — procurement, not engineering. Largely worked around (§9.7). |
+| — | FAA AVInfo | `Age_cert` | **Public, blocked** | **Not implemented.** Free by policy; HTTP 503 from the production server too. The only source holding certificate issuance dates, so `Age_cert` stays an acknowledged estimate (§1a). |
 
 ### Also implemented, beyond the source list
 
@@ -136,9 +151,11 @@ one wrong number for another.
 
 ### Significant
 
-**`Lientail` / DOCINDEX — implemented; title still cannot be cleared.**
-`scripts/ingest_tail_liens.py` ingests DOCINDEX weekly: **99 active encumbrances
-across 240 tails**, charged one per financing rather than per document (§9.3).
+**`Lientail` / DOCINDEX — implemented and backfilled; title still cannot be
+cleared.** Weekly ingest plus a 7-capture archive backfill: **524 active
+encumbrances across 482 tails**, 2.2 years of history, charged one per financing
+rather than per document (§9.3, §9.7). **235 of 1,841 operators** own a liened
+charter tail.
 
 Legal & Title Clearness nonetheless stays `GREY` on every report, by design.
 DOCINDEX is a ~180-day rolling suspense index, so an unreleased lien from three
@@ -704,8 +721,28 @@ exists on the live page: the only `.zip` link is the current
 ### 9.3 Legal & Title via DOCINDEX — **implemented**
 
 `scripts/ingest_tail_liens.py`, weekly, into `gtj.tail_liens` (migrations 081
-and 082). Current state: **303 filings, 240 tails, 99 active encumbrances**,
-observation reaching back to 2026-05-12.
+and 082), plus `scripts/backfill_tail_liens.py` for history (§9.7).
+
+**Current state, 10 November 2026:**
+
+| | |
+|---|---|
+| Rows stored | **1,358** |
+| ├ lien filings (`S/A`, `CSC`) | 813 |
+| ├ release filings (`REL`, `REP`) | 545 |
+| └ liens discharged by a release | 210 |
+| **Active encumbrances** (what §4.2 charges) | **524** |
+| Tails with an active encumbrance | **482** |
+| Lien history span | **2024-09-03 … 2026-11-05** |
+| Operators owning a liened charter tail | **235** of 1,841 |
+
+Encumbrances are counted **per tail and summed**, never `DISTINCT` across the
+table. A global distinct collapses across tails — a fleet financier lending on
+40 aircraft on one day shares the `(doc_type, doc_date, party)` tuple, so 40
+encumbrances counted as 1, and the reports said 209 where §4.2 charges 524.
+`adapter_v5.fetch_tail_liens` filters by tail first and was always right; only
+the reporting undercounted, by 2.5x, understating exactly the multi-aircraft
+financings that matter most.
 
 **The addendum's DOC-TYPE codes are wrong.** It describes single letters — `'M'`
 mechanic's, `'T'` tax. The real codes are three characters, per `ardata.pdf`
@@ -758,7 +795,7 @@ proves nothing about title. Without this, ingesting liens would have flipped
 `legal_title` from GREY to GREEN for ~11,000 tails on the strength of a 180-day
 lookback.
 
-### 9.4 FAA CARES — **not implemented**
+### 9.4 FAA CARES — **blocked; largely worked around (see §9.7)**
 
 `cares.faa.gov` holds the permanent life-of-airframe packets: every Bill of
 Sale, Security Agreement, mechanic's lien and release since manufacture. It is
@@ -795,9 +832,16 @@ title into an active encumbrance, or an active lien into a clean one, with
 nothing downstream to catch it. That argues for treating OCR output as
 provisional even once access exists.
 
-**Meanwhile the current state is honest.** `GAP_TAIL_LIENS` fires on every tail,
-so `legal_title` reads "not assessed" — which is true, and is the correct thing
-to show a broker. Nothing is being overclaimed by leaving this unbuilt.
+**Most of what CARES was wanted for is now obtained without it** — see §9.7.
+Archived DOCINDEX snapshots give 2.2 years of lien history rather than a
+180-day window, and party classification distinguishes a routine bank loan
+from a maintenance shop's unpaid-bill claim. What CARES alone can still do is
+prove the *absence* of an encumbrance, because it is the permanent record.
+
+**The current state is honest.** `GAP_TAIL_LIENS` fires on every tail, so
+`legal_title` reads "not assessed" — which remains true even with 2.2 years of
+history, because a lien filed before our earliest capture and never released is
+still invisible. Nothing is overclaimed.
 
 ### 9.5 Summary of the addendum items
 
@@ -806,14 +850,17 @@ to show a broker. Nothing is being overclaimed by leaving this unbuilt.
 | Weekly Part 135 D085 ingest | **Implemented** — 11,188 tails |
 | Group by designator for `V_F` / `S_current` | **Implemented** |
 | Rolling churn diff | **Implemented**, output withheld until ≥180 days of history |
-| Wayback backfill for churn | **Not possible** — 1 capture exists, not "dozens" |
+| Wayback backfill for churn | **Not possible** — 1 capture of the Part 135 `.xlsx` exists, not "dozens" |
+| Wayback backfill for *liens* | **Implemented** (§9.7.1) — 67 captures of the registry zip; 7 ingested, history 206 days → 2.2 years |
+| Party classification (CARES workaround) | **Implemented** (§9.7.2) — 25% financier / 11% distress / 64% unknown; annotates, never scores |
+| Release inference from repeated parties | **Not needed** (§9.7.3) — the FAA files an explicit REL/REP doc_type |
 | AVInfo backup portal | **Unreachable** — HTTP 503 |
-| DOCINDEX lien parsing | **Implemented** — 99 active encumbrances |
+| DOCINDEX lien parsing | **Implemented** — 524 active encumbrances across 482 tails |
 | FAA yearly registry archives | **Do not exist** on the live page; HTTP 403 |
 | MASTER/DEREG serial match for prior owners | **Does not work** — serial is not a key; DEREG holds dead registrations |
 | MASTER snapshot diffs for title velocity | **Not implemented** — needs accrued history |
 | `DEREG.txt` for prior N-numbers | **Not usable** for currently-flying tails |
-| FAA CARES packets | **Blocked** — HTTP 403 from the server too; registered access needed (§9.6) |
+| FAA CARES packets | **Blocked**, but largely worked around (§9.4, §9.7). Still the only way to prove absence of a lien. |
 | AVInfo for `Age_cert` (not in the addendum, but the same obstacle) | **Blocked** — HTTP 503 from the server too (§9.6) |
 
 ### 9.6 FAA host reachability — the shared obstacle behind two dead ends
@@ -832,12 +879,18 @@ the server column is from runs on the production host.
 | `cares.faa.gov` | `23.198.132.191` | 403 | **403** | permanent title packets |
 | `av-info.faa.gov` | `23.198.132.191` | 503 | **503** | certificate issue dates |
 
-The pattern is the informative part. Three hostnames share one IP, and the
-server reaches exactly one of them. So this is **not** an IP-level or
-geographic block that a proxy, a different egress or a headless browser would
-route around — those would fail or succeed uniformly. Per-hostname rules at the
-Akamai edge, with `registry` open and `cares`/`av-info` closed, is what
-registered-access-only services look like.
+The informative part is that the **production server reaches `registry.faa.gov`
+but not `cares` or `av-info`**. Those two refuse it while a third FAA host on
+the same CDN serves it normally, which rules out a simple egress or geographic
+block — that would fail uniformly.
+
+A caveat on an earlier version of this note: it argued the three hostnames
+"share one IP" and inferred per-hostname edge rules from that. The IPs are
+Akamai-assigned and **rotate** — re-checked 2026-11-10, `registry.faa.gov`
+resolved to a different address than when first measured, and the four hosts no
+longer share one. The shared-IP observation was a coincidence of timing and
+should not be relied on. What stands is the reproducible behaviour: two hosts
+refuse the server, one serves it.
 
 **Consequence: neither gap is an engineering problem.**
 
@@ -859,3 +912,132 @@ every few months.
 Worth re-testing only if the FAA announces a change, or if someone obtains
 credentials — in which case §9.4's effort estimate (OCR over ~11,000 scanned
 packets, with mis-read lien releases failing silently) still applies.
+
+### 9.7 The CARES workaround — **implemented**
+
+CARES is unreachable (§9.4, §9.6). A proposed workaround argued that in most
+cases the scanned PDF is unnecessary: the nature and resolution of a filing can
+be inferred from the unauthenticated daily bulk download. Two of its three
+parts were built; the third was already handled better. Each claim was measured
+against real archives before any code was written.
+
+#### 9.7.1 Lien history backfill — `scripts/backfill_tail_liens.py`
+
+**Outcome: 7 captures, 0 failures. Lien history from 206 days to 2.2 years.**
+
+| | Before | After |
+|---|---|---|
+| Rows in `gtj.tail_liens` | 303 | **1,358** |
+| Lien filings | 303 | **813** |
+| Release filings | 0 | **545** |
+| Liens discharged | 81 | **210** |
+| Active encumbrances | 128 | **524** |
+| Tails with an active encumbrance | 91 | **482** |
+| Tails appearing at all | 240 | **939** |
+
+Captures ingested, each ~72 MB, newest window last:
+
+```
+2024-09-26   window 2022-02-15 .. 2024-09-25   198 filings ->  169 stored
+2025-02-02   window 2024-07-09 .. 2025-01-31   345 filings ->  273 stored
+2025-07-15   window 2025-01-16 .. 2025-07-14   134 filings ->   92 stored
+2025-10-21   window 2025-04-17 .. 2025-10-20   187 filings ->  129 stored
+2026-02-27   window 2025-09-09 .. 2026-02-25   162 filings ->  136 stored
+2026-05-28   window 2024-12-23 .. 2026-05-27   405 filings ->  270 stored
+2026-09-14   window 2026-03-26 .. 2026-09-11   148 filings ->   91 stored
+```
+
+**I had previously documented Wayback coverage as "sparse and gapped". That was
+wrong, and the error was mine:** the CDX query used
+`collapse=timestamp:4`, which compresses to one capture per *year*. Real
+coverage is **67 captures since 2023**, dense through 2026. The earlier
+conclusion that churn and lien history could not be backfilled was therefore
+half wrong — churn genuinely cannot (one capture of the Part 135 `.xlsx`
+exists), but the registry zip can.
+
+Measured window length is **206 days**, so the addendum's 90-day sampling does
+guarantee overlapping coverage. `--every-days 90` selects 7 captures (~0.5 GB)
+rather than all 67 (~4.4 GB).
+
+Proven additive rather than redundant: the January-2025 and May-2026 captures
+share **zero** filings — 5,803 rows exist only in the first, 2,279 only in the
+second. Each archived window is a disjoint slice of history.
+
+**Releases must be stored, not merely counted.** The first run reported
+`0 lien(s) marked released` across 537 rows, which did not add up. Both ingests
+were filtering to lien types before writing, so `REL`/`REP` rows were read,
+used for in-memory netting, then discarded — one archive alone carried 335
+Part 135 release filings. That left cross-window reconciliation with nothing to
+join against: a release landing in a different capture from its lien would
+leave a discharged encumbrance marked active forever. After the fix, **129
+liens were discharged by cross-window reconciliation** — precisely the case
+in-memory netting cannot reach. `N102JE` and `N141SH` now correctly report zero
+encumbrances.
+
+Three read paths had to exclude release rows so a release is never charged as
+an encumbrance: `fetch_tail_liens` and both report queries.
+
+#### 9.7.2 Party classification — `src/common/lien_classification.py`
+
+The insight is sound: a bank recording a loan is routine, while a maintenance
+shop, FBO or tax authority files with the Registry essentially only when
+unpaid. `WORLD FUEL SERVICES INC` filed **37 of 345** Part 135 lien filings in
+the January-2025 archive — the second most prolific party — which is a
+liquidity signal a bank lien is not.
+
+**But it is a confidence signal, not a verdict.** Measured on that population
+(170 distinct parties):
+
+| | |
+|---|---|
+| matched as financier | **25%** |
+| matched as distress | **11%** |
+| **matched neither** | **64%** |
+
+Party names are free text with no registry behind them; `AERIS HOLDINGS LLC`
+and `WANZOR CHRISTOPHER DEVIN` cannot be classified from the string. A 40-party
+whitelist covers only 62% of filings. The function therefore returns `UNKNOWN`
+by default, and callers treat that as not-assessed.
+
+The addendum's keyword list also misfires: a bare `SERVICES` trigger traps
+`AFC FINANCIAL SERVICES LLC`, plainly a lender, as a trade creditor. Distress
+patterns are tested first and financier names are specific rather than generic,
+with a regression test pinning that case.
+
+Its proposed Part 145 cross-reference is unavailable —
+`av-info.faa.gov/RepairStation.asp` is the host already known to refuse us.
+
+Classification **annotates and never scores**. `N402XT` reads 74.1 before and
+after, with its encumbrances labelled `[distress]` for World Fuel and
+`[financier]` for the banks.
+
+#### 9.7.3 Release inference — **deliberately not implemented**
+
+The addendum infers release from "two entries, same party, different dates".
+The FAA already files release as its own `doc_type` (`REL`/`REP`), which is read
+directly: **62** tails where a `REL` shares its lien's party, against only
+**27** showing the inferred pattern. Reading an explicit field beats inferring
+from repetition.
+
+#### 9.7.4 Yearly registry zips — **do not exist**
+
+`ReleasableAircraft.2022.zip` through `.2025.zip` all return **HTTP 403**. The
+live FAA page has no "Yearly Aircraft Registration Database" section and links
+only the current zip. Wayback covers the same ground.
+
+#### 9.7.5 What the workaround does *not* close
+
+`GAP_TAIL_LIENS` still fires on every tail. 2.2 years of DOCINDEX is a longer
+window, not the permanent record: a lien filed before 2024-09-03 and never
+released remains invisible. Finding filings proves encumbrance; finding none
+still proves nothing about title.
+
+The gap prose now states this honestly in both directions, rather than claiming
+DOCINDEX is unparsed:
+
+```
+4 active lien(s) found, but filings older than our earliest capture are invisible
+no DOCINDEX lien in the captured window — this is NOT clear title
+```
+
+Only CARES can prove absence. §9.4 stands.
