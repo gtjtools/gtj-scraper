@@ -367,3 +367,46 @@ class TestOneEncumbrancePerFinancing:
 
         # One financing recorded as 16 documents must score as 1 encumbrance.
         assert score(1) > score(16)
+
+
+class TestLienGapProseIsHonest:
+    """
+    The human-readable gap must agree with missing_input_keys and must not
+    claim DOCINDEX is unparsed now that it is.
+
+    The prose was conditioned on `not tail.tail_lien_events`, so a tail that
+    DID carry liens silently lost the disclosure -- while missing_input_keys
+    fired unconditionally. Exactly the tails with findings were the ones
+    told nothing about the window limit.
+    """
+
+    def _operator(self):
+        from src.trustscore import adapter_v5
+
+        return adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=15.0, fleet_size=5,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+
+    def _gap_text(self, records):
+        from src.trustscore import adapter_v5
+
+        tail = adapter_v5.build_tail_data(
+            tail_number="N1", aircraft_age_years=10.0, same_type_fleet_count=3,
+            tail_lien_records=records, lookup_liens=False,
+        )
+        return " ".join(adapter_v5.missing_inputs(self._operator(), tail))
+
+    def test_disclosed_when_liens_were_found(self):
+        text = self._gap_text([{"date": "2025-01-08", "reference": "R"}])
+        assert "rolling window" in text
+        assert "1 active lien" in text
+
+    def test_disclosed_when_no_liens_were_found(self):
+        text = self._gap_text([])
+        assert "NOT clear title" in text
+
+    def test_never_claims_docindex_is_unparsed(self):
+        """It is parsed and backfilled; saying otherwise is simply false now."""
+        for records in ([], [{"date": "2025-01-08", "reference": "R"}]):
+            assert "not parsed" not in self._gap_text(records)

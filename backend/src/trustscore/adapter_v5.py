@@ -1079,7 +1079,25 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
         gaps.append("tail D085 tenure unknown (Ttenure assumed seasoned)")
     if tail.same_type_fleet_count <= 1:
         gaps.append("same-type fleet depth unknown (Vtype treated as orphan)")
-    if not tail.tail_lien_events:
-        gaps.append("DOCINDEX liens not parsed (Lientail = 0)")
+    # Unconditional, matching missing_input_keys. DOCINDEX is now parsed and
+    # backfilled to ~2.2 years, but it remains a rolling window: a lien filed
+    # before our earliest capture and never released is invisible. So finding
+    # liens proves encumbrance while finding none proves nothing about title,
+    # and neither licenses a clean legal_title finding. Only FAA CARES can.
+    #
+    # Previously conditioned on `not tail.tail_lien_events`, which contradicted
+    # missing_input_keys and silently dropped the disclosure for exactly the
+    # tails that DO carry liens.
+    if tail.tail_lien_events:
+        gaps.append(
+            f"DOCINDEX covers a rolling window only — {len(tail.tail_lien_events)} "
+            "active lien(s) found, but filings older than our earliest capture "
+            "are invisible (Lientail is a floor, not a total)"
+        )
+    else:
+        gaps.append(
+            "no DOCINDEX lien in the captured window — this is NOT clear title; "
+            "an older unreleased lien would not appear (Lientail = 0)"
+        )
 
     return gaps
