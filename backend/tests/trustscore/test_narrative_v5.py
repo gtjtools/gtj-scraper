@@ -408,3 +408,61 @@ class TestFlagDecay:
             == narrative_v5.RED
         assert narrative_v5._flag_maintenance(sdr(2009), self._tail()) \
             == narrative_v5.YELLOW
+
+
+class TestEstimatedCertificateAgeIsWithheld:
+    """
+    An estimated certificate age must not reach the model at all.
+
+    10.0 years is a hardcoded fallback — no ingested source carries the
+    operator's certificate issuance date, and both substitute routes are
+    tested and dead. Instructing the model not to assert it gave only partial
+    compliance: it dropped the bare claim but still volunteered "active for
+    10.0 years" inside a could-not-be-assessed paragraph.
+
+    A number in the payload invites being quoted, so the figure is omitted
+    rather than caveated. §9.1 grounding means the model cannot cite what it
+    was not given.
+    """
+
+    def _payload(self, estimated):
+        from src.trustscore import adapter_v5
+        from src.trustscore.calculator_v5 import calculate_trust_score
+
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0,
+            certificate_age_is_estimated=estimated, fleet_size=5,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        tail = adapter_v5.build_tail_data(
+            tail_number="N1", aircraft_age_years=23.0, same_type_fleet_count=2,
+            lookup_liens=False,
+        )
+        return narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail),
+            missing_inputs=adapter_v5.missing_inputs(operator, tail),
+        )
+
+    def test_omitted_when_estimated(self):
+        payload = self._payload(True)
+        assert "certificate_age_years" not in payload
+        assert "certificate_age_years" not in payload["audit_categories"]["asset_stability"]
+
+    def test_supplied_when_real(self):
+        payload = self._payload(False)
+        assert payload["certificate_age_years"] == 10.0
+
+    def test_flag_is_always_present(self):
+        """The model must be able to tell 'absent because estimated' from a bug."""
+        for estimated in (True, False):
+            assert self._payload(estimated)["certificate_age_is_estimated"] is estimated
+
+    def test_the_figure_appears_nowhere_in_the_serialized_payload(self):
+        """
+        Belt and braces: grep the JSON the model actually receives. A caveated
+        mention elsewhere in the structure would still be quotable.
+        """
+        import json
+
+        blob = json.dumps(self._payload(True))
+        assert "10.0" not in blob

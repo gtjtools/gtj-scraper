@@ -1058,10 +1058,16 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
     if not operator.certificate_age_years:
         gaps.append("certificate_age_years is 0 (Agecert unknown; Cs will be near 0)")
     elif operator.certificate_age_is_estimated:
+        # The figure is deliberately NOT quoted here. This prose is passed to
+        # the narrative model as `data_coverage_gaps`, and an estimated age
+        # printed anywhere in the payload is quotable — which is exactly how
+        # "the certificate has been active for 10.0 years" reached a client
+        # report. §9.1 grounding means the model cannot cite what it never saw.
         gaps.append(
-            f"certificate age is an estimate ({operator.certificate_age_years:.1f}y), "
-            "not an observed issuance date — §3 wants years since the certificate "
-            "was issued; no ingested source carries that date"
+            "certificate age is an estimate, not an observed issuance date — "
+            "§3 wants years since the certificate was issued, and no ingested "
+            "source carries that date (the figure itself is withheld rather "
+            "than published, so it cannot be quoted as fact)"
         )
     if not operator.fleet_size:
         gaps.append("fleet_size is 0 (Vf unknown; no exposure normalization)")

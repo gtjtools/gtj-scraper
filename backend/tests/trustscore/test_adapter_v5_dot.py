@@ -366,6 +366,10 @@ class TestCertificateAgeProvenance:
         tail = adapter_v5.build_tail_data(tail_number="")
         gaps = " ".join(adapter_v5.missing_inputs(operator, tail))
         assert "estimate" in gaps and "issuance" in gaps
+        # The limitation is disclosed; the figure is not. An estimated age
+        # printed anywhere in the payload is quotable, which is how "active for
+        # 10.0 years" reached a client report.
+        assert "10.0" not in gaps
 
 
 class TestCertificateAnchoredLookups:

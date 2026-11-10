@@ -334,11 +334,17 @@ def build_audit_payload(
     return {
         "operator_name": operator.operator_name,
         "certificate_designator": operator.certificate_designator,
-        "certificate_age_years": round(operator.certificate_age_years, 1),
-                # Flagged so the model cannot state an assumed age as fact.
-                # The LLM was writing "the certificate has been active for 10.0
-                # years" where 10.0 is a hardcoded fallback -- no source carries
-                # the real issuance date (docs §1a).
+        # Omitted entirely when estimated, rather than sent with a
+                # caveat. Instructing the model not to assert an estimated
+                # figure gave only partial compliance: it dropped the bare
+                # claim but still volunteered "active for 10.0 years" inside a
+                # could-not-be-assessed paragraph. A number in the payload
+                # invites being quoted, and 10.0 is a hardcoded fallback -- no
+                # source carries the real issuance date (docs §1a). The surest
+                # way not to publish a fabricated figure is not to supply it.
+                **({} if operator.certificate_age_is_estimated else {
+                    "certificate_age_years": round(operator.certificate_age_years, 1),
+                }),
                 "certificate_age_is_estimated": operator.certificate_age_is_estimated,
         "fleet_size": operator.fleet_size,
         "same_type_fleet_count": tail.same_type_fleet_count,
@@ -381,11 +387,17 @@ def build_audit_payload(
             },
             "asset_stability": {
                 "flag": flags["asset_stability"],
-                "certificate_age_years": round(operator.certificate_age_years, 1),
-                # Flagged so the model cannot state an assumed age as fact.
-                # The LLM was writing "the certificate has been active for 10.0
-                # years" where 10.0 is a hardcoded fallback -- no source carries
-                # the real issuance date (docs §1a).
+                # Omitted entirely when estimated, rather than sent with a
+                # caveat. Instructing the model not to assert an estimated
+                # figure gave only partial compliance: it dropped the bare
+                # claim but still volunteered "active for 10.0 years" inside a
+                # could-not-be-assessed paragraph. A number in the payload
+                # invites being quoted, and 10.0 is a hardcoded fallback -- no
+                # source carries the real issuance date (docs §1a). The surest
+                # way not to publish a fabricated figure is not to supply it.
+                **({} if operator.certificate_age_is_estimated else {
+                    "certificate_age_years": round(operator.certificate_age_years, 1),
+                }),
                 "certificate_age_is_estimated": operator.certificate_age_is_estimated,
                 "tails_added_12m": operator.tails_added_12m,
                 "tails_removed_12m": operator.tails_removed_12m,
@@ -437,13 +449,11 @@ against a trade name rather than the operator's certificate. For a GREY \
 category, state plainly that it could not be assessed and name the missing \
 source from `data_coverage_gaps`. Never describe a GREY category as clear, \
 satisfactory, or without findings.
-- Certificate age: when `certificate_age_is_estimated` is true, the figure in \
-`certificate_age_years` is an ASSUMED DEFAULT, not an observed date — no \
-ingested source carries the operator's certificate issuance date. Do not state \
-it as fact. Either omit the age entirely or qualify it explicitly \
-("certificate age is estimated; the issuance date is not available"). Writing \
-"the certificate has been active for 10.0 years" presents a placeholder as \
-evidence.
+- Certificate age: when `certificate_age_is_estimated` is true, \
+`certificate_age_years` is ABSENT from the payload because no ingested source \
+carries the operator's certificate issuance date. Do not state, estimate or \
+infer a certificate age in that case — not even approximately, and not inside \
+a caveat. Say the issuance date is unavailable, or omit the subject.
 - Objective Tone: Maintain a clinical, institutional tone. Attribute all \
 adverse findings directly to official public repositories (NTSB, FAA SDRS, \
 FAA Document Index, DOT OACP) or verified watchdog reporting.
