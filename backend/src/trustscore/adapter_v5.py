@@ -664,6 +664,11 @@ def fetch_tail_liens(
                 FROM gtj.tail_liens
                 WHERE tail_number = :tail
                   AND superseded_by_release = false
+                  -- The table also stores REL/REP rows, so that a release can
+                  -- be matched against a lien recorded in a different 180-day
+                  -- window. A release is not an encumbrance and must never be
+                  -- charged as one.
+                  AND doc_type IN ('S/A', 'CSC')
                 GROUP BY doc_type, doc_date, party
                 ORDER BY doc_date DESC NULLS LAST
             """),

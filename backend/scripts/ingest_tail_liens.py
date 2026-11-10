@@ -161,6 +161,10 @@ def ingest(db, archive: Path, dry_run: bool) -> Dict[str, int]:
             liens.append(record)
         elif record.doc_type in RELEASE_DOC_TYPES:
             releases.setdefault(record.tail_number, []).append(record)
+            # Also persisted: netting in memory only resolves liens visible in
+            # the SAME window. A release whose lien arrived in an earlier
+            # capture has to be on disk for reconcile_releases to find it.
+            liens.append(record)
 
     # §4.2 charges only unresolved encumbrances. A release dated on or after a
     # lien discharges it; one dated earlier belongs to some prior filing and
@@ -279,9 +283,12 @@ def report(db) -> None:
     summary = db.execute(text("""
         SELECT COUNT(*) AS filings,
                COUNT(DISTINCT tail_number) AS tails,
-               COUNT(*) FILTER (WHERE superseded_by_release = false) AS active_docs,
+               COUNT(*) FILTER (WHERE superseded_by_release = false
+                                 AND doc_type IN ('S/A','CSC')) AS active_docs,
                COUNT(DISTINCT (doc_type, doc_date, party))
-                   FILTER (WHERE superseded_by_release = false) AS active_enc,
+                   FILTER (WHERE superseded_by_release = false
+                           AND doc_type IN ('S/A','CSC')) AS active_enc,
+               COUNT(*) FILTER (WHERE doc_type IN ('REL','REP')) AS release_rows,
                MIN(observed_in_window_until) AS window_from,
                MAX(last_seen) AS last_run
         FROM gtj.tail_liens
@@ -292,6 +299,8 @@ def report(db) -> None:
     # Documents filed vs encumbrances charged -- see the per-tail note below.
     print(f"  active documents  : {summary['active_docs']:,}")
     print(f"  active encumbrances: {summary['active_enc']:,}  (what §4.2 charges)")
+    # Stored so a release can be matched to a lien from an older window.
+    print(f"  release filings held: {summary['release_rows']:,}  (not charged)")
     print(f"  observed back to  : {summary['window_from']}")
     print(f"  last ingest       : {summary['last_run']}")
 
@@ -313,6 +322,7 @@ def report(db) -> None:
                string_agg(DISTINCT doc_type, ',') AS types
         FROM gtj.tail_liens
         WHERE superseded_by_release = false
+          AND doc_type IN ('S/A','CSC')
         GROUP BY tail_number
         ORDER BY COUNT(DISTINCT (doc_type, doc_date, party)) DESC,
                  COUNT(*) DESC, tail_number

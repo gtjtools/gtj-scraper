@@ -182,10 +182,15 @@ def ingest_capture(db, archive: Path, wanted: Set[str], dry_run: bool) -> Dict:
             dates.append(record.doc_date)
         if record.tail_number not in wanted:
             continue
-        if record.doc_type in LIEN_DOC_TYPES:
+        # Releases are STORED, not just counted. A release routinely sits in a
+        # different 180-day window from the lien it discharges, so discarding
+        # them leaves reconcile_releases with nothing to join against and a
+        # discharged lien marked active forever. One archive alone carried 335
+        # Part 135 release filings.
+        if record.doc_type in LIEN_DOC_TYPES or record.doc_type in RELEASE_DOC_TYPES:
             liens.append(record)
-        elif record.doc_type in RELEASE_DOC_TYPES:
-            releases += 1
+            if record.doc_type in RELEASE_DOC_TYPES:
+                releases += 1
 
     # Collapse to one row per financing, matching the live ingest: a lender
     # files once per collateral item, so DOC-ID distinguishes documents while
@@ -202,7 +207,7 @@ def ingest_capture(db, archive: Path, wanted: Set[str], dry_run: bool) -> Dict:
         "docindex_rows": rows,
         "window_from": min(dates) if dates else None,
         "window_to": max(dates) if dates else None,
-        "part135_liens": len(liens),
+        "part135_liens": len(liens) - releases,
         "unique_filings": len(unique),
         "releases_seen": releases,
         "written": 0,
