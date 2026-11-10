@@ -377,11 +377,16 @@ def main() -> int:
             # discharges can be matched, but a release is not an encumbrance.
             # Without this filter the summary counted them and reported 419
             # where the real figure was 209.
+            # Counted per tail and summed: a global DISTINCT collapses across
+            # tails, undercounting a fleet financier to a single encumbrance.
             active = db.execute(text("""
-                SELECT COUNT(DISTINCT (doc_type, doc_date, party))
-                FROM gtj.tail_liens
-                WHERE superseded_by_release = false
-                  AND doc_type IN ('S/A', 'CSC')
+                SELECT COALESCE(SUM(n), 0) FROM (
+                    SELECT COUNT(DISTINCT (doc_type, doc_date, party)) AS n
+                    FROM gtj.tail_liens
+                    WHERE superseded_by_release = false
+                      AND doc_type IN ('S/A', 'CSC')
+                    GROUP BY tail_number
+                ) per_tail
             """)).scalar()
             span = db.execute(text("""
                 SELECT MIN(doc_date), MAX(doc_date) FROM gtj.tail_liens

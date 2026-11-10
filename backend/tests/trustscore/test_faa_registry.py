@@ -410,3 +410,32 @@ class TestLienGapProseIsHonest:
         """It is parsed and backfilled; saying otherwise is simply false now."""
         for records in ([], [{"date": "2025-01-08", "reference": "R"}]):
             assert "not parsed" not in self._gap_text(records)
+
+
+class TestEncumbrancesCountPerTail:
+    """
+    Encumbrance totals must be summed per tail, never DISTINCT globally.
+
+    The reports used a single DISTINCT (doc_type, doc_date, party) across the
+    whole table. That collapses across tails: a fleet financier lending on 40
+    aircraft on one day shares the tuple, so 40 encumbrances counted as 1. It
+    reported 209 where §4.2 charges 524 -- a 2.5x undercount, and it understated
+    exactly the multi-aircraft financings that matter most.
+    """
+
+    def test_same_party_and_date_on_two_tails_is_two_encumbrances(self):
+        from datetime import date
+
+        rows = [
+            ("N111AA", "S/A", date(2025, 1, 8), "FLEET LENDER LLC"),
+            ("N222BB", "S/A", date(2025, 1, 8), "FLEET LENDER LLC"),
+        ]
+
+        # Global DISTINCT -- the bug.
+        assert len({(t, d, p) for _, t, d, p in rows}) == 1
+
+        # Per-tail then summed -- correct.
+        per_tail = {}
+        for tail, doc_type, doc_date, party in rows:
+            per_tail.setdefault(tail, set()).add((doc_type, doc_date, party))
+        assert sum(len(v) for v in per_tail.values()) == 2

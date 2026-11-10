@@ -285,9 +285,16 @@ def report(db) -> None:
                COUNT(DISTINCT tail_number) AS tails,
                COUNT(*) FILTER (WHERE superseded_by_release = false
                                  AND doc_type IN ('S/A','CSC')) AS active_docs,
-               COUNT(DISTINCT (doc_type, doc_date, party))
-                   FILTER (WHERE superseded_by_release = false
-                           AND doc_type IN ('S/A','CSC')) AS active_enc,
+               -- Per TAIL, then summed. A global DISTINCT collapses across
+               -- tails, so one financier lending on 40 aircraft the same day
+               -- counted as a single encumbrance -- it reported 209 where
+               -- §4.2 actually charges 524.
+               (SELECT COALESCE(SUM(n), 0) FROM (
+                   SELECT COUNT(DISTINCT (doc_type, doc_date, party)) AS n
+                   FROM gtj.tail_liens
+                   WHERE superseded_by_release = false
+                     AND doc_type IN ('S/A','CSC')
+                   GROUP BY tail_number) per_tail) AS active_enc,
                COUNT(*) FILTER (WHERE doc_type IN ('REL','REP')) AS release_rows,
                MIN(observed_in_window_until) AS window_from,
                MAX(last_seen) AS last_run
