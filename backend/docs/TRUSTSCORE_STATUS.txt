@@ -90,6 +90,7 @@ that too.
                                                      — see section 6c)
   DOT enforcement orders                                     677
   Trading names resolved to a certificate                  1,914
+  Certificates trading under more than one name               44
 
   Aircraft loans and liens  (see section 4)
   ------------------------------------------------------------------------
@@ -489,6 +490,42 @@ ONE THING WE COULD NOT CONFIRM
   The circuit breaker is correct regardless of this particular case, which is
   why we built it rather than waiting for confirmation.
 
+
+================================================================================
+6d. REPORTS NOW LIST EVERY NAME AN OPERATOR TRADES UNDER
+================================================================================
+
+A charter is sold under a trading name. The safety record, enforcement history
+and liens attach to the FAA certificate. Those two are not always the same
+name, and the difference is exactly what a broker needs to see.
+
+Real examples from our data:
+
+  certificate 3KSC   Blue Spruce Air LLC        (current)
+                     Asher Air LLC              (former name)
+
+  certificate 1C6A   24/7 Jet Inc
+                     Iconic Aviation CCP Management
+
+  certificate 2M5A   G Jets Intl
+                     Flying Zebra
+
+A broker quoted by "Flying Zebra" previously had no way to know they were
+dealing with the same certificate as "G Jets Intl". 44 of our 1,870
+certificates carry more than one name.
+
+We have searched across all of an operator's names for some time — that was
+built to stop a rebranded operator escaping its own history. What was missing
+is that we never TOLD the reader what the other names were. The report now
+lists them, and distinguishes a name the operator currently trades under from
+one it used previously. Those read very differently and must not be confused.
+
+Where we cannot resolve a certificate, the report says the other trading
+identities could not be established, rather than implying there are none.
+
+ONE LIMITATION. A name an operator stopped using before we began collecting
+data is invisible to us unless it appears in the Internet Archive, which
+reaches back to about March 2023.
 
 ================================================================================
 7.  WHAT WE RECOMMEND

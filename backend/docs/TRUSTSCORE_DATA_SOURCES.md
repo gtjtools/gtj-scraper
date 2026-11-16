@@ -51,7 +51,8 @@ the one commercial item (source 7) is optional.
 
 | Capability | Where | Notes |
 |---|---|---|
-| **Entity resolution (§8)** | `src/common/entity_resolution.py` | Resolves an operator to every name its certificate has used, in both directions. NTSB, FAA and DOT lookups all search the full array. 40 certificates currently carry more than one name. |
+| **Entity resolution (§8)** | `src/common/entity_resolution.py` | Resolves an operator to every name its certificate has used, in both directions. NTSB, FAA and DOT lookups all search the full array. **44 of 1,870 certificates carry more than one name.** |
+| **Trade names in the report** | `entity_resolution.resolve_trade_names` | §12. The resolved names are now *published* in the audit payload and the terminal report, with current/former state. Resolution had been search-only since §8 — the reader was never told what the other names were. |
 | **Coverage-aware flags** | `narrative_v5._apply_coverage` | A fourth state, `GREY`, for "not assessed". Only ever downgrades `GREEN`; `RED` and `YELLOW` stand on their own evidence. **Reworked 2026-11-16 to an anchor OR-gate — `GREY` now requires total category blindness, not merely one gap (§10.1).** |
 | **Lien severity tiers** | `src/common/lien_classification.py` | §10.2. Tiers a filing 1–3 from who filed and the document type, since DOCINDEX publishes no claim amounts. Breaks the count-vs-severity inversion: one tax levy now outweighs twenty bank financings. |
 | **Clean-search evidence** | `narrative_v5._clean_searches` | §10.1. Nil returns from sources that *were* queried, phrased as affirmative findings, so the narrative can cite them as positives instead of seeing only an absence. |
@@ -1396,3 +1397,51 @@ already matched — the pair must agree, not the digits alone. Verified that
 | Preliminary-incident feed separate from CAROL | **Not built.** CAROL already exposes open dockets, and the circuit breaker now acts on them, which closes the urgent part of the gap. A dedicated preliminary feed would improve latency, not correctness. |
 | Per-case CAROL detail fetch for `AircraftDamage` | **Not built.** The case-list response has no damage field, so hull loss is currently detected via fatalities, a graded fatal severity, or a damage string supplied by another source. A per-case fetch would add a request per event. |
 | Re-score of the operator population | **Not run.** Stored scores predate both §10 and §11. Any operator with a catastrophe in the last 36 months is currently scored too high in the stored data. |
+
+---
+
+## 12. Trade names in the report — implemented 2026-11-16
+
+§8 entity resolution has expanded an operator into every name on its
+certificate since it shipped — **but only for searching**. `build_audit_payload`
+carried no DBA field at all, so a reader never learned what those other names
+were.
+
+**Why it matters.** A charter is sold under a *trade name*, while the safety and
+enforcement record attaches to the *certificate*. Those can differ:
+
+| Certificate | Names recorded |
+|---|---|
+| `3KSC` | Blue Spruce Air LLC (current) · Asher Air LLC (former) |
+| `1C6A` | 24/7 Jet Inc · Iconic Aviation CCP Management |
+| `2M5A` | G Jets Intl · Flying Zebra |
+| `3MMA` | Mission Mountain Helicopters · Lone Mountain Helicopters |
+
+A broker quoted by one of these had no way to know the other is the same
+operator — which is precisely the arrangement §8 exists to defeat. **44 of 1,870
+certificates** carry more than one name.
+
+**Implemented.** `resolve_trade_names` returns names in **display form** with
+`is_current`, `first_seen` and `last_seen`. It is deliberately separate from
+`resolve_operator_names`, which returns *normalized* strings (`"jet excellence"`)
+suited to matching a database column and unsuited to printing.
+
+Surfaced in two places:
+
+- the audit payload as `trade_names`, resolved automatically so existing call
+  sites gain it without change (pass `[]` to skip the lookup, which is what
+  keeps the tests database-free);
+- `scripts/score_tail.py`'s header, as `operates as` / `formerly` lines.
+
+**The current/former distinction is enforced in the prompt**, not left to the
+model. A former identity reads very differently from a concurrent dba, and
+presenting one as the other would be its own misstatement. An empty list means
+the certificate could not be resolved — the prompt requires that be reported as
+*unestablished*, never as "this operator has no other names".
+
+### 12.1 Not done
+
+| Item | Status |
+|---|---|
+| Backfill names that predate ingestion | **Unchanged limitation** (§1a). The DBA array is built from the current Part 135 roster plus `gtj.operators`; a rename before ingestion began is invisible unless `--backfill` is run against web.archive.org, which reaches ~March 2023. |
+| Trade names on other report surfaces | Only the narrative payload and `score_tail.py` are covered. Any other consumer of `build_audit_payload` gets the field automatically; a report built from a different path would need wiring. |

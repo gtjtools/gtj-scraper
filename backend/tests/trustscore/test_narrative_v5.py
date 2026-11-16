@@ -725,3 +725,87 @@ class TestCatastrophicCircuitBreaker:
         """A crash we cannot date is not thereby old."""
         operator = self._operator([self._crash(event_date=None, fatalities=1)])
         assert calculate_trust_score(operator, self._tail())["trust_score"] == 50.0
+
+
+class TestTradeNamesInReport:
+    """
+    §8. Every name a certificate trades under must appear in the report.
+
+    Entity resolution has expanded an operator into all of its certificate's
+    names since the §8 work — but only for SEARCHING. The payload carried no
+    DBA field at all, so a broker reading the report never learned that the
+    operator they were quoted by also trades under another name.
+
+    That is the material fact: a charter is sold under a trade name while the
+    safety and enforcement record attaches to the certificate. Certificate
+    3KSC is held by Asher Air LLC and also trades as Blue Spruce Air; 44 of
+    1,870 certificates currently carry more than one name.
+    """
+
+    def _payload(self, trade_names):
+        operator = adapter_v5.build_operator_data(
+            operator_name="Asher Air, Llc.", certificate_designator="3KSC",
+            certificate_age_years=15.0, fleet_size=4,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        tail = adapter_v5.build_tail_data(
+            tail_number="N1AA", tail_lien_records=[], lookup_liens=False,
+            ownership_observed=True,
+        )
+        return narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail),
+            trade_names=trade_names,
+        )
+
+    def test_trade_names_reach_the_payload(self):
+        payload = self._payload([
+            {"name": "BLUE SPRUCE AIR, LLC.", "is_current": True,
+             "first_seen": "2023-03-24", "last_seen": "2026-11-02"},
+            {"name": "Asher Air, Llc.", "is_current": False,
+             "first_seen": "2026-10-30", "last_seen": "2026-10-30"},
+        ])
+        names = [entry["name"] for entry in payload["trade_names"]]
+        assert "BLUE SPRUCE AIR, LLC." in names
+        assert len(payload["trade_names"]) == 2
+
+    def test_current_and_former_are_distinguishable(self):
+        """
+        A former identity reads very differently from a concurrent dba and
+        must not be presented as one.
+        """
+        payload = self._payload([
+            {"name": "Current Name LLC", "is_current": True,
+             "first_seen": None, "last_seen": None},
+            {"name": "Old Name Inc", "is_current": False,
+             "first_seen": None, "last_seen": None},
+        ])
+        states = {e["name"]: e["is_current"] for e in payload["trade_names"]}
+        assert states["Current Name LLC"] is True
+        assert states["Old Name Inc"] is False
+
+    def test_empty_list_is_not_a_claim_of_no_other_names(self):
+        """
+        An unresolved certificate must not read as "this operator has one
+        identity" — the prompt requires it be reported as unestablished.
+        """
+        payload = self._payload([])
+        assert payload["trade_names"] == []
+        assert "trade_names" in payload
+
+    def test_trade_names_do_not_leak_internals(self):
+        """§9: adding a payload field must not breach the Black Box Rule."""
+        payload = self._payload([
+            {"name": "Some Operator LLC", "is_current": True,
+             "first_seen": "2023-01-01", "last_seen": "2026-01-01"},
+        ])
+        blob = json.dumps(payload).lower()
+        for forbidden in ("h_safety", "components", "sro", "composite"):
+            assert forbidden not in blob
+
+    def test_prompt_requires_them(self):
+        """The payload field is useless if the model is not told to use it."""
+        prompt = narrative_v5.SYSTEM_PROMPT
+        assert "trade_names" in prompt
+        assert "Operating As" in prompt
+        # The current/former distinction must be instructed, not inferred.
+        assert "is_current" in prompt

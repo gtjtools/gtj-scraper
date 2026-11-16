@@ -375,6 +375,7 @@ def build_audit_payload(
     tail: TailData,
     score_result: Dict[str, Any],
     missing_inputs: Optional[List[str]] = None,
+    trade_names: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Build the §10.1 JSON input contract for the narrative generator.
@@ -391,6 +392,10 @@ def build_audit_payload(
         missing_inputs: Optional gaps from `adapter_v5.missing_inputs`, surfaced
             so the narrative can mark categories as unevidenced rather than
             clean.
+        trade_names: Optional DBA records from
+            `common.entity_resolution.resolve_trade_names`. Looked up here when
+            not supplied; pass `[]` to skip the lookup entirely (tests, and any
+            caller that must not touch the database).
 
     Returns:
         A JSON-serializable payload safe to hand to an LLM.
@@ -398,6 +403,18 @@ def build_audit_payload(
     from src.trustscore.calculator_v5 import calculate_churn_effective
 
     churn = calculate_churn_effective(operator)
+
+    # Resolved here rather than required of every caller, so an existing call
+    # site gains the names without changing. A failure inside
+    # resolve_trade_names returns [] rather than raising — a reporting detail
+    # must never fail a score.
+    if trade_names is None:
+        from src.common.entity_resolution import resolve_trade_names
+
+        trade_names = resolve_trade_names(
+            operator.operator_name,
+            operator.certificate_designator,
+        )
 
     raw_flags = {
         "flight_fulfillment": _flag_flight_fulfillment(operator, tail),
@@ -445,6 +462,16 @@ def build_audit_payload(
     return {
         "operator_name": operator.operator_name,
         "certificate_designator": operator.certificate_designator,
+        # Every name this certificate trades under (§8).
+        #
+        # A charter is sold under a trade name while the safety and
+        # enforcement record attaches to the certificate, so the two can
+        # differ — certificate 3KSC is held by Asher Air LLC and also trades
+        # as Blue Spruce Air. A broker quoted by one has no way to know the
+        # other is the same operator, which is exactly the arrangement §8
+        # exists to defeat. Entity resolution already searched all of these;
+        # until now it never told the reader what they were.
+        "trade_names": trade_names,
         # Omitted entirely when estimated, rather than sent with a
                 # caveat. Instructing the model not to assert an estimated
                 # figure gave only partial compliance: it dropped the bare
@@ -671,6 +698,18 @@ satisfactory, or without findings.
 carries the operator's certificate issuance date. Do not state, estimate or \
 infer a certificate age in that case — not even approximately, and not inside \
 a caveat. Say the issuance date is unavailable, or omit the subject.
+- TRADE NAMES ARE MANDATORY. `trade_names` lists every name this certificate \
+operates under. You MUST name all of them in the Executive Summary. A charter \
+is sold under a trade name while the safety record attaches to the \
+certificate, so a broker who only knows one name cannot otherwise tell that \
+the others are the same operator. Distinguish the two states: a name with \
+`is_current` true is a CONCURRENT trade name ("also operates as X"), while \
+`is_current` false is a FORMER identity ("previously operated as X"). Never \
+describe a former name as current or the reverse. Where more than one name is \
+listed, state explicitly that the findings in this report cover all of them. \
+If `trade_names` is empty the certificate could not be resolved — say the \
+operator's other trading identities could not be established, and do not imply \
+it has none.
 - CATASTROPHIC EVENTS OVERRIDE EVERYTHING. If the flight-safety block carries \
 a `catastrophic_events` key, a fatal accident or hull loss occurred on this \
 certificate recently. Lead the Executive Summary with it, name it in the \
@@ -701,6 +740,10 @@ unassessed.
 Executive Summary
 TrustScore: [Score] ([Tier Name: Pinnacle 90+ | Premier 80-89 | Benchmark \
 70-79 | Standard 50-69])
+Operating As: [every entry in `trade_names`, marking each as a current trade \
+name or a former identity. Omit this line only when `trade_names` holds a \
+single name matching the operator name; if the list is empty, state that other \
+trading identities could not be established.]
 Operational Stance: [1-sentence summary of risk level and core recommendation]
 Primary Drivers: [2 to 3 concise bullet points identifying the primary \
 operational or regulatory factors driving the score]
@@ -814,6 +857,7 @@ async def generate_narrative(
     score_result: Dict[str, Any],
     llm_client: Any = None,
     missing_inputs: Optional[List[str]] = None,
+    trade_names: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Generate the §9 Risk Audit narrative for an already-computed score.
@@ -838,7 +882,9 @@ async def generate_narrative(
         return None
 
     try:
-        payload = build_audit_payload(operator, tail, score_result, missing_inputs)
+        payload = build_audit_payload(
+            operator, tail, score_result, missing_inputs, trade_names
+        )
         prompt = build_prompt(payload)
 
         text = await _complete(llm_client, prompt)

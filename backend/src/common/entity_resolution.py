@@ -161,3 +161,110 @@ def resolve_certificate(
                 session.close()
             except Exception:
                 pass
+
+
+def resolve_trade_names(
+    operator_name: str,
+    certificate_designator: Optional[str] = None,
+    db_session_factory: Any = None,
+) -> List[dict]:
+    """
+    Every name a certificate has traded under, in DISPLAY form, for reporting.
+
+    Distinct from `resolve_operator_names`, which returns normalized strings
+    ("jet excellence") suitable for matching a database column and unsuitable
+    for printing. This returns the names as recorded, plus the metadata a
+    reader needs to interpret them.
+
+    WHY A BROKER NEEDS THIS. A charter is sold under a trade name, while the
+    safety and enforcement record attaches to the certificate. Those can differ:
+    certificate 3KSC is held by Asher Air LLC and also trades as Blue Spruce
+    Air. A broker quoted by one has no way to know the other is the same
+    operator — and that is precisely the arrangement §8 exists to defeat. 44 of
+    1,870 certificates currently carry more than one name.
+
+    Each entry carries:
+        name        as recorded, for display
+        is_current  whether the roster still lists it
+        first_seen  earliest date observed on the roster
+        last_seen   most recent date observed
+
+    `is_current` matters: a name no longer on the roster is a FORMER identity,
+    which reads very differently from a concurrent dba and must not be
+    presented as one.
+
+    Args:
+        operator_name: Operator name as the caller knows it.
+        certificate_designator: 4-char FAA ID, when already known.
+        db_session_factory: Callable returning a session; defaults to
+            SessionLocal.
+
+    Returns:
+        Dicts ordered current-first then alphabetically. Empty when the
+        certificate is unknown — which is not the same as "no other names",
+        and callers should report it as unresolved rather than as a single
+        identity. Never raises.
+    """
+    from src.trustscore.adapter_v5 import normalize_operator_name
+
+    primary = normalize_operator_name(operator_name)
+    session = None
+    try:
+        if db_session_factory is None:
+            from src.common.config import SessionLocal
+            db_session_factory = SessionLocal
+
+        from sqlalchemy import text
+
+        session = db_session_factory()
+        designator = (certificate_designator or "").strip().upper()
+
+        # Same reverse lookup as resolve_operator_names: the caller may know
+        # only a trade name, possibly a historical one.
+        if not designator and primary:
+            row = session.execute(
+                text("""
+                    SELECT certificate_designator
+                    FROM gtj.certificate_dbas
+                    WHERE operator_name_normalized = :name
+                    LIMIT 1
+                """),
+                {"name": primary},
+            ).first()
+            if row:
+                designator = row[0]
+
+        if not designator:
+            return []
+
+        rows = session.execute(
+            text("""
+                SELECT operator_name, is_current, first_seen, last_seen
+                FROM gtj.certificate_dbas
+                WHERE certificate_designator = :designator
+                ORDER BY is_current DESC NULLS LAST, operator_name
+            """),
+            {"designator": designator},
+        ).mappings().all()
+
+        return [
+            {
+                "name": row["operator_name"],
+                "is_current": bool(row["is_current"]),
+                "first_seen": str(row["first_seen"]) if row["first_seen"] else None,
+                "last_seen": str(row["last_seen"]) if row["last_seen"] else None,
+            }
+            for row in rows
+            if row["operator_name"]
+        ]
+    except Exception as exc:  # pragma: no cover - defensive
+        # Consistent with the rest of this module: a reporting detail must
+        # never fail a score.
+        logger.warning("Trade-name lookup failed for %s: %s", operator_name, exc)
+        return []
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass

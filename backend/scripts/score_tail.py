@@ -176,10 +176,31 @@ async def score(tail_raw: str, want_narrative: bool):
         print("  misleadingly high score, so this stops here.\n")
         return None
 
+    # Every name on the certificate, not just the one we were asked about.
+    # A charter sold under a trade name carries the certificate's record, so
+    # the other identities are material to whoever reads this.
+    from src.common.entity_resolution import resolve_trade_names
+
+    trade_names = resolve_trade_names(
+        record["operator_name"], record["faa_dsgn_code"]
+    )
+
     print(f"\n{'=' * 70}")
     print(f"  TAIL SCORE — {tail}")
     print(f"  operator    : {record['operator_name']}")
     print(f"  certificate : {record['faa_dsgn_code'] or '(unresolved)'}")
+    if trade_names:
+        others = [
+            entry for entry in trade_names
+            if entry["name"].strip().lower()
+            != str(record["operator_name"]).strip().lower()
+        ]
+        for index, entry in enumerate(others):
+            label = "operates as" if entry["is_current"] else "formerly"
+            prefix = "  trade names" if index == 0 else "              "
+            print(f"{prefix}: {entry['name']}  ({label})")
+    else:
+        print("  trade names : (certificate unresolved — others unknown)")
     print(f"  aircraft    : {record['make_model']} ({record['year'] or 'year unknown'})")
     print(f"  fleet       : {record['fleet_size']} tails, "
           f"{record['same_type_fleet_count']} of this type")
@@ -217,6 +238,9 @@ async def score(tail_raw: str, want_narrative: bool):
                 operator, tail_data, result,
                 llm_client=LLMClient(provider=LLMProvider.OPENROUTER),
                 missing_inputs=gaps,
+                # Already resolved above; passed through so the lookup is not
+                # repeated inside the payload builder.
+                trade_names=trade_names,
             )
             if narrative:
                 result["risk_audit"] = {
