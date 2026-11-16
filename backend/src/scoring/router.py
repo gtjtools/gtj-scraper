@@ -441,6 +441,16 @@ async def full_scoring_flow(
             print(f"Using existing session: {session_id}")
         print(f"{'='*80}\n")
 
+        # The operator's fleet, resolved once and used by both the NTSB and
+        # SDRS lookups below. Neither is reliable keyed to a company name
+        # alone: NTSB files an accident against the operator name of the day,
+        # so a rebranded operator reads clean, and SDRS reports are routinely
+        # filed with a blank or mistyped N-number (§11.2, §11.4).
+        fleet_tails = adapter_v5.fetch_fleet_tails(operator_name)
+        fleet_tail_numbers = [entry["tail_number"] for entry in fleet_tails]
+        if fleet_tail_numbers:
+            print(f"  fleet: {len(fleet_tail_numbers)} tail(s) on the certificate")
+
         # Step 1: Query NTSB
         print("Step 1: Querying NTSB database...")
         ntsb_error = None
@@ -448,6 +458,33 @@ async def full_scoring_flow(
         try:
             ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
             incidents = NTSBService.parse_ntsb_response(ntsb_data)
+
+            # Also search by registration number. The name query above can
+            # miss an accident entirely — it is an exact match against a
+            # free-text field recorded at filing time — so this is the
+            # reliable path, not a supplement. Deduplicated by event id.
+            if fleet_tail_numbers:
+                tail_rows = await NTSBService.query_ntsb_by_tail_numbers(
+                    fleet_tail_numbers
+                )
+                if tail_rows:
+                    tail_incidents = NTSBService.parse_ntsb_response(
+                        {"Results": tail_rows}
+                    )
+                    seen = {
+                        inc.event_id for inc in incidents if inc.event_id
+                    }
+                    added = [
+                        inc for inc in tail_incidents
+                        if inc.event_id and inc.event_id not in seen
+                    ]
+                    if added:
+                        print(
+                            f"  + {len(added)} incident(s) found by tail number "
+                            f"that the operator-name search missed"
+                        )
+                    incidents = incidents + added
+
             total_incidents = len(incidents)
             ntsb_score = max(0, 100 - (total_incidents * 5))
             print(
@@ -547,6 +584,41 @@ async def full_scoring_flow(
                 print(f"  ✓ Found {len(faa_events)} FAA enforcement action(s)")
             else:
                 print("  ✓ No FAA enforcement actions found")
+
+            # Query FAA SDRS and append to fleet events.
+            #
+            # This endpoint has never scored SDRs — fleet_events carried only
+            # NTSB and FAA enforcement — so Sdrfleet was always zero here,
+            # even though the term is implemented and the batch workflow feeds
+            # it. Maintenance deterioration is §4.1's second safety input and
+            # the one that catches risk never reaching NTSB.
+            #
+            # Tails AND serials are passed: a report filed with a blank or
+            # mistyped N-number is matched on its serial instead, qualified by
+            # aircraft type (§11.4).
+            print("Step 3b: Querying FAA SDRS...")
+            try:
+                from src.scoring.sdrs_service import SDRSService
+
+                sdr_events = await SDRSService.query_as_fleet_events(
+                    operator_name,
+                    tail_numbers=fleet_tail_numbers or None,
+                    fleet_serials=fleet_tails or None,
+                )
+                if sdr_events:
+                    fleet_events = fleet_events + sdr_events
+                    by_serial = sum(
+                        1 for event in sdr_events
+                        if event.get("sdr_matched_by") == "serial"
+                    )
+                    note = f" ({by_serial} matched by serial)" if by_serial else ""
+                    print(f"  ✓ Found {len(sdr_events)} SDR(s){note}")
+                else:
+                    print("  ✓ No SDRs found")
+            except Exception as exc:
+                # Additive source: its absence must leave the score exactly as
+                # it would have been, never fail the run.
+                print(f"  ⚠ SDRS unavailable: {exc}")
 
             # Fetch operator data from database to get business_started_date
             from src.common.models import Operator

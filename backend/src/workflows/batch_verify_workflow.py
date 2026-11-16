@@ -293,6 +293,14 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
         print(f"{'='*60}")
 
         try:
+            # The operator's fleet, resolved once for the NTSB and SDRS
+            # lookups below. Neither is reliable keyed to a company name
+            # alone: NTSB files against the operator name of the day, so a
+            # rebranded operator reads clean, and SDRS reports are routinely
+            # filed with a blank or mistyped N-number (§11.2, §11.4).
+            fleet_tails = adapter_v5.fetch_fleet_tails(operator.company)
+            fleet_tail_numbers = [entry["tail_number"] for entry in fleet_tails]
+
             # Run NTSB query
             print(f"  → Querying NTSB for {operator.company}...")
             ntsb_error = None
@@ -300,6 +308,27 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
             try:
                 ntsb_data = await NTSBService.query_ntsb_incidents(operator.company)
                 incidents = NTSBService.parse_ntsb_response(ntsb_data)
+
+                # Also search by registration number — the reliable path. The
+                # name query is an exact match against a free-text field.
+                if fleet_tail_numbers:
+                    tail_rows = await NTSBService.query_ntsb_by_tail_numbers(
+                        fleet_tail_numbers
+                    )
+                    if tail_rows:
+                        tail_incidents = NTSBService.parse_ntsb_response(
+                            {"Results": tail_rows}
+                        )
+                        seen = {i.event_id for i in incidents if i.event_id}
+                        added = [
+                            i for i in tail_incidents
+                            if i.event_id and i.event_id not in seen
+                        ]
+                        if added:
+                            print(f"  + {len(added)} incident(s) found by tail "
+                                  f"number, missed by the name search")
+                        incidents = incidents + added
+
                 total_incidents = len(incidents)
                 ntsb_score = max(0, 100 - (total_incidents * 5))
                 print(f"  ✓ NTSB: {total_incidents} incidents, score: {ntsb_score}")
@@ -389,10 +418,20 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                 # SDRS outage leaves the score exactly as it would have been.
                 from src.scoring.sdrs_service import SDRSService
 
-                sdr_events = await SDRSService.query_as_fleet_events(operator.company)
+                sdr_events = await SDRSService.query_as_fleet_events(
+                    operator.company,
+                    tail_numbers=fleet_tail_numbers or None,
+                    fleet_serials=fleet_tails or None,
+                )
                 if sdr_events:
                     fleet_events = fleet_events + sdr_events
-                    print(f"  ✓ Found {len(sdr_events)} service difficulty report(s)")
+                    by_serial = sum(
+                        1 for event in sdr_events
+                        if event.get("sdr_matched_by") == "serial"
+                    )
+                    note = f" ({by_serial} matched by serial)" if by_serial else ""
+                    print(f"  ✓ Found {len(sdr_events)} service difficulty "
+                          f"report(s){note}")
 
                 operator_age_years = 10.0
                 # True until a real date is read below (see router.py).

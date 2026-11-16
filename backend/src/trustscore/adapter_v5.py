@@ -468,6 +468,112 @@ def fetch_fleet_size(operator_name: str, db_session_factory: Any = None) -> int:
 #: an operator holds.
 D085_SOURCE = "opspecs_d085"
 
+def fetch_fleet_tails(
+    operator_name: str,
+    db_session_factory: Any = None,
+) -> List[Dict[str, Any]]:
+    """
+    Every tail on an operator's certificate, with serial and type.
+
+    Needed by two lookups that are only reliable when keyed to an airframe
+    rather than to a company name:
+
+      * NTSB CAROL by `Aircraft.RegistrationNumber` — NTSB files an accident
+        against the operator name *of the day*, so a rebranded operator reads
+        clean when searched by name (§11.2);
+      * FAA SDRS by serial, for reports filed with a blank or mistyped
+        N-number (§11.4).
+
+    Prefers the D085 roster — the *legally authorized* fleet, which is what §3
+    means by Vf — and falls back to `gtj.aircraft` when an operator is absent
+    from the ingested roster. The fallback matters: D085 covers 1,664 operators
+    against 1,845 in `gtj.operators`, so keying only on D085 would silently
+    skip the remainder.
+
+    D085 carries no serial number, so serials always come from `gtj.aircraft`
+    and are joined on tail number.
+
+    Returns [] on any failure. The callers degrade to name-only matching, which
+    is what they did before this existed.
+
+    Args:
+        operator_name: Operator name as it appears in gtj.operators.
+        db_session_factory: Callable returning a session; defaults to
+            SessionLocal.
+
+    Returns:
+        Dicts of {tail_number, serial_number, make_model}, deduplicated by
+        tail number.
+    """
+    if not operator_name:
+        return []
+
+    session = None
+    try:
+        if db_session_factory is None:
+            from src.common.config import SessionLocal
+            db_session_factory = SessionLocal
+
+        from sqlalchemy import text
+
+        session = db_session_factory()
+
+        # gtj.aircraft first: it is the only source carrying serial and
+        # make_model, both of which the SDRS serial fallback needs.
+        rows = session.execute(
+            text("""
+                SELECT a.tail_number, a.serial_number, a.make_model
+                FROM gtj.aircraft a
+                JOIN gtj.operators o ON o.operator_id = a.operator_id
+                WHERE o.name = :name AND a.tail_number IS NOT NULL
+            """),
+            {"name": operator_name},
+        ).mappings().all()
+
+        fleet: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            tail = str(row["tail_number"]).strip().upper()
+            if tail:
+                fleet[tail] = {
+                    "tail_number": tail,
+                    "serial_number": row["serial_number"],
+                    "make_model": row["make_model"],
+                }
+
+        # D085 adds tails the operator is AUTHORIZED to fly that JETNET may not
+        # list. Serial and type stay empty for these — D085 does not publish
+        # them — which the SDRS matcher handles by skipping the serial path for
+        # that tail rather than guessing.
+        authorized = session.execute(
+            text("""
+                SELECT DISTINCT tail_number
+                FROM gtj.fleet_snapshots
+                WHERE operator_name = :name AND source = :source
+                  AND tail_number IS NOT NULL
+            """),
+            {"name": operator_name, "source": D085_SOURCE},
+        ).all()
+        for (tail_raw,) in authorized:
+            tail = str(tail_raw).strip().upper()
+            if tail and tail not in fleet:
+                fleet[tail] = {
+                    "tail_number": tail,
+                    "serial_number": None,
+                    "make_model": None,
+                }
+
+        return list(fleet.values())
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Fleet tail lookup failed for %s: %s", operator_name, exc)
+        return []
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
+
+
 #: Shortest snapshot span that may be reported as churn.
 #:
 #: §3 asks for 12 months. Half of that is the point below which the figure
