@@ -287,22 +287,52 @@ class TestFleetSize:
 
         assert adapter_v5.fetch_fleet_size("X", db_session_factory=failing) == 0
 
-    def test_larger_fleet_dilutes_identical_risk(self):
-        """§4.1: risk is normalized by MAX(1, SQRT(Vf))."""
+    def _scores_for_event(self, event):
         from src.trustscore.calculator_v5 import calculate_trust_score
 
-        events = [{"event_type": "Accident", "injury_level": "Fatal",
-                   "event_date": "2025-01-01"}]
         scores = []
         for size in (1, 25, 100):
             operator = adapter_v5.build_operator_data(
                 operator_name="X", certificate_age_years=20.0, fleet_size=size,
-                fleet_events=events, include_dot_orders=False, lookup_fleet_size=False,
+                fleet_events=[event], include_dot_orders=False,
+                lookup_fleet_size=False,
             )
             scores.append(calculate_trust_score(
                 operator, adapter_v5.build_tail_data(tail_number="")
             )["trust_score"])
+        return scores
+
+    def test_larger_fleet_dilutes_identical_risk(self):
+        """
+        §4.1: risk is normalized by MAX(1, SQRT(Vf)).
+
+        Demonstrated with a SERIOUS INCIDENT rather than a fatal accident.
+        This test previously used an injury_level of "Fatal", which now trips
+        the §4.1a circuit breaker and floors all three scores at 50 — the
+        assertion failed not because normalization broke but because
+        normalization is deliberately no longer allowed to apply to a
+        catastrophe. See test_catastrophe_is_not_diluted_by_fleet_size.
+        """
+        scores = self._scores_for_event({
+            "event_type": "Incident", "injury_level": "None",
+            "aircraft_damage": "Minor", "event_date": "2025-01-01",
+        })
         assert scores[0] < scores[1] < scores[2]
+
+    def test_catastrophe_is_not_diluted_by_fleet_size(self):
+        """
+        §4.1a: a fatal accident floors the score regardless of fleet size.
+
+        Exposure normalization is correct for routine incident rates and wrong
+        for a hull loss — a broker does not care that the operator has 99
+        other aircraft that did not crash. A 100-aircraft operator previously
+        carried a fatal accident at 1/10th weight.
+        """
+        scores = self._scores_for_event({
+            "event_type": "Accident", "injury_level": "Fatal",
+            "event_date": "2025-01-01",
+        })
+        assert scores == [50.0, 50.0, 50.0], scores
 
 
 # ── Age_cert provenance ──────────────────────────────────────────────────────

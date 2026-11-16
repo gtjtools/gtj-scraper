@@ -570,3 +570,158 @@ class TestEstimatedCertificateAgeIsWithheld:
 
         blob = json.dumps(self._payload(True))
         assert "10.0" not in blob
+
+
+class TestCatastrophicCircuitBreaker:
+    """
+    §4.1a. A fatal accident or hull loss must floor the score and force RED.
+
+    WHY THIS EXISTS. An operator was reported scoring 81 weeks after a fatal
+    crash. Investigating it found the arithmetic diluting a catastrophe through
+    three compounding mechanisms — exposure normalization (MAX(1, SQRT(Vf))),
+    Dscale operator damping, and five-year exponential decay — so a 50-point
+    FATAL_ACCIDENT against a mid-size fleet landed as a single-digit Sro and
+    left Hsafety near 0.9.
+
+    Worse, an OPEN NTSB docket carries no injury or damage codes for weeks, so
+    a crash from last month graded as severity 0 and the flag read GREEN. The
+    breaker therefore reads raw facts (fatalities, damage) and not a severity
+    value the pipeline may not have been able to assign yet.
+    """
+
+    def _operator(self, events, fleet_size=12):
+        operator = adapter_v5.build_operator_data(
+            operator_name="Aurora Aviation, Inc.",
+            certificate_designator="GLRA",
+            certificate_age_years=15.0, fleet_size=fleet_size,
+            include_dot_orders=True, lookup_fleet_size=False, lookup_churn=False,
+        )
+        operator.lookups_certificate_anchored = True
+        operator.fleet_accident_events = events
+        return operator
+
+    def _tail(self):
+        return adapter_v5.build_tail_data(
+            tail_number="N722BD", aircraft_age_years=25.0,
+            same_type_fleet_count=2, certificate_tenure_months=24.0,
+            tail_lien_records=[], lookup_liens=False, ownership_observed=True,
+        )
+
+    def _crash(self, **kwargs):
+        defaults = dict(
+            severity=0.0, event_date="2026-11-01", event_type="Accident",
+            source="NTSB", reference="ERA27MA026",
+        )
+        defaults.update(kwargs)
+        return RiskEvent(**defaults)
+
+    def test_open_docket_hull_loss_floors_the_score(self):
+        """
+        The reported failure: destroyed aircraft, docket open, no injury codes.
+
+        Severity is 0 here because nothing has been graded yet. Before §4.1a
+        this produced Hsafety 1.0000 and a Benchmark score.
+        """
+        operator = self._operator([
+            self._crash(aircraft_damage="DESTROYED", investigation_status="OPEN"),
+        ])
+        result = calculate_trust_score(operator, self._tail())
+
+        assert result["trust_score"] == 50.0
+        assert result["components"]["h_safety"] == 0.0
+        assert result["components"]["circuit_breaker_tripped"] is True
+        # The undiluted arithmetic is retained for audit, and proves the point:
+        # it saw no risk at all.
+        assert result["components"]["h_safety_before_breaker"] > 0.9
+
+    def test_fatalities_floor_the_score(self):
+        operator = self._operator([self._crash(fatalities=2)])
+        result = calculate_trust_score(operator, self._tail())
+        assert result["trust_score"] == 50.0
+
+    def test_flight_safety_is_red(self):
+        operator = self._operator([
+            self._crash(aircraft_damage="DESTROYED", investigation_status="OPEN"),
+        ])
+        tail = self._tail()
+        payload = narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail)
+        )
+        safety = payload["audit_categories"]["flight_safety"]
+        assert safety["flag"] == narrative_v5.RED
+        # The narrative must be told to lead with it, not merely be given the
+        # event in a list.
+        assert "catastrophic_events" in safety
+        assert safety["catastrophic_events"]["count"] == 1
+
+    def test_a_large_fleet_cannot_dilute_it(self):
+        """Exposure normalization must not apply to a catastrophe."""
+        crash = self._crash(fatalities=1)
+        small = calculate_trust_score(self._operator([crash], 1), self._tail())
+        large = calculate_trust_score(self._operator([crash], 200), self._tail())
+        assert small["trust_score"] == large["trust_score"] == 50.0
+
+    def test_a_healthy_tail_cannot_offset_it(self):
+        """
+        Zeroing Hsafety alone is insufficient — it carries only 0.35 weight.
+
+        Without the composite-level override the 0.65 tail term would carry a
+        clean airframe to roughly 74, a Benchmark score for an operator that
+        has just destroyed an aircraft.
+        """
+        operator = self._operator([self._crash(fatalities=1)])
+        tail = adapter_v5.build_tail_data(
+            tail_number="N722BD", aircraft_age_years=1.0,
+            same_type_fleet_count=8, certificate_tenure_months=60.0,
+            tail_lien_records=[], lookup_liens=False, ownership_observed=True,
+        )
+        assert calculate_trust_score(operator, tail)["trust_score"] == 50.0
+
+    def test_an_old_catastrophe_does_not_trip_it(self):
+        """
+        Outside the 36-month window the ordinary decayed arithmetic resumes.
+
+        An operator must not be defined forever by one event — that is what
+        the decay schedule is for.
+        """
+        operator = self._operator([self._crash(
+            event_date="2015-01-01", fatalities=3, severity=Severity.FATAL_ACCIDENT,
+        )])
+        result = calculate_trust_score(operator, self._tail())
+        assert result["components"].get("circuit_breaker_tripped") is not True
+        assert result["trust_score"] > 50.0
+
+    def test_a_survivable_incident_does_not_trip_it(self):
+        """Substantial damage with no fatalities is YELLOW territory, not RED."""
+        operator = self._operator([self._crash(
+            event_type="Incident", fatalities=0, aircraft_damage="SUBSTANTIAL",
+            severity=Severity.SUBSTANTIAL_DAMAGE,
+        )])
+        result = calculate_trust_score(operator, self._tail())
+        assert result["components"].get("circuit_breaker_tripped") is not True
+        assert result["trust_score"] > 50.0
+
+    def test_a_bare_open_docket_does_not_trip_it(self):
+        """
+        An open investigation with nothing populated is not proof of a
+        catastrophe. Tripping on investigation_status alone would flag every
+        minor incident under review.
+        """
+        operator = self._operator([self._crash(investigation_status="OPEN")])
+        result = calculate_trust_score(operator, self._tail())
+        assert result["components"].get("circuit_breaker_tripped") is not True
+
+    def test_a_tail_crash_trips_it_for_that_tail(self):
+        """
+        calculate_safety_health sees only operator data, so a crash recorded
+        against the tail alone must still be caught at the composite level.
+        """
+        operator = self._operator([])
+        tail = self._tail()
+        tail.tail_accident_events = [self._crash(fatalities=1)]
+        assert calculate_trust_score(operator, tail)["trust_score"] == 50.0
+
+    def test_an_undated_catastrophe_trips_it(self):
+        """A crash we cannot date is not thereby old."""
+        operator = self._operator([self._crash(event_date=None, fatalities=1)])
+        assert calculate_trust_score(operator, self._tail())["trust_score"] == 50.0
