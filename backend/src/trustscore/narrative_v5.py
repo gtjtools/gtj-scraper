@@ -569,9 +569,30 @@ def build_audit_payload(
                     "certificate_age_years": round(operator.certificate_age_years, 1),
                 }),
                 "certificate_age_is_estimated": operator.certificate_age_is_estimated,
-                "tails_added_12m": operator.tails_added_12m,
-                "tails_removed_12m": operator.tails_removed_12m,
-                "fleet_churn_rate_12m": f"{round(churn * 100)}%",
+                # Churn figures are OMITTED when nothing measured them, by the
+                # same reasoning that withholds an estimated certificate age: a
+                # number in the payload invites being quoted.
+                #
+                # These were published unconditionally, so an operator with no
+                # D085 history was handed `tails_added_12m: 0`,
+                # `tails_removed_12m: 0` and `fleet_churn_rate_12m: "0%"`. The
+                # model duly reported "0% fleet churn" and then, reading the
+                # coverage gap, added that churn could not be measured — a
+                # self-contradiction inside one paragraph, observed live on
+                # Triton Air. Suppressing the claim from
+                # verified_clean_searches was not enough while the raw zeros
+                # were still here.
+                #
+                # Unmeasured zero is not a finding. D085 currently holds ~31
+                # days against a 180-day minimum, so this omits the figures for
+                # every operator until the window supports them.
+                **({
+                    "tails_added_12m": operator.tails_added_12m,
+                    "tails_removed_12m": operator.tails_removed_12m,
+                    "fleet_churn_rate_12m": f"{round(churn * 100)}%",
+                } if operator.churn_measured else {
+                    "fleet_churn_measured": False,
+                }),
                 "tail_tenure_months": (
                     round(tail.certificate_tenure_months, 1)
                     if tail.certificate_tenure_months < 999 else None
@@ -722,6 +743,13 @@ against a trade name rather than the operator's certificate. For a GREY \
 category, state plainly that it could not be assessed and name the missing \
 source from `data_coverage_gaps`. Never describe a GREY category as clear, \
 satisfactory, or without findings.
+- Fleet churn: when `fleet_churn_measured` is false, the churn figures are \
+ABSENT from the payload because too little fleet history exists to compute a \
+12-month turnover. Do NOT state or imply a churn rate, and do not say the \
+operator added or removed zero aircraft — that is not what the data shows. \
+Commend the operator's stability on certificate longevity alone, and if you \
+mention churn at all, say only that fleet turnover could not be measured. \
+Never assert a figure and then note it was unmeasurable in the same paragraph.
 - Certificate age: when `certificate_age_is_estimated` is true, \
 `certificate_age_years` is ABSENT from the payload because no ingested source \
 carries the operator's certificate issuance date. Do not state, estimate or \

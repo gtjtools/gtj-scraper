@@ -937,3 +937,71 @@ class TestSisterShipCatastropheIsGraduated:
         operator = self._operator([self._crash()])
         result = calculate_trust_score(operator, self._clean_tail())
         assert 50.0 <= result["fleet_score"] < 60.0
+
+
+class TestUnmeasuredChurnIsNotPublished:
+    """
+    An unmeasured zero must never reach the payload as a finding.
+
+    Observed live on Triton Air after deploying §10: the narrative said
+    "added zero tails and removed zero tails, resulting in a 0% fleet churn
+    rate" and then, two sentences later, "D085 churn could not be measured due
+    to insufficient historical snapshots". A self-contradiction in one
+    paragraph.
+
+    The cause was not the model. `tails_added_12m`, `tails_removed_12m` and
+    `fleet_churn_rate_12m` were published unconditionally, so an operator with
+    no fleet history was handed three zeros and reported them. Suppressing the
+    claim from `verified_clean_searches` was not enough while the raw figures
+    were still in the category block.
+
+    Same reasoning as the estimated certificate age: a number in the payload
+    invites being quoted, so the surest way not to publish a fabricated figure
+    is not to supply it.
+    """
+
+    def _block(self, **extra):
+        kwargs = dict(
+            operator_name="Triton Air Llc", certificate_designator="70TA",
+            certificate_age_years=15.3, fleet_size=4,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        kwargs.update(extra)
+        operator = adapter_v5.build_operator_data(**kwargs)
+        tail = adapter_v5.build_tail_data(
+            tail_number="", lookup_liens=False, tail_lien_records=[],
+        )
+        payload = narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail),
+            trade_names=[],
+        )
+        return payload["audit_categories"]["asset_stability"]
+
+    def test_figures_absent_when_unmeasured(self):
+        block = self._block()
+        assert "tails_added_12m" not in block
+        assert "tails_removed_12m" not in block
+        assert "fleet_churn_rate_12m" not in block
+        # Stated explicitly, so the model knows it is absent by design rather
+        # than missing by accident.
+        assert block["fleet_churn_measured"] is False
+
+    def test_figures_present_when_measured(self):
+        block = self._block(tails_added_12m=2, tails_removed_12m=1)
+        assert block["tails_added_12m"] == 2
+        assert block["tails_removed_12m"] == 1
+        assert "fleet_churn_rate_12m" in block
+        assert "fleet_churn_measured" not in block
+
+    def test_a_measured_zero_is_still_published(self):
+        """Measured stability IS a finding and must survive the suppression."""
+        block = self._block(tails_added_12m=0, tails_removed_12m=0)
+        assert block["tails_added_12m"] == 0
+        assert block["fleet_churn_rate_12m"] == "0%"
+
+    def test_prompt_forbids_inventing_a_rate(self):
+        prompt = narrative_v5.SYSTEM_PROMPT
+        assert "fleet_churn_measured" in prompt
+        assert "do not say the operator added or removed zero aircraft" in \
+            prompt.replace("\\\n", "").replace("\n", " ").lower() or \
+            "removed zero aircraft" in prompt
