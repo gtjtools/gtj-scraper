@@ -150,32 +150,74 @@ class TestBlackBoxRule:
 # ── Flag derivation ──────────────────────────────────────────────────────────
 
 class TestFlagDerivation:
-    def test_clean_operator_with_uningested_sources_is_grey_not_green(self):
+    def test_unresolvable_operator_with_no_sources_is_grey(self):
         """
-        An operator with no adverse findings is not thereby clean.
+        GREY requires TOTAL blindness in a category, not merely a gap.
 
-        Until §8 entity resolution lands, every lookup runs against a trade
-        name, so "nothing found" may only mean "nothing found under the name we
-        searched". Several sources (DOCINDEX liens, ASN latent risk, D085
-        churn) are not ingested at all. Reporting GREEN here is the overclaim
-        that let Red Wing Aeroplane — the specification's own example of a
-        rebranded bad actor — score Pinnacle with six green flags.
+        This previously asserted that a clean operator reads GREY in all six
+        categories, on the reasoning that lookups ran against a trade name and
+        several feeds were un-ingested. §8 entity resolution has since shipped,
+        and the blanket reading was itself an overclaim in the other direction:
+        it made "we looked and found nothing" indistinguishable from "we could
+        not look", so a well-run operator could never earn a clean flag.
+
+        Here NOTHING was consulted — no fleet count, no DOT, no tail, no
+        certificate age — so GREY is the honest answer for every category that
+        has a gating source.
+        """
+        operator = adapter_v5.build_operator_data(
+            operator_name="Opaque",
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        tail = adapter_v5.build_tail_data(
+            tail_number="N1AA", lookup_liens=False,
+        )
+        operator.safety_sources_queried = False
+        payload = narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail)
+        )
+        flags = {name: c["flag"] for name, c in payload["audit_categories"].items()}
+        for category in ("commercial_integrity", "flight_safety", "legal_title"):
+            assert flags[category] == narrative_v5.GREY, category
+
+        # asset_stability is YELLOW rather than GREY: with no certificate age
+        # the raw flag is already adverse (a sub-3-year certificate is a real
+        # finding), and coverage never softens a non-GREEN verdict.
+        assert flags["asset_stability"] == narrative_v5.YELLOW
+
+    def test_queried_and_clean_operator_is_green_not_grey(self):
+        """
+        The regression this spec change exists to prevent.
+
+        A long-established operator whose sources were all searched and came
+        back clean must read GREEN. Zero churn is stable retention; an empty
+        DOCINDEX result for a searched tail is clear title; no DOT match is a
+        clean regulatory record. Each is a favourable finding, and reporting
+        them as "not assessed" told the broker nothing and penalised the
+        operators who had earned the clean result.
         """
         operator = adapter_v5.build_operator_data(
             operator_name="Clean", certificate_designator="ABCD",
             certificate_age_years=25.0, fleet_size=30,
-            include_dot_orders=False, lookup_fleet_size=False,
+            tails_added_12m=0, tails_removed_12m=0,
+            include_dot_orders=True, lookup_fleet_size=False, lookup_churn=False,
         )
+        operator.lookups_certificate_anchored = True
         tail = adapter_v5.build_tail_data(
             tail_number="N1AA", aircraft_age_years=3.5,
             ownership_classification="exclusive", same_type_fleet_count=8,
             certificate_tenure_months=60.0,
+            tail_lien_records=[], lookup_liens=False, ownership_observed=True,
         )
         payload = narrative_v5.build_audit_payload(
             operator, tail, calculate_trust_score(operator, tail)
         )
         flags = {name: c["flag"] for name, c in payload["audit_categories"].items()}
-        assert set(flags.values()) == {narrative_v5.GREY}
+        assert set(flags.values()) == {narrative_v5.GREEN}, flags
+
+        # The nil returns must be offered to the narrative as positives, or the
+        # model has nothing affirmative to cite.
+        assert payload["verified_clean_searches"], "clean searches must be surfaced"
 
     def test_grey_never_overrides_an_adverse_finding(self):
         """Missing sources must not soften evidence that WAS found."""
@@ -193,13 +235,37 @@ class TestFlagDerivation:
         assert payload["audit_categories"]["flight_safety"]["flag"] == narrative_v5.RED
 
     def test_coverage_downgrade_only_touches_green(self):
-        gaps = frozenset([adapter_v5.GAP_NAME_ANCHORED_LOOKUPS])
+        """An adverse verdict is never softened by a coverage gap."""
+        gaps = frozenset([adapter_v5.GAP_SAFETY_SOURCES])
         assert narrative_v5._apply_coverage(
             narrative_v5.GREEN, "flight_safety", gaps) == narrative_v5.GREY
         assert narrative_v5._apply_coverage(
             narrative_v5.YELLOW, "flight_safety", gaps) == narrative_v5.YELLOW
         assert narrative_v5._apply_coverage(
             narrative_v5.RED, "flight_safety", gaps) == narrative_v5.RED
+
+    def test_name_gap_alone_does_not_grey_out_airframe_evidence(self):
+        """
+        §8 name resolution is irrelevant to N-number-keyed evidence.
+
+        NTSB, AIDS and SDRS records attach to the registration, which is
+        immutable and was searched directly, so a clean airframe history stands
+        regardless of what the operator currently calls itself. Applying the
+        name gap to all six categories (the previous behaviour) greyed out
+        findings that the operator's name had no bearing on.
+        """
+        gaps = frozenset([adapter_v5.GAP_NAME_ANCHORED_LOOKUPS,
+                          adapter_v5.GAP_CERTIFICATE_UNRESOLVED])
+        assert narrative_v5._apply_coverage(
+            narrative_v5.GREEN, "flight_safety", gaps) == narrative_v5.GREEN
+        assert narrative_v5._apply_coverage(
+            narrative_v5.GREEN, "maintenance_discipline", gaps) == narrative_v5.GREEN
+        # Entity-keyed categories still go GREY: those records are filed under
+        # a name, and we could not establish which names to search.
+        assert narrative_v5._apply_coverage(
+            narrative_v5.GREEN, "commercial_integrity", gaps) == narrative_v5.GREY
+        assert narrative_v5._apply_coverage(
+            narrative_v5.GREEN, "legal_title", gaps) == narrative_v5.GREY
 
     def test_green_survives_when_nothing_is_missing(self):
         """A fully-evidenced category must still be able to read GREEN."""
@@ -234,19 +300,57 @@ class TestFlagDerivation:
         )
         assert payload["audit_categories"]["commercial_integrity"]["flag"] == narrative_v5.RED
 
-    def test_active_tail_lien_forces_red_legal(self):
+    def _legal_flag(self, tail_lien_records):
         operator = adapter_v5.build_operator_data(
-            operator_name="X", certificate_age_years=20.0, fleet_size=10,
+            operator_name="X", certificate_designator="ABCD",
+            certificate_age_years=20.0, fleet_size=10,
             include_dot_orders=False, lookup_fleet_size=False,
         )
+        # legal_title is entity-keyed, so an unresolved operator greys it out
+        # regardless of the liens. Resolve it here to isolate the tier logic.
+        operator.lookups_certificate_anchored = True
         tail = adapter_v5.build_tail_data(
             tail_number="N1", same_type_fleet_count=5, certificate_tenure_months=24.0,
-            tail_lien_records=[{"event_date": "2025-06-01"}],
+            tail_lien_records=tail_lien_records, ownership_observed=True,
         )
         payload = narrative_v5.build_audit_payload(
             operator, tail, calculate_trust_score(operator, tail)
         )
-        assert payload["audit_categories"]["legal_title"]["flag"] == narrative_v5.RED
+        return payload["audit_categories"]["legal_title"]["flag"]
+
+    def test_material_tail_lien_yields_yellow_legal(self):
+        """
+        §2B: an untiered or unclassifiable filing is material, not crippling.
+
+        This asserted RED for ANY lien. Filing count is a poor risk proxy —
+        that rule ranked a fleet carrying routine bank financings alongside one
+        carrying a tax levy — so severity now drives the flag.
+        """
+        assert self._legal_flag(
+            [{"event_date": "2025-06-01"}]
+        ) == narrative_v5.YELLOW
+
+    def test_crippling_lien_forces_red_legal_on_one_filing(self):
+        """A single tax levy is enough: the claimant can ground the aircraft."""
+        assert self._legal_flag([
+            {"event_date": "2025-06-01", "doc_type": "S/A",
+             "party": "INTERNAL REVENUE SERVICE"},
+        ]) == narrative_v5.RED
+
+    def test_routine_financing_does_not_move_the_flag(self):
+        """
+        §2B: many small bank/lessor filings must not read as distress.
+
+        A recorded loan or lease is what a financed aircraft looks like.
+        """
+        assert self._legal_flag([
+            {"event_date": "2025-06-01", "doc_type": "S/A",
+             "party": "FIRST FARMERS BANK & TRUST"},
+            {"event_date": "2025-03-01", "doc_type": "S/A",
+             "party": "NBH BANK"},
+            {"event_date": "2024-11-01", "doc_type": "S/A",
+             "party": "DYNAMIC AVLEASE INC"},
+        ]) == narrative_v5.GREEN
 
     def test_orphan_fleet_type_yields_yellow_fulfillment(self):
         operator = adapter_v5.build_operator_data(

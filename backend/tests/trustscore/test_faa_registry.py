@@ -134,18 +134,26 @@ class TestDocIndexIsNotClearance:
         assert reg.TailTitleHistory(tail_number="N1").docindex_is_complete is False
 
 
-class TestLienGapIsUnconditional:
+class TestLienGapTracksTheLookup:
     """
-    GAP_TAIL_LIENS must be raised even when liens were found.
+    GAP_TAIL_LIENS reports whether the lookup RAN, not what it returned.
 
-    DOCINDEX is a ~180-day rolling window, so finding filings proves
-    encumbrance while finding none proves nothing about title. Neither licenses
-    a clean legal_title finding. This is the same failure mode as
-    GAP_NAME_ANCHORED_LOOKUPS: a gap that silently stops firing lets an
-    unevidenced category read as verified.
+    This class previously asserted the opposite — that the gap is raised
+    unconditionally, on the reasoning that DOCINDEX's ~180-day rolling window
+    means finding nothing proves nothing about title. The conclusion did not
+    follow: raising the gap even for tails that WERE searched made legal_title
+    structurally incapable of ever reading GREEN, so the flag carried no
+    information and a spotless tail was indistinguishable from an unexamined
+    one.
+
+    DOCINDEX writes a row only when an encumbrance is filed, so for a searched
+    tail zero rows IS the finding "nothing on file". The rolling-window limit
+    is real and still disclosed to the narrative as a scope note (see the
+    SYSTEM_PROMPT scope-note guardrail), rather than by withholding the flag.
     """
 
-    def test_gap_raised_when_no_liens(self):
+    def test_gap_absent_when_lookup_ran_and_found_nothing(self):
+        """An executed search returning nothing is a finding, not a gap."""
         from src.trustscore import adapter_v5
 
         tail = adapter_v5.build_tail_data(
@@ -155,9 +163,28 @@ class TestLienGapIsUnconditional:
             operator_name="X", certificate_age_years=10.0, fleet_size=5,
             include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
         )
-        assert adapter_v5.GAP_TAIL_LIENS in adapter_v5.missing_input_keys(operator, tail)
+        assert tail.liens_queried
+        assert adapter_v5.GAP_TAIL_LIENS not in adapter_v5.missing_input_keys(
+            operator, tail
+        )
 
-    def test_gap_still_raised_when_liens_were_found(self):
+    def test_gap_raised_when_lookup_never_ran(self):
+        """No search means genuinely no coverage."""
+        from src.trustscore import adapter_v5
+
+        tail = adapter_v5.build_tail_data(
+            tail_number="N1", tail_lien_records=None, lookup_liens=False
+        )
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0, fleet_size=5,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        assert not tail.liens_queried
+        assert adapter_v5.GAP_TAIL_LIENS in adapter_v5.missing_input_keys(
+            operator, tail
+        )
+
+    def test_found_liens_still_reach_the_score(self):
         from src.trustscore import adapter_v5
 
         tail = adapter_v5.build_tail_data(
@@ -170,7 +197,11 @@ class TestLienGapIsUnconditional:
             include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
         )
         assert tail.tail_lien_events, "the lien must still reach the score"
-        assert adapter_v5.GAP_TAIL_LIENS in adapter_v5.missing_input_keys(operator, tail)
+        # The search ran, so there is no coverage gap — the encumbrance is a
+        # positive finding and drives the flag through the tier instead.
+        assert adapter_v5.GAP_TAIL_LIENS not in adapter_v5.missing_input_keys(
+            operator, tail
+        )
 
     def test_found_liens_lower_the_score(self):
         """A lien must cost something, or ingesting them is pointless."""
@@ -403,8 +434,20 @@ class TestLienGapProseIsHonest:
         assert "1 active lien" in text
 
     def test_disclosed_when_no_liens_were_found(self):
+        """
+        The window limit is disclosed as a scope note, not as a denial.
+
+        This asserted the prose say "NOT clear title". That wording told the
+        narrative a searched, encumbrance-free airframe could not be described
+        as clean — which is what kept legal_title permanently GREY and made the
+        flag useless. The limit is still stated; what changed is that it no
+        longer contradicts the finding it accompanies.
+        """
         text = self._gap_text([])
-        assert "NOT clear title" in text
+        assert "rolling recent window" in text
+        assert "NOT clear title" not in text
+        # Still honest about what a nil result does and does not prove.
+        assert "never released would not appear" in text
 
     def test_never_claims_docindex_is_unparsed(self):
         """It is parsed and backfilled; saying otherwise is simply false now."""
