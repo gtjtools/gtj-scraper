@@ -30,6 +30,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.common.lien_classification import lien_tier
 from src.trustscore.calculator_v5 import (
     ELI_TAXONOMY,
     OperatorData,
@@ -677,9 +678,9 @@ def fetch_tail_liens(
 
         # Who filed matters: a bank recording a loan is routine, while a
         # maintenance shop or fuel supplier files with the Registry only when
-        # unpaid. Annotated rather than scored — §4.2 charges every active
-        # encumbrance equally, and this classification is UNKNOWN for ~64% of
-        # real parties, so it informs the narrative without moving a number.
+        # unpaid. This now MOVES A NUMBER as well as annotating: `party` and
+        # `doc_type` are carried through so build_tail_data can assign a §2
+        # severity tier, instead of every encumbrance being charged alike.
         from src.common.lien_classification import classify_party, UNKNOWN
 
         out = []
@@ -695,6 +696,10 @@ def fetch_tail_liens(
             out.append({
                 "date": row["doc_date"].isoformat() if row["doc_date"] else None,
                 "reference": reference,
+                # Required by lien_tier. DOCINDEX publishes no claim amount, so
+                # claim_amount is absent and the tier falls to party/doc_type.
+                "party": row["party"],
+                "doc_type": row["doc_type"],
             })
         return out
     except Exception as exc:  # pragma: no cover - defensive
@@ -802,6 +807,13 @@ def build_operator_data(
 
     # Pipeline 8 — DOT OACP. Fetched here rather than at the call sites so
     # every caller gets it without repeating the lookup.
+    #
+    # The conduct corpus counts as consulted either way: because we fetched it,
+    # or because the caller supplied orders it had already fetched. Deriving
+    # this from `include_dot_orders` alone reported a caller-supplied docket as
+    # unqueried, which then greyed out commercial_integrity on evidence that
+    # was right there in the argument list.
+    conduct_queried = dot_orders is not None or bool(include_dot_orders)
     if dot_orders is None and include_dot_orders:
         dot_orders = fetch_dot_orders_for_operator(operator_name)
     legal += dot_orders_to_legal_events(dot_orders or [])
@@ -842,12 +854,18 @@ def build_operator_data(
     # fleet: §3 divides by what the operator had at the start, so using today's
     # count would understate an operator that has shed aircraft.
     churn_baseline: Optional[int] = None
+    # Did anyone actually measure churn? True when the caller supplied figures,
+    # or when fetch_churn found enough D085 history to compute them. False means
+    # no measurement exists — distinct from a measurement of zero, which is what
+    # a stable operator looks like and must read as GREEN.
+    churn_measured = tails_added_12m is not None or tails_removed_12m is not None
     if lookup_churn and tails_added_12m is None and tails_removed_12m is None:
         churn = fetch_churn(operator_name)
         if churn:
             tails_added_12m = churn["tails_added"]
             tails_removed_12m = churn["tails_removed"]
             churn_baseline = churn["baseline_fleet_size"]
+            churn_measured = True
 
     return OperatorData(
         certificate_designator=certificate_designator or operator_name,
@@ -856,16 +874,25 @@ def build_operator_data(
         certificate_age_is_estimated=certificate_age_is_estimated,
         lookups_certificate_anchored=lookups_anchored,
         fleet_size=fleet_size,
-        # None means "never measured"; the calculator's field is an int, so it
-        # becomes 0 — the same no-penalty default as before, and GAP_CHURN still
-        # reports the absence.
+        # Still coerced to 0 for the arithmetic — §3 needs an int and an
+        # unmeasured operator must not be penalised. The difference is that
+        # `churn_measured` now carries the "was this observed?" question
+        # separately, instead of it being inferred from a zero that cannot
+        # distinguish a stable fleet from an unseen one.
         tails_added_12m=tails_added_12m or 0,
         tails_removed_12m=tails_removed_12m or 0,
+        churn_measured=churn_measured,
         baseline_fleet_size=churn_baseline,
         fleet_accident_events=accidents,
         fleet_sdr_events=sdrs,
         latent_risk_events=latent,
         legal_events=legal,
+        # NTSB/AIDS and the conduct corpora are queried unconditionally by the
+        # fetch helpers above, so by the time we get here they have been
+        # consulted and an empty result is a real finding. include_dot_orders
+        # gates whether the DOT/watchdog corpus was reachable at all.
+        safety_sources_queried=True,
+        conduct_sources_queried=conduct_queried,
     )
 
 
@@ -879,6 +906,7 @@ def build_tail_data(
     tail_events: Optional[List[Dict[str, Any]]] = None,
     tail_lien_records: Optional[List[Dict[str, Any]]] = None,
     lookup_liens: bool = True,
+    ownership_observed: bool = False,
 ) -> TailData:
     """
     Assemble `TailData` for one airframe.
@@ -907,6 +935,10 @@ def build_tail_data(
         certificate_tenure_months: Months on the active D085.
         tail_events: Events for this tail only.
         tail_lien_records: DOCINDEX M/T records against this tail.
+        ownership_observed: True when `ownership_classification` came from the
+            FAA Registration Master. The parameter defaults to "exclusive",
+            which is also the most favourable value, so an unobserved default
+            must not be allowed to anchor a clean legal_title finding.
 
     Returns:
         TailData ready for the v5.0 calculator.
@@ -931,16 +963,42 @@ def build_tail_data(
 
     # §4.2 Lientail, from gtj.tail_liens. Looked up only when the caller did not
     # supply records, so an explicit [] still means "measured, none found".
+    #
+    # liens_queried records that the search happened. For an indexed tail an
+    # empty result is the finding "no encumbrance on file", which is exactly
+    # what a clean title looks like; previously that produced a GREY flag no
+    # operator could ever clear.
+    liens_queried = tail_lien_records is not None
     if lookup_liens and tail_lien_records is None:
         tail_lien_records = fetch_tail_liens(tail_number)
+        liens_queried = True
 
+    # §2 severity tier per filing. DOCINDEX carries no claim amount, so the
+    # tier comes from who filed and what kind of document it is — a bank
+    # recording a loan is not the same risk as a tax authority recording a levy,
+    # and scoring them identically is what made a well-financed operator look
+    # worse than a delinquent one.
     liens = [
         RiskEvent(
-            severity=0.0,  # the calculator applies the flat 25-point charge
+            severity=0.0,  # the calculator applies the per-tier charge
             event_date=_event_date(record),
             event_type="ACTIVE_MECHANICS_OR_TAX_LIEN",
             source="DOCINDEX",
             reference=_reference(record),
+            # A record carrying no party/doc_type keys at all did not come from
+            # DOCINDEX — a caller handed us a bare encumbrance. Tier it material
+            # rather than routine: the filing is asserted to exist, and only a
+            # DOCINDEX row with an explicitly NULL party is "missing data".
+            severity_tier=(
+                lien_tier(
+                    party=record.get("party"),
+                    doc_type=record.get("doc_type"),
+                    claim_amount=record.get("claim_amount"),
+                )
+                if ("party" in record or "doc_type" in record
+                    or "claim_amount" in record)
+                else 2
+            ),
         )
         for record in (tail_lien_records or [])
     ]
@@ -954,6 +1012,8 @@ def build_tail_data(
         tail_accident_events=accidents,
         tail_sdr_events=sdrs,
         tail_lien_events=liens,
+        liens_queried=liens_queried,
+        ownership_observed=ownership_observed,
     )
 
 
@@ -978,6 +1038,14 @@ GAP_DOT_ORDERS = "dot_orders_unmatched"
 GAP_TAIL_TENURE = "tail_tenure_unknown"
 GAP_SAME_TYPE_FLEET = "same_type_fleet_unknown"
 GAP_TAIL_LIENS = "docindex_liens_not_parsed"
+#: The FAA Registration Master ownership classification (Ost) was not observed.
+#: Anchors legal_title jointly with GAP_TAIL_LIENS: either one intact is enough
+#: to assess the category (§1B).
+GAP_OWNERSHIP = "ownership_classification_unknown"
+#: NTSB/AIDS was never queried. The anchor for flight_safety (§1D) — with this
+#: intact, zero accidents means a clean history, and un-ingested ASN latent risk
+#: is explicitly not allowed to hold the category GREY.
+GAP_SAFETY_SOURCES = "ntsb_aids_not_queried"
 
 
 def missing_input_keys(operator: OperatorData, tail: TailData) -> List[str]:
@@ -1007,27 +1075,52 @@ def missing_input_keys(operator: OperatorData, tail: TailData) -> List[str]:
         keys.append(GAP_CERTIFICATE_AGE)
     if not operator.fleet_size:
         keys.append(GAP_FLEET_SIZE)
-    if not operator.tails_added_12m and not operator.tails_removed_12m:
+    # Measured-zero is a FINDING, not a gap.
+    #
+    # This previously tested `not tails_added and not tails_removed`, which is
+    # true both for an operator whose fleet has been perfectly stable all year
+    # and for one with no D085 history at all. Those are opposite facts, and
+    # conflating them turned the best-behaved operators GREY. The question is
+    # whether anyone measured, which is what `churn_measured` records.
+    if not operator.churn_measured:
         keys.append(GAP_CHURN)
+    # ASN is not ingested, so this is genuinely never observed. It is retained
+    # as a disclosure but is SUPPLEMENTARY (see _CATEGORY_ANCHORS in
+    # narrative_v5) — it cannot by itself hold flight_safety GREY when NTSB and
+    # AIDS have both been queried.
     if not operator.latent_risk_events:
         keys.append(GAP_LATENT_RISK)
-    if not any(event.source == "DOT_OACP" for event in operator.legal_events):
+    # Fires only when the DOT/watchdog corpus was never consulted. Finding no
+    # enforcement order against an operator that WAS searched is affirmative
+    # evidence of clean conduct — the outcome a reputable operator earns — and
+    # reporting it as a coverage gap inverted its meaning.
+    if not operator.conduct_sources_queried:
         keys.append(GAP_DOT_ORDERS)
     if tail.certificate_tenure_months >= 999.0:
         keys.append(GAP_TAIL_TENURE)
-    if tail.same_type_fleet_count <= 1:
+    # A single-aircraft fleet is an observed fact, not missing data, whenever
+    # the fleet was actually counted. Only an uncounted fleet is unknown.
+    if tail.same_type_fleet_count <= 1 and not operator.fleet_size:
         keys.append(GAP_SAME_TYPE_FLEET)
-    # Raised unconditionally, even when liens WERE found.
+    # No longer unconditional.
     #
-    # DOCINDEX — the only lien source ingested — is a ~180-day rolling suspense
-    # index, so a lien recorded years ago and never released is absent from it
-    # entirely. Finding filings proves encumbrance; finding none proves nothing
-    # about title. Neither outcome licenses a clean legal_title finding, so the
-    # gap stands until FAA CARES (permanent, life-of-airframe) is ingested.
-    #
-    # The found liens still score: they feed ELI through tail_lien_events. This
-    # only governs whether the *category* may read as evidenced.
-    keys.append(GAP_TAIL_LIENS)
+    # DOCINDEX is a ~180-day rolling suspense index, so a lien filed years ago
+    # and never released is absent from it; that residual limit is real and is
+    # disclosed to the narrative as a scope note. But raising this gap even on
+    # tails that WERE searched meant legal_title could never be GREEN for
+    # anybody, no matter how clean the title — which made the flag carry no
+    # information at all. DOCINDEX writes a row only when an encumbrance is
+    # filed, so for a searched tail zero rows is the finding "nothing on file".
+    if not tail.liens_queried:
+        keys.append(GAP_TAIL_LIENS)
+    # Ost anchors legal_title alongside the lien lookup. The dataclass default
+    # is "exclusive" — the most favourable value — so an unobserved default must
+    # not be mistaken for an observed one. Operator-level scoring (no tail) has
+    # no ownership question to answer, so the gap does not apply there.
+    if tail.tail_number and not tail.ownership_observed:
+        keys.append(GAP_OWNERSHIP)
+    if not operator.safety_sources_queried:
+        keys.append(GAP_SAFETY_SOURCES)
     return keys
 
 
@@ -1051,10 +1144,16 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
             "certificate_designator unresolved (anchored to trade name; §8 requires "
             "the immutable 4-char FAA ID to defeat DBA rebranding)"
         )
-    gaps.append(
-        "evidence gathered by trade name, not certificate designator (§8): an "
-        "operator that has rebranded will not match its own history"
-    )
+    # Conditional, matching missing_input_keys. This was appended
+    # unconditionally, so an operator whose lookups WERE expanded across every
+    # name on its certificate was still reported as searched by trade name —
+    # and the narrative repeated that caveat against a finding it did not apply
+    # to. §8 resolution either ran or it did not; say which.
+    if not operator.lookups_certificate_anchored:
+        gaps.append(
+            "evidence gathered by trade name, not certificate designator (§8): an "
+            "operator that has rebranded will not match its own history"
+        )
     if not operator.certificate_age_years:
         gaps.append("certificate_age_years is 0 (Agecert unknown; Cs will be near 0)")
     elif operator.certificate_age_is_estimated:
@@ -1071,30 +1170,43 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
         )
     if not operator.fleet_size:
         gaps.append("fleet_size is 0 (Vf unknown; no exposure normalization)")
-    if not operator.tails_added_12m and not operator.tails_removed_12m:
-        gaps.append("D085 churn not captured (Churneffective = 0; fleet volatility invisible)")
+    # Keyed to whether the measurement exists, not to whether it came back
+    # zero. Zero movement on a measured window is stable retention — a finding
+    # worth commending, not a gap.
+    if not operator.churn_measured:
+        gaps.append(
+            "D085 churn not measured — fewer than two fleet snapshots far "
+            "enough apart to compute 12-month turnover, so fleet volatility is "
+            "neither confirmed nor ruled out (Churneffective = 0)"
+        )
     if not operator.latent_risk_events:
         gaps.append("ASN latent risk not ingested (Lrisk = 0)")
-    if not any(event.source == "DOT_OACP" for event in operator.legal_events):
+    # Only when the corpus was never searched. A search that matched nothing is
+    # a clean regulatory record, reported in verified_clean_searches instead.
+    if not operator.conduct_sources_queried:
         gaps.append(
-            "no DOT OACP orders matched (either none exist, or the operator's "
-            "name differs from the filed respondent — matching is by name, not "
-            "certificate designator)"
+            "DOT OACP enforcement orders not queried — the operator entity "
+            "could not be matched against the consumer-protection docket"
         )
     if tail.certificate_tenure_months >= 999.0:
         gaps.append("tail D085 tenure unknown (Ttenure assumed seasoned)")
-    if tail.same_type_fleet_count <= 1:
+    if tail.same_type_fleet_count <= 1 and not operator.fleet_size:
         gaps.append("same-type fleet depth unknown (Vtype treated as orphan)")
-    # Unconditional, matching missing_input_keys. DOCINDEX is now parsed and
-    # backfilled to ~2.2 years, but it remains a rolling window: a lien filed
-    # before our earliest capture and never released is invisible. So finding
-    # liens proves encumbrance while finding none proves nothing about title,
-    # and neither licenses a clean legal_title finding. Only FAA CARES can.
+    # DOCINDEX is parsed and backfilled to ~2.2 years, but it remains a rolling
+    # window: a lien filed before our earliest capture and never released is
+    # invisible. That residual limit is worth stating — as a SCOPE NOTE on a
+    # real finding, not as a denial of it.
     #
-    # Previously conditioned on `not tail.tail_lien_events`, which contradicted
-    # missing_input_keys and silently dropped the disclosure for exactly the
-    # tails that DO carry liens.
-    if tail.tail_lien_events:
+    # The previous wording ("this is NOT clear title") contradicted the flag it
+    # accompanied: it told the narrative a searched, encumbrance-free tail could
+    # not be called clean, which is what made legal_title permanently GREY. The
+    # search did run, and for an indexed tail no rows means nothing is on file.
+    if not tail.liens_queried:
+        gaps.append(
+            "FAA Document Index not searched for this airframe — lien status "
+            "unknown (Lientail = 0 by default, not by observation)"
+        )
+    elif tail.tail_lien_events:
         gaps.append(
             f"DOCINDEX covers a rolling window only — {len(tail.tail_lien_events)} "
             "active lien(s) found, but filings older than our earliest capture "
@@ -1102,8 +1214,10 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
         )
     else:
         gaps.append(
-            "no DOCINDEX lien in the captured window — this is NOT clear title; "
-            "an older unreleased lien would not appear (Lientail = 0)"
+            "DOCINDEX scope note: the search returned no active filings for "
+            "this airframe, which is the expected result for clear title. The "
+            "index covers a rolling recent window, so a filing predating our "
+            "earliest capture and never released would not appear"
         )
 
     return gaps

@@ -127,8 +127,42 @@ SCORE_TIERS = (
 LRISK_CAP = 15.0
 #: §5.3 Sdrpenalty is clamped per tail.
 SDR_TAIL_CAP = 30.0
-#: §5.3 Points per active tail-specific lien.
+#: §5.3 Points per active tail-specific lien. Retained as the Tier 2 rate and
+#: as the fallback for an untiered lien event, so behaviour is unchanged for any
+#: caller that has not adopted tiering.
 LIEN_TAIL_POINTS = 25.0
+
+#: §2A Points per active lien, by severity tier.
+#:
+#: Row count is a poor risk proxy: a large operator accrues routine bank
+#: financings and small vendor filings, while a distressed one may carry a
+#: single six-figure engine claim. Flat scoring ranks the first worse because it
+#: has more rows. These rates break that inversion.
+#:
+#: Tier 1 is deliberately small — a recorded bank loan or lease is what a
+#: financed aircraft looks like, not a defect — and is additionally log-damped
+#: and capped below, so volume alone cannot accumulate into a verdict.
+LIEN_TIER_POINTS = {
+    1: 3.0,    # routine financing / administrative
+    2: 25.0,   # material mechanics', MRO or fuel claim
+    3: 60.0,   # crippling: tax levy, judgment, engine-programme default
+}
+
+#: §2A Ceiling on the TOTAL Tier 1 contribution, before decay.
+#:
+#: "capped at a maximum total penalty of 0.08 (8 points) regardless of how many
+#: minor liens exist" — expressed here in the calculator's point space, where
+#: Htailhistory = e^(-0.025 * risk). 8 points costs ~18% of Htailhistory, which
+#: is a real but survivable dent, and no number of Tier 1 filings can exceed it.
+LIEN_TIER1_CAP = 8.0
+
+#: §2A Logarithmic dampening coefficient for Tier 1 volume.
+#:
+#: penalty = LIEN_TIER1_LOG_COEFF * ln(1 + n) * LIEN_TIER_POINTS[1], capped.
+#: ln keeps the first filing meaningful while flattening the tenth: a fleet with
+#: twenty financed aircraft is not twenty times riskier than one with a single
+#: loan.
+LIEN_TIER1_LOG_COEFF = 1.0
 #: §3 Churn is capped so catastrophic churn cannot zero out Cs entirely.
 CHURN_CAP = 0.65
 #: §3 Organic fleet growth below this ratio is unpenalized.
@@ -155,6 +189,11 @@ class RiskEvent:
     event_type: str = ""                   # free-text label, for the breakdown only
     source: str = ""                       # NTSB | AIDS | SDRS | ASN | DOCINDEX | OACP | WATCHDOG
     reference: str = ""                    # case/docket/control number, for audit
+    #: §2 lien severity tier (1 nuisance / 2 material / 3 crippling), from
+    #: `common.lien_classification.lien_tier`. Only meaningful on lien events;
+    #: None elsewhere. Carried on the event so the tier assigned at ingestion
+    #: survives into both the penalty arithmetic and the flag.
+    severity_tier: Optional[int] = None
 
 
 @dataclass
@@ -201,6 +240,30 @@ class OperatorData:
     tails_removed_12m: int = 0
     baseline_fleet_size: Optional[int] = None   # BaselineVf; defaults to fleet_size
 
+    # ── Source observability ─────────────────────────────────────────────────
+    #
+    # Whether a source was CONSULTED, which is a different question from what it
+    # returned. Both of these default False, i.e. "not consulted", so a caller
+    # that does not set them gets the cautious reading.
+    #
+    # These exist because the flag layer previously inferred coverage from
+    # emptiness, and the two are not the same thing. `tails_added_12m == 0` is
+    # the *good* outcome for a stable operator, but it is also what an operator
+    # with no D085 history looks like — and treating the first as the second
+    # turned every well-run, stable fleet GREY. Likewise a DOT query that
+    # returns nothing is affirmative evidence of a clean regulatory record,
+    # not a coverage hole.
+    #
+    # The rule throughout: emptiness is evidence when the source was queried,
+    # and absence of evidence only when it was not.
+    churn_measured: bool = False
+    #: True once the operator's name has actually been run against DOT OACP and
+    #: the watchdog corpora. Zero returned events then means a clean record.
+    conduct_sources_queried: bool = False
+    #: True once NTSB/AIDS has been queried for the certificate. Zero accidents
+    #: then means no accident history, not an unexamined one.
+    safety_sources_queried: bool = False
+
     # §4.1 Safety
     fleet_accident_events: List[RiskEvent] = field(default_factory=list)  # NTSB + AIDS
     fleet_sdr_events: List[RiskEvent] = field(default_factory=list)       # SDRS, all tails
@@ -228,6 +291,24 @@ class TailData:
     tail_accident_events: List[RiskEvent] = field(default_factory=list)  # NTSB/AIDS, this N-number
     tail_sdr_events: List[RiskEvent] = field(default_factory=list)       # SDRS, this N-number
     tail_lien_events: List[RiskEvent] = field(default_factory=list)      # DOCINDEX M/T, this N-number
+
+    # ── Source observability ─────────────────────────────────────────────────
+    #
+    # True once gtj.tail_liens has been queried for this N-number. DOCINDEX
+    # writes a row only when an encumbrance is filed, so for an indexed tail
+    # zero rows means zero active liens — a finding, not a gap. This flag is
+    # what separates "searched, nothing filed" from "never searched".
+    #
+    # Note this is a weaker claim than permanent title clearance: DOCINDEX is a
+    # rolling suspense index, so a lien filed years ago and never released is
+    # not in it. That residual limit is disclosed to the narrative as a scope
+    # note rather than by withholding the flag, because refusing to ever call a
+    # clean tail clean is the bug this replaces.
+    liens_queried: bool = False
+    #: True when `ownership_classification` came from the FAA Registration
+    #: Master rather than the dataclass default. Ost anchors legal_title, so a
+    #: defaulted "exclusive" must not be mistaken for an observed one.
+    ownership_observed: bool = False
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -473,6 +554,72 @@ def calculate_tenure_modifier(tenure_months: float) -> float:
     return 1.00 if tenure_months >= 6.0 else 0.95
 
 
+def _lien_tail_penalty(
+    lien_events: List[RiskEvent], now: Optional[datetime] = None
+) -> float:
+    """
+    Lientail — severity-tiered, log-dampened lien penalty (§2A, §5.3).
+
+    Tiers 2 and 3 are charged per filing at their own rate, each decayed by its
+    recording date: a single crippling encumbrance must be able to dominate the
+    category on its own, which is the whole point of the tier.
+
+    Tier 1 is charged as a group instead. Routine bank and lessor filings are
+    what a financed fleet looks like, so they are logarithmically dampened and
+    then capped at LIEN_TIER1_CAP — no quantity of them can accumulate into a
+    verdict. Decay is applied as the mean retained fraction across the Tier 1
+    filings, so old financings fade like anything else without letting one
+    recent filing re-inflate the group.
+
+    An event with no `severity_tier` falls back to the flat LIEN_TAIL_POINTS,
+    preserving prior behaviour for callers that have not adopted tiering.
+    """
+    if not lien_events:
+        return 0.0
+
+    tier1 = [event for event in lien_events if event.severity_tier == 1]
+    charged = [event for event in lien_events if event.severity_tier != 1]
+
+    total = 0.0
+
+    # Tiers 2, 3 and untiered: per-filing, at the tier's rate.
+    if charged:
+        total += decayed_sum(
+            [
+                RiskEvent(
+                    severity=LIEN_TIER_POINTS.get(
+                        event.severity_tier, LIEN_TAIL_POINTS
+                    ),
+                    event_date=event.event_date,
+                    event_type=event.event_type,
+                    source=event.source,
+                    reference=event.reference,
+                )
+                for event in charged
+            ],
+            now,
+        )
+
+    # Tier 1: log-dampened in count, capped, then decayed by the group mean.
+    if tier1:
+        undamped = LIEN_TIER_POINTS[1] * len(tier1)
+        damped = min(
+            LIEN_TIER1_CAP,
+            LIEN_TIER1_LOG_COEFF * math.log(1 + len(tier1)) * LIEN_TIER_POINTS[1],
+            undamped,
+        )
+        # Mean retained fraction, computed through decayed_sum so the decay
+        # constant is never duplicated.
+        probe = [
+            RiskEvent(severity=1.0, event_date=event.event_date)
+            for event in tier1
+        ]
+        retained = decayed_sum(probe, now) / float(len(tier1))
+        total += damped * retained
+
+    return total
+
+
 def calculate_tail_history_health(
     tail: TailData, now: Optional[datetime] = None
 ) -> Dict[str, float]:
@@ -491,18 +638,7 @@ def calculate_tail_history_health(
     iht = 5.0 * decayed_sum(tail.tail_accident_events, now)
     sdr_penalty = min(SDR_TAIL_CAP, decayed_sum(tail.tail_sdr_events, now))
 
-    # Each lien contributes a flat 25 points, decayed by its recording date.
-    lien_events = [
-        RiskEvent(
-            severity=LIEN_TAIL_POINTS,
-            event_date=event.event_date,
-            event_type=event.event_type,
-            source=event.source,
-            reference=event.reference,
-        )
-        for event in tail.tail_lien_events
-    ]
-    lien_tail = decayed_sum(lien_events, now)
+    lien_tail = _lien_tail_penalty(tail.tail_lien_events, now)
 
     total = iht + sdr_penalty + lien_tail
     return {
