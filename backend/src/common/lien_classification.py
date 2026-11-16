@@ -69,9 +69,13 @@ _FINANCIER_NAMES = (
 #: Generic financier markers, applied only when nothing in _DISTRESS_PATTERN
 #: matched. Ordering matters: "AFC FINANCIAL SERVICES LLC" must land here
 #: rather than being trapped by the word "SERVICES".
+#: LEAS(E|ING) is matched without a leading word boundary so compounds land
+#: here too: "DYNAMIC AVLEASE INC" is plainly a lessor, but `\bLEASING\b` misses
+#: it because the word is welded to "AV". Trailing \b still anchors the end, so
+#: this does not swallow unrelated words.
 _FINANCIER_PATTERN = re.compile(
-    r"\b(BANK|BANKING|BANCORP|TRUSTEE|FINANCIAL|FINANCE|LEASING|LESSOR|"
-    r"CAPITAL CORP|CREDIT CORP|N\.?A\.?)\b"
+    r"(\b(BANK|BANKING|BANCORP|TRUSTEE|FINANCIAL|FINANCE|LESSOR|"
+    r"CAPITAL CORP|CREDIT CORP|N\.?A\.?)\b|LEASE\b|LEASING\b)"
 )
 
 #: Trade-creditor and tax markers. A match here is the interesting case.
@@ -124,3 +128,116 @@ def classify_party(raw: Optional[str]) -> str:
         return FINANCIER
 
     return UNKNOWN
+
+
+# ── Severity tiers (§2) ──────────────────────────────────────────────────────
+#
+# Scoring liens by row count inverts real risk: a large operator accumulating
+# routine bank financings and small vendor filings outranks a distressed one
+# carrying a single six-figure engine-overhaul claim, because the first has more
+# rows. Tiering fixes the ranking; log-dampening stops volume alone driving it.
+#
+# WHAT THE SPEC ASKS FOR vs WHAT DOCINDEX CARRIES
+# The tier definitions are written in dollars (<$10k / $10-75k / >$75k). FAA
+# DOCINDEX publishes NO claim amounts — `gtj.tail_liens` has doc_type, doc_date,
+# party and doc_id, because the source has nothing else. So amount cannot be the
+# discriminator here.
+#
+# What DOCINDEX does carry is WHO filed, and that proxies severity well: a bank
+# recording a loan is routine regardless of size, while a tax authority or fuel
+# supplier recording a claim means an unpaid bill escalated to a lien. Tiering
+# therefore runs off `classify_party` plus doc_type.
+#
+# `claim_amount` is accepted and takes precedence wherever a caller can supply
+# it, so the dollar thresholds activate unchanged if a source with amounts
+# (CARES, UCC, court records) is ever ingested. Until then it is always None.
+
+#: Nuisance/administrative, or routine financing. Never RED on its own.
+TIER_NUISANCE = 1
+#: Material mechanics'/MRO/fuel claim. YELLOW territory.
+TIER_MATERIAL = 2
+#: Crippling encumbrance — tax levy, judgment, program default. Single-event RED.
+TIER_CRIPPLING = 3
+
+#: §2A dollar bands, used only when a claim amount is actually available.
+_TIER_2_FLOOR = 10_000.0
+_TIER_3_FLOOR = 75_000.0
+
+#: Parties whose filings are grounding-grade regardless of amount: tax
+#: authorities, courts, and the hourly engine programmes whose default lets the
+#: provider pull coverage mid-trip.
+_CRIPPLING_PATTERN = re.compile(
+    r"\b(IRS|INTERNAL REVENUE|DEPARTMENT OF REVENUE|STATE OF [A-Z]+ TAX|"
+    r"TAX COMMISSION|TAXATION|COMPTROLLER|LEVY|WARRANT|"
+    r"JUDGMENT|JUDGEMENT|WRIT|ATTACHMENT|SHERIFF|COURT|MARSHAL|"
+    r"JSSI|JET SUPPORT|MSP|CORPORATECARE|CORPORATE CARE|POWER ADVANTAGE|"
+    r"ESP GOLD|TAP BLUE|ENGINE PROGRAM)\b"
+)
+
+#: Release of a previously recorded interest. The opposite of an encumbrance.
+_RELEASE_DOC_TYPES = frozenset({"REL", "RELEASE"})
+
+
+def lien_tier(
+    party: Optional[str] = None,
+    doc_type: Optional[str] = None,
+    claim_amount: Optional[float] = None,
+) -> int:
+    """
+    Severity tier 1-3 for one lien filing (§2A).
+
+    Amount wins when known, because it is the discriminator the specification
+    actually names. DOCINDEX never supplies one, so in practice the party name
+    and doc_type decide:
+
+        tax / court / engine-programme party  -> 3  (crippling)
+        trade creditor: MRO, fuel, FBO        -> 2  (material)
+        bank, lessor, owner trust             -> 1  (routine financing)
+        unclassifiable                        -> 2  (cautious middle)
+
+    A MISSING party and an UNCLASSIFIABLE one are treated differently, because
+    they are different facts:
+
+      * No party recorded at all (67% of rows in gtj.tail_liens — DOCINDEX
+        often omits it) is missing data. It resolves to Tier 1 so it cannot
+        manufacture a finding. Defaulting these to Tier 2 put 445 of 906
+        tails (49%) into YELLOW on no evidence whatsoever, which is the same
+        class of error as the GREY-everything bug: a verdict with nothing
+        behind it.
+      * A party that IS named but matches no pattern ("AERIS HOLDINGS LLC")
+        resolves to Tier 2. Someone recorded a conveyance and we cannot rule
+        out a trade claim, so it is worth a look without forcing RED.
+
+    Args:
+        party: DOCINDEX party name, free text.
+        doc_type: DOCINDEX document type (S/A, REL, REP, CSC...).
+        claim_amount: Claim in USD if a source ever provides one.
+
+    Returns:
+        TIER_NUISANCE, TIER_MATERIAL or TIER_CRIPPLING.
+    """
+    if (doc_type or "").strip().upper() in _RELEASE_DOC_TYPES:
+        return TIER_NUISANCE
+
+    if claim_amount is not None:
+        if claim_amount >= _TIER_3_FLOOR:
+            return TIER_CRIPPLING
+        if claim_amount >= _TIER_2_FLOOR:
+            return TIER_MATERIAL
+        return TIER_NUISANCE
+
+    normalized = normalize_party(party)
+    # No party on the filing: missing data, not a middling claim.
+    if not normalized:
+        return TIER_NUISANCE
+
+    if _CRIPPLING_PATTERN.search(normalized):
+        return TIER_CRIPPLING
+
+    party_class = classify_party(party)
+    if party_class == FINANCIER:
+        return TIER_NUISANCE
+    if party_class == DISTRESS:
+        return TIER_MATERIAL
+    # Named but unclassifiable.
+    return TIER_MATERIAL
