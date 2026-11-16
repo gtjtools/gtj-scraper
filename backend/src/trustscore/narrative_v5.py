@@ -40,6 +40,8 @@ from src.trustscore.calculator_v5 import (
     TailData,
     catastrophic_events,
     decayed_sum,
+    fleet_catastrophic_events,
+    tail_catastrophic_events,
 )
 
 logger = logging.getLogger(__name__)
@@ -437,25 +439,52 @@ def build_audit_payload(
     # §4.1a. Surfaced as its own payload block when tripped, because a
     # catastrophe must not arrive as one entry in a list of accident events —
     # the narrative has to lead with it.
-    breaker = catastrophic_events(operator, tail, None)
+    on_this_tail = tail_catastrophic_events(tail, None)
+    on_sister_ships = fleet_catastrophic_events(operator, None)
     catastrophic: Dict[str, Any] = {}
-    if breaker:
+    if on_this_tail or on_sister_ships:
+        # The two are reported separately because they are different findings
+        # and the score treats them differently. Without the distinction the
+        # narrative would describe a sister-ship crash as though the quoted
+        # aircraft had been destroyed, or the reverse — both serious
+        # misstatements in opposite directions.
+        if on_this_tail:
+            guidance = (
+                "THE AIRCRAFT BEING QUOTED was involved in a fatal accident "
+                f"or hull loss within the last {CATASTROPHIC_LOOKBACK_MONTHS} "
+                "months. This overrides every other consideration in the "
+                "report: lead the Executive Summary with it, state it in the "
+                "Operational Stance, and do not offset it against clean "
+                "findings elsewhere. Do not describe this operator or this "
+                "airframe as low-risk or recommendable."
+            )
+        else:
+            guidance = (
+                "A fatal accident or hull loss occurred on ANOTHER AIRCRAFT on "
+                f"this operator's certificate within the last "
+                f"{CATASTROPHIC_LOOKBACK_MONTHS} months. The airframe being "
+                "quoted was NOT involved — say so plainly, and do not imply "
+                "it was. State the finding prominently in the Executive "
+                "Summary anyway: the maintenance programme, crew training, "
+                "dispatch culture and safety management system behind both "
+                "aircraft are the same ones, which is why it weighs heavily "
+                "on this score. Do not present it as disqualifying this "
+                "specific aircraft, and do not dismiss it as unrelated."
+            )
+        guidance += (
+            " Where the NTSB investigation is still open, say so and say that "
+            "cause has not been determined — but never present an open docket "
+            "as though the event itself were unconfirmed."
+        )
         catastrophic = {
             "catastrophic_events": {
-                "count": len(breaker),
+                "count": len(on_this_tail) + len(on_sister_ships),
                 "within_months": CATASTROPHIC_LOOKBACK_MONTHS,
-                "events": _describe_events(breaker),
-                "guidance": (
-                    "A fatal accident or hull loss on this certificate within "
-                    f"the last {CATASTROPHIC_LOOKBACK_MONTHS} months. This "
-                    "overrides every other consideration in the report: lead "
-                    "the Executive Summary with it, state it in the "
-                    "Operational Stance, and do not offset it against clean "
-                    "findings elsewhere. Where the NTSB investigation is "
-                    "still open, say so and say that cause has not been "
-                    "determined — but never present an open docket as though "
-                    "the event itself were unconfirmed."
-                ),
+                # Which aircraft, explicitly. This is the distinction the
+                # prose has to get right.
+                "on_this_airframe": _describe_events(on_this_tail),
+                "on_other_fleet_aircraft": _describe_events(on_sister_ships),
+                "guidance": guidance,
             }
         }
 
@@ -710,14 +739,22 @@ listed, state explicitly that the findings in this report cover all of them. \
 If `trade_names` is empty the certificate could not be resolved — say the \
 operator's other trading identities could not be established, and do not imply \
 it has none.
-- CATASTROPHIC EVENTS OVERRIDE EVERYTHING. If the flight-safety block carries \
-a `catastrophic_events` key, a fatal accident or hull loss occurred on this \
-certificate recently. Lead the Executive Summary with it, name it in the \
-Operational Stance, and never let clean findings in other categories soften or \
-balance it. Do not describe the operator as low-risk, well-run or \
-recommendable. If the investigation is open, state that cause has not yet been \
-determined — but an open docket means the cause is unknown, NOT that the crash \
-is unconfirmed. Never imply the latter.
+- CATASTROPHIC EVENTS OVERRIDE EVERYTHING, AND YOU MUST SAY WHICH AIRCRAFT. \
+If the flight-safety block carries `catastrophic_events`, a fatal accident or \
+hull loss occurred on this certificate recently. Two sub-keys distinguish the \
+cases and conflating them is a serious misstatement in either direction:
+  * `on_this_airframe` — the aircraft being quoted. Lead with it and do not \
+describe this aircraft or operator as recommendable.
+  * `on_other_fleet_aircraft` — a SISTER SHIP. State plainly that the quoted \
+airframe was not involved, then explain why it still matters: the maintenance \
+programme, crew training, dispatch culture and safety management behind both \
+aircraft are the same. Do not imply the quoted aircraft crashed, and do not \
+dismiss the event as unrelated.
+  Follow the `guidance` string in that block, which is written for whichever \
+case applies. Never let clean findings in other categories balance either one. \
+If the investigation is open, state that cause has not yet been determined — \
+but an open docket means the cause is unknown, NOT that the crash is \
+unconfirmed. Never imply the latter.
 - Objective Tone: Maintain a clinical, institutional tone. Attribute all \
 adverse findings directly to official public repositories (NTSB, FAA SDRS, \
 FAA Document Index, DOT OACP) or verified watchdog reporting.

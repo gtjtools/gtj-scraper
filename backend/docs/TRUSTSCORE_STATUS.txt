@@ -448,16 +448,43 @@ FAULT 3 — A CRASH UNDER INVESTIGATION COUNTED AS HARMLESS.
   for a fatal crash — a broker does not care that the operator's other
   aircraft did not crash.
 
-  FIXED — A HARD CIRCUIT BREAKER. Any fatal accident or destroyed aircraft
-  within the last 36 months now bypasses the scoring arithmetic completely:
+  FIXED — A HARD CIRCUIT BREAKER, IN TWO LEVELS. Any fatal accident or
+  destroyed aircraft within the last 36 months now bypasses the scoring
+  arithmetic. What happens next depends on WHICH aircraft:
 
-    - the operator's safety rating drops to zero
-    - the TrustScore drops to its floor of 50
-    - Primary Flight Safety is forced RED
-    - the written report must lead with the crash and may not balance it
-      against good findings elsewhere
+    IF THE AIRCRAFT BEING QUOTED CRASHED — the score drops to its floor of
+    50, the operator's safety rating goes to zero, Primary Flight Safety is
+    RED, and nothing else in the report can offset it. On the reported case
+    this moves the score from 73.67 (Benchmark) to 50.0.
 
-  On the reported case this moves the score from 73.67 (Benchmark) to 50.0.
+    IF A DIFFERENT AIRCRAFT ON THE SAME CERTIFICATE CRASHED — a heavy but
+    graduated penalty. Primary Flight Safety is still RED. A clean aircraft
+    on that operator's certificate drops from 98 to about 64, and further
+    with each additional crash:
+
+                                    TrustScore
+      no fatal crash                   98.4
+      one on a sister aircraft         64.3
+      two on sister aircraft           58.5
+      three on sister aircraft         55.1
+      on THIS aircraft                 50.0  (the floor)
+
+  WHY TWO LEVELS. Our first version applied the floor to both cases, so a
+  clean aircraft scored exactly 50.0 — the same as the aircraft that had
+  actually been destroyed. That tells a broker nothing about which situation
+  they are in, and the floor should be reserved for the worst finding we can
+  make about an aircraft.
+
+  A crash on a sister aircraft is still grave, and ~34 points is not a token
+  deduction. The maintenance programme, crew training, dispatch culture and
+  safety oversight behind both aircraft are the same ones. But it is not the
+  same statement as "the aircraft you would be flying on was destroyed", and
+  the score now says which one it is.
+
+  The written report is told explicitly which aircraft was involved. Saying a
+  sister aircraft crashed when the quoted one did, or the reverse, would both
+  be serious misstatements, so the distinction is enforced rather than left to
+  the report writer's judgement.
 
   Deliberately, an open investigation COUNTS. We do not wait for a final
   report before flagging a crash — that would leave the score silent during

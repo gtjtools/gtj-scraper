@@ -1321,15 +1321,49 @@ Then three mechanisms diluted even that, compounding:
 | `Dscale` operator damping | further discount for a large, mature certificate |
 | Five-year exponential decay | erodes it from the day it happens |
 
-**Fixed — §4.1a circuit breaker.** A fatal accident or hull loss within
-**36 months** bypasses the arithmetic entirely:
+**Fixed — §4.1a circuit breaker, in TWO TIERS.** A fatal accident or hull loss
+within **36 months** bypasses the arithmetic. What it does then depends on
+*which aircraft*:
 
-- `Hsafety` forced to `0.0`;
-- the composite forced to the `SCORE_FLOOR` of **50**;
-- Primary Flight Safety forced **RED**;
-- the narrative gets a `catastrophic_events` block and is instructed to lead
-  with it, never to offset it against clean findings, and never to present an
-  open docket as though the crash itself were unconfirmed.
+| | Tier 1 — the airframe being quoted | Tier 2 — a sister ship on the same certificate |
+|---|---|---|
+| `Hsafety` | `0.0` | `0.05`, compounded per event |
+| Composite | hard floor, **50.0** | multiplied by **0.45**, compounded per event |
+| Flag | **RED** | **RED** |
+| Floor reachable? | yes, that is the point | **no** — clamped above it |
+
+Measured, with a clean airframe on a 12-aircraft fleet:
+
+| Scenario | TrustScore | FleetScore |
+|---|---|---|
+| no catastrophe | 98.41 | 99.84 |
+| 1 sister ship | **64.33** | 52.49 |
+| 2 sister ships | 58.50 | 51.50 |
+| 3 sister ships | 55.07 | 50.90 |
+| **this airframe** | **50.00** | 99.84 |
+
+**Why two tiers.** The first implementation applied the hard floor to
+fleet-level events as well, so a clean airframe scored exactly 50.0 — identical
+to the aircraft that had actually been destroyed. That tells a broker nothing
+about which situation they are in, and 50.0 should not be the figure for every
+tail in the fleet when it is also the figure for the one that crashed.
+
+A sister-ship fatality is still grave: the maintenance programme, crew
+training, dispatch culture and safety management behind both aircraft are the
+same ones, which is why it costs ~34 points rather than a token deduction. But
+it is not the finding "the aircraft you would be flying on was destroyed".
+
+**`Hsafety` alone can never carry this, in either tier.** It holds only the
+0.35 weight, so `Hsafety = 0.0` against a clean airframe (`Hts` ≈ 0.97) still
+scores **81.5** — Premier, for an operator that destroyed an aircraft last
+month. Both tiers therefore act on the composite as well.
+
+The narrative gets a `catastrophic_events` block split into `on_this_airframe`
+and `on_other_fleet_aircraft`, with case-specific guidance. Conflating the two
+would be a serious misstatement in either direction — implying the quoted
+aircraft crashed when it did not, or dismissing a fleet fatality as unrelated —
+so the distinction is enforced in the payload and the prompt rather than left
+to the model.
 
 Measured on the reported shape: **73.67 Benchmark → 50.0 Standard**.
 

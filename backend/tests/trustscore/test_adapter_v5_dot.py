@@ -319,20 +319,27 @@ class TestFleetSize:
         })
         assert scores[0] < scores[1] < scores[2]
 
-    def test_catastrophe_is_not_diluted_by_fleet_size(self):
+    def test_fleet_catastrophe_is_not_diluted_by_fleet_size(self):
         """
-        §4.1a: a fatal accident floors the score regardless of fleet size.
+        §4.1a: a fleet fatality penalises identically whatever the fleet size.
 
         Exposure normalization is correct for routine incident rates and wrong
         for a hull loss — a broker does not care that the operator has 99
         other aircraft that did not crash. A 100-aircraft operator previously
         carried a fatal accident at 1/10th weight.
+
+        These are FLEET-level events (no tail is supplied), so the graduated
+        sister-ship penalty applies rather than the hard floor. What matters
+        here is that all three sizes land on the same number.
         """
         scores = self._scores_for_event({
             "event_type": "Accident", "injury_level": "Fatal",
             "event_date": "2025-01-01",
         })
-        assert scores == [50.0, 50.0, 50.0], scores
+        assert len(set(scores)) == 1, scores
+        # Heavily penalised, but not pinned to the floor — that is reserved
+        # for a catastrophe on the airframe being quoted.
+        assert 50.0 < scores[0] < 70.0, scores
 
 
 # ── Age_cert provenance ──────────────────────────────────────────────────────

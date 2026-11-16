@@ -195,6 +195,44 @@ CATASTROPHIC_LOOKBACK_MONTHS = 36
 #: "SUBSTANTIAL/DESTROYED").
 CATASTROPHIC_DAMAGE_TERMS = ("DESTROY", "HULL LOSS", "WRITTEN OFF")
 
+#: Hsafety when a catastrophe occurred on a SISTER SHIP, not on this airframe.
+#:
+#: Heavy, but deliberately not zero. The distinction the score has to carry:
+#:
+#:   this aircraft was destroyed        -> hard floor, 50.0, nothing offsets it
+#:   a sister ship was destroyed        -> this operator is a serious concern,
+#:                                         but it is not the same finding
+#:
+#: Collapsing both to 50.0 tells a broker nothing about which is which, and
+#: 50.0 is the floor for an operator that has killed people on the airframe
+#: being quoted — it should not also be the figure for every other tail in
+#: the fleet.
+#:
+#: 0.05 rather than 0.0 keeps the term alive so a SECOND fleet catastrophe
+#: still registers, via FLEET_CATASTROPHE_DECAY below.
+FLEET_CATASTROPHE_HSAFETY = 0.05
+
+#: Multiplier applied to the whole composite for a fleet-level catastrophe.
+#:
+#: Hsafety ALONE CANNOT CARRY THIS. It holds only the 0.35 weight, so even
+#: Hsafety = 0.0 against a clean airframe (Hts ~0.97) still scores 81.5 —
+#: Premier, for an operator that destroyed an aircraft last month. Measured,
+#: not estimated: see the test suite.
+#:
+#: 0.45 puts a single-fatality sister-ship event near the bottom of Standard
+#: (~72 becomes ~60) while leaving the floor itself reserved for the aircraft
+#: that actually crashed. A broker sees a clear, large penalty and can still
+#: tell the two situations apart.
+FLEET_CATASTROPHE_COMPOSITE = 0.45
+
+#: Additional multiplier per fleet catastrophe beyond the first.
+#:
+#: Two fatal crashes on one certificate in 36 months is a different claim from
+#: one, and must not read the same. Compounding: 0.45, then 0.45*0.6, and so
+#: on, floored so the result cannot go below the hard floor by this route —
+#: reaching 50.0 requires a catastrophe on the airframe being quoted.
+FLEET_CATASTROPHE_DECAY = 0.6
+
 #: §3 Churn is capped so catastrophic churn cannot zero out Cs entirely.
 CHURN_CAP = 0.65
 #: §3 Organic fleet growth below this ratio is unpenalized.
@@ -536,15 +574,58 @@ def catastrophic_events(
     """
     Every circuit-breaker event across the certificate and, if given, the tail.
 
-    Fleet-level events are included deliberately: a fatal crash on ANY aircraft
-    on the operator's D085 certificate is an operator-level finding. The tail
-    being quoted did not crash, but the maintenance programme, crew training
-    and dispatch culture behind it are the same ones.
+    Used for FLAGGING and narrative disclosure, where both kinds of event
+    matter equally — a broker should see a recent fatality on this certificate
+    whichever airframe it happened to.
+
+    For SCORING the two are not equivalent. See `tail_catastrophic_events` and
+    `fleet_catastrophic_events`, which the composite treats differently.
     """
     events = list(data.fleet_accident_events)
     if tail is not None:
         events += list(tail.tail_accident_events)
     return [event for event in events if is_catastrophic(event, now)]
+
+
+def tail_catastrophic_events(
+    tail: Optional["TailData"],
+    now: Optional[datetime] = None,
+) -> List[RiskEvent]:
+    """
+    Circuit-breaker events on THIS airframe.
+
+    These force the hard floor: the specific aircraft being quoted was
+    destroyed or killed someone within the lookback window, and no amount of
+    good news elsewhere is relevant to that.
+    """
+    if tail is None:
+        return []
+    return [
+        event for event in tail.tail_accident_events
+        if is_catastrophic(event, now)
+    ]
+
+
+def fleet_catastrophic_events(
+    data: OperatorData,
+    now: Optional[datetime] = None,
+) -> List[RiskEvent]:
+    """
+    Circuit-breaker events on OTHER aircraft on the same certificate.
+
+    Heavily penalised but NOT zeroed — see `FLEET_CATASTROPHE_HSAFETY`.
+
+    A fatal crash on a sister ship is evidence about the operator, not about
+    this airframe. The maintenance programme, crew training, dispatch culture
+    and safety management system behind both aircraft are the same ones, so it
+    must move the score hard. But it is not the same finding as "the aircraft
+    you are being quoted crashed", and collapsing the two to an identical 50.0
+    would tell a broker nothing about which is which.
+    """
+    return [
+        event for event in data.fleet_accident_events
+        if is_catastrophic(event, now)
+    ]
 
 
 def calculate_safety_health(
@@ -575,7 +656,11 @@ def calculate_safety_health(
     # §4.1a circuit breaker. Checked AFTER the ordinary terms so the breakdown
     # still shows what the arithmetic produced, and the override is visible as
     # an override rather than silently replacing the numbers.
-    breaker = catastrophic_events(data, None, now)
+    #
+    # This function sees only operator data, so every catastrophe here is
+    # fleet-level by definition — a crash on the airframe being quoted is
+    # handled in calculate_trust_score, which has the tail.
+    breaker = fleet_catastrophic_events(data, now)
     result = {
         "orf_base": orf_base,
         "sdr_fleet": sdr_fleet,
@@ -588,9 +673,21 @@ def calculate_safety_health(
     }
     if breaker:
         # Exposure normalization and decay are what diluted this; neither is
-        # allowed to apply. Hsafety 0.0 drives the composite to SCORE_FLOOR.
+        # allowed to apply.
+        #
+        # Not zeroed: a fatality on a sister ship is grave evidence about the
+        # operator but is not the finding "this aircraft crashed", and the
+        # floor is reserved for the latter. FleetScore — which has no tail and
+        # is a judgement about the certificate alone — therefore lands very
+        # low without being pinned to 50.
         result["h_safety_before_breaker"] = result["h_safety"]
-        result["h_safety"] = 0.0
+        # Compounded per event, matching the composite-level penalty, so
+        # FleetScore and TrustScore move in the same direction. A flat value
+        # here made FleetScore identical for one catastrophe and for three.
+        h_safety = FLEET_CATASTROPHE_HSAFETY
+        for _ in range(len(breaker) - 1):
+            h_safety *= FLEET_CATASTROPHE_DECAY
+        result["h_safety"] = h_safety
         result["catastrophic_references"] = [
             event.reference or event.event_type or "unidentified"
             for event in breaker
@@ -872,31 +969,60 @@ def calculate_trust_score(
     composite = blended * conduct["h_conduct"] * confidence
     score = _clamp_score(SCORE_FLOOR + 50.0 * composite)
 
-    # §4.1a circuit breaker, at the composite level.
+    # §4.1a circuit breaker, at the composite level, in TWO TIERS.
     #
-    # Zeroing Hsafety alone is NOT sufficient here: Hsafety carries only the
-    # 0.35 weight, so the 0.65 tail term would still carry a healthy airframe
-    # to roughly 74 — a Benchmark score for an operator that has just destroyed
-    # an aircraft. The additive blend is the right model for ordinary risk and
-    # the wrong one for a catastrophe, which is not something the rest of the
-    # fleet can offset.
+    # Zeroing Hsafety is never sufficient on its own: it carries only the 0.35
+    # weight, so Hsafety = 0.0 against a clean airframe (Hts ~0.97) still
+    # scores 81.5 — Premier, for an operator that destroyed an aircraft last
+    # month. The additive blend is the right model for ordinary risk and the
+    # wrong one for a catastrophe, which the rest of the fleet cannot offset.
     #
-    # Includes tail-level events, which calculate_safety_health cannot see.
-    breaker = catastrophic_events(operator, tail, now)
-    if breaker:
+    # TIER 1 — this airframe was destroyed or killed someone.
+    #   Hard floor. Nothing offsets it, because nothing else is relevant to
+    #   the aircraft the client would actually be flying on.
+    #
+    # TIER 2 — a SISTER SHIP on the same certificate was.
+    #   Heavy but graduated. The maintenance programme, crew training,
+    #   dispatch culture and safety management behind both aircraft are the
+    #   same ones, so it must move the score hard. But it is not the same
+    #   finding, and collapsing both to 50.0 would tell a broker nothing
+    #   about which situation they are in.
+    tail_breaker = tail_catastrophic_events(tail, now)
+    fleet_breaker = fleet_catastrophic_events(operator, now)
+
+    if tail_breaker:
         score = SCORE_FLOOR
         safety = {**safety,
                   "h_safety_before_breaker": safety.get(
                       "h_safety_before_breaker", safety["h_safety"]),
                   "h_safety": 0.0,
                   "circuit_breaker_tripped": True,
-                  "catastrophic_event_count": len(breaker),
+                  "circuit_breaker_scope": "this_airframe",
+                  "catastrophic_event_count": len(tail_breaker) + len(fleet_breaker),
                   "catastrophic_references": [
                       event.reference or event.event_type or "unidentified"
-                      for event in breaker
+                      for event in tail_breaker + fleet_breaker
                   ]}
         blended = W_TAIL * tail_health["h_ts"]
         composite = 0.0
+
+    elif fleet_breaker:
+        # Compounding per event: two fatal crashes in 36 months is a different
+        # claim from one and must not read the same.
+        penalty = FLEET_CATASTROPHE_COMPOSITE
+        for _ in range(len(fleet_breaker) - 1):
+            penalty *= FLEET_CATASTROPHE_DECAY
+        composite *= penalty
+        # Clamped ABOVE the floor: reaching 50.0 requires a catastrophe on the
+        # airframe being quoted, which is what makes the two tiers legible.
+        score = max(
+            SCORE_FLOOR + 0.01,
+            _clamp_score(SCORE_FLOOR + 50.0 * composite),
+        )
+        safety = {**safety,
+                  "circuit_breaker_tripped": True,
+                  "circuit_breaker_scope": "sister_ship",
+                  "fleet_catastrophe_penalty": penalty}
 
     fleet = calculate_fleet_score(operator, now)
 

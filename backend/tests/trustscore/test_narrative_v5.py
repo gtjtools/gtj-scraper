@@ -615,6 +615,12 @@ class TestCatastrophicCircuitBreaker:
         defaults.update(kwargs)
         return RiskEvent(**defaults)
 
+    def _tail_with_crash(self, **kwargs):
+        """A tail whose OWN airframe suffered the catastrophe (tier 1)."""
+        tail = self._tail()
+        tail.tail_accident_events = [self._crash(**kwargs)]
+        return tail
+
     def test_open_docket_hull_loss_floors_the_score(self):
         """
         The reported failure: destroyed aircraft, docket open, no injury codes.
@@ -622,21 +628,22 @@ class TestCatastrophicCircuitBreaker:
         Severity is 0 here because nothing has been graded yet. Before §4.1a
         this produced Hsafety 1.0000 and a Benchmark score.
         """
-        operator = self._operator([
-            self._crash(aircraft_damage="DESTROYED", investigation_status="OPEN"),
-        ])
-        result = calculate_trust_score(operator, self._tail())
+        operator = self._operator([])
+        tail = self._tail_with_crash(
+            aircraft_damage="DESTROYED", investigation_status="OPEN",
+        )
+        result = calculate_trust_score(operator, tail)
 
         assert result["trust_score"] == 50.0
         assert result["components"]["h_safety"] == 0.0
         assert result["components"]["circuit_breaker_tripped"] is True
-        # The undiluted arithmetic is retained for audit, and proves the point:
-        # it saw no risk at all.
-        assert result["components"]["h_safety_before_breaker"] > 0.9
+        assert result["components"]["circuit_breaker_scope"] == "this_airframe"
 
     def test_fatalities_floor_the_score(self):
-        operator = self._operator([self._crash(fatalities=2)])
-        result = calculate_trust_score(operator, self._tail())
+        operator = self._operator([])
+        result = calculate_trust_score(
+            operator, self._tail_with_crash(fatalities=2)
+        )
         assert result["trust_score"] == 50.0
 
     def test_flight_safety_is_red(self):
@@ -656,9 +663,12 @@ class TestCatastrophicCircuitBreaker:
 
     def test_a_large_fleet_cannot_dilute_it(self):
         """Exposure normalization must not apply to a catastrophe."""
-        crash = self._crash(fatalities=1)
-        small = calculate_trust_score(self._operator([crash], 1), self._tail())
-        large = calculate_trust_score(self._operator([crash], 200), self._tail())
+        small = calculate_trust_score(
+            self._operator([], 1), self._tail_with_crash(fatalities=1)
+        )
+        large = calculate_trust_score(
+            self._operator([], 200), self._tail_with_crash(fatalities=1)
+        )
         assert small["trust_score"] == large["trust_score"] == 50.0
 
     def test_a_healthy_tail_cannot_offset_it(self):
@@ -669,12 +679,13 @@ class TestCatastrophicCircuitBreaker:
         clean airframe to roughly 74, a Benchmark score for an operator that
         has just destroyed an aircraft.
         """
-        operator = self._operator([self._crash(fatalities=1)])
+        operator = self._operator([])
         tail = adapter_v5.build_tail_data(
             tail_number="N722BD", aircraft_age_years=1.0,
             same_type_fleet_count=8, certificate_tenure_months=60.0,
             tail_lien_records=[], lookup_liens=False, ownership_observed=True,
         )
+        tail.tail_accident_events = [self._crash(fatalities=1)]
         assert calculate_trust_score(operator, tail)["trust_score"] == 50.0
 
     def test_an_old_catastrophe_does_not_trip_it(self):
@@ -723,8 +734,9 @@ class TestCatastrophicCircuitBreaker:
 
     def test_an_undated_catastrophe_trips_it(self):
         """A crash we cannot date is not thereby old."""
-        operator = self._operator([self._crash(event_date=None, fatalities=1)])
-        assert calculate_trust_score(operator, self._tail())["trust_score"] == 50.0
+        operator = self._operator([])
+        tail = self._tail_with_crash(event_date=None, fatalities=1)
+        assert calculate_trust_score(operator, tail)["trust_score"] == 50.0
 
 
 class TestTradeNamesInReport:
@@ -809,3 +821,119 @@ class TestTradeNamesInReport:
         assert "Operating As" in prompt
         # The current/former distinction must be instructed, not inferred.
         assert "is_current" in prompt
+
+
+class TestSisterShipCatastropheIsGraduated:
+    """
+    §4.1a tier 2. A fatality on ANOTHER aircraft on the same certificate must
+    weigh heavily without forcing the floor.
+
+    The first implementation of the circuit breaker applied the hard floor to
+    fleet-level events too, so a clean airframe scored exactly 50.0 — identical
+    to the aircraft that had actually been destroyed. That told a broker nothing
+    about which situation they were in.
+
+    Both are RED and both are disclosed. The difference is that the floor is
+    reserved for "the aircraft you would be flying on crashed", and a sister
+    ship is instead a severe judgement about the operator.
+    """
+
+    def _crash(self, ref="SIS1", **kwargs):
+        defaults = dict(
+            severity=0.0, event_date="2026-11-01", event_type="Accident",
+            source="NTSB", reference=ref, fatalities=2,
+        )
+        defaults.update(kwargs)
+        return RiskEvent(**defaults)
+
+    def _operator(self, fleet_events):
+        operator = adapter_v5.build_operator_data(
+            operator_name="Aurora Aviation, Inc.",
+            certificate_designator="GLRA",
+            certificate_age_years=15.0, fleet_size=12,
+            include_dot_orders=True, lookup_fleet_size=False, lookup_churn=False,
+        )
+        operator.lookups_certificate_anchored = True
+        operator.fleet_accident_events = fleet_events
+        return operator
+
+    def _clean_tail(self):
+        return adapter_v5.build_tail_data(
+            tail_number="N999ZZ", aircraft_age_years=5.0,
+            same_type_fleet_count=4, certificate_tenure_months=36.0,
+            tail_lien_records=[], lookup_liens=False, ownership_observed=True,
+        )
+
+    def test_heavily_penalised_but_not_floored(self):
+        operator = self._operator([self._crash()])
+        result = calculate_trust_score(operator, self._clean_tail())
+        baseline = calculate_trust_score(self._operator([]), self._clean_tail())
+
+        assert result["trust_score"] > 50.0, "the floor is for the crashed tail"
+        # A large, unmistakable penalty — tens of points, not a rounding error.
+        assert baseline["trust_score"] - result["trust_score"] > 25.0
+        assert result["components"]["circuit_breaker_scope"] == "sister_ship"
+
+    def test_still_red(self):
+        """Graduated scoring must not soften the flag."""
+        operator = self._operator([self._crash()])
+        tail = self._clean_tail()
+        payload = narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail),
+            trade_names=[],
+        )
+        assert payload["audit_categories"]["flight_safety"]["flag"] == \
+            narrative_v5.RED
+
+    def test_multiple_fleet_catastrophes_compound(self):
+        """Two fatal crashes in 36 months is a different claim from one."""
+        one = calculate_trust_score(
+            self._operator([self._crash("A")]), self._clean_tail()
+        )["trust_score"]
+        two = calculate_trust_score(
+            self._operator([self._crash("A"), self._crash("B")]),
+            self._clean_tail(),
+        )["trust_score"]
+        three = calculate_trust_score(
+            self._operator([self._crash("A"), self._crash("B"), self._crash("C")]),
+            self._clean_tail(),
+        )["trust_score"]
+        assert one > two > three > 50.0
+
+    def test_the_narrative_is_told_which_aircraft(self):
+        """
+        Conflating "this aircraft crashed" with "a sister ship did" is a
+        serious misstatement in either direction, so the payload separates them.
+        """
+        operator = self._operator([self._crash()])
+        tail = self._clean_tail()
+        payload = narrative_v5.build_audit_payload(
+            operator, tail, calculate_trust_score(operator, tail),
+            trade_names=[],
+        )
+        block = payload["audit_categories"]["flight_safety"]["catastrophic_events"]
+        assert block["on_this_airframe"] == []
+        assert len(block["on_other_fleet_aircraft"]) == 1
+        assert "ANOTHER AIRCRAFT" in block["guidance"]
+        assert "was NOT involved" in block["guidance"]
+
+    def test_this_airframe_takes_precedence(self):
+        """A crash on the quoted tail floors it even alongside fleet events."""
+        operator = self._operator([self._crash("SIS")])
+        tail = self._clean_tail()
+        tail.tail_accident_events = [self._crash("THIS")]
+        result = calculate_trust_score(operator, tail)
+        assert result["trust_score"] == 50.0
+        assert result["components"]["circuit_breaker_scope"] == "this_airframe"
+        # Both events are still disclosed.
+        assert result["components"]["catastrophic_event_count"] == 2
+
+    def test_fleet_score_reflects_it_without_being_pinned(self):
+        """
+        FleetScore is a judgement about the certificate alone, so a fleet
+        catastrophe should drive it very low — but it is still not the
+        "this aircraft crashed" finding.
+        """
+        operator = self._operator([self._crash()])
+        result = calculate_trust_score(operator, self._clean_tail())
+        assert 50.0 <= result["fleet_score"] < 60.0
