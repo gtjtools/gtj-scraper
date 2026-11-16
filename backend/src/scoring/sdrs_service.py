@@ -55,7 +55,141 @@ _FIELD_ALIASES = {
     "part_name": ("partname", "componentname"),
     "discrepancy": ("discrepancynarrative", "remarks", "narrative", "discrepancy"),
     "stage": ("stageofoperation", "stage"),
+    # Serial is a SECONDARY key, used only when the N-number is absent or
+    # unmatched — see `_serial_index` for why it can never be primary.
+    "serial_number": ("aircraftserialnumber", "serialnumber", "acserialno",
+                      "aircraftserialno"),
+    "make": ("aircraftmake", "make", "manufacturername"),
+    "model": ("aircraftmodel", "model", "aircraftmodelname"),
 }
+
+
+def normalize_serial(raw: Optional[str]) -> str:
+    """
+    Reduce a serial number to the form two sources can be compared on.
+
+    The same airframe is written `60-271` (type-prefixed, as SDRS and
+    manufacturers do), `60271`, `271` (as `gtj.aircraft` holds it) and `0271`.
+    A prefix-preserving normalization makes those *fail* to match, which is
+    the opposite of what is wanted — so the type prefix is dropped and only
+    the trailing serial portion is kept.
+
+    Dropping the prefix costs nothing in precision, because `_serial_match_key`
+    re-qualifies the result with the make and model. That is a stronger
+    discriminator than a prefix the sources do not agree on anyway.
+
+        60-271  -> 271
+        60271   -> 271      (hyphen-free form of the same)
+        271     -> 271
+        0271    -> 271
+
+    Note `60271` is deliberately treated as prefix + serial. A genuine
+    six-digit serial would collide, but combined with make/model that is far
+    rarer than the formatting disagreement this resolves.
+    """
+    text = re.sub(r"[^A-Z0-9]", "", (raw or "").upper())
+    if not text:
+        return ""
+    # Hyphenated form: keep the part after the last separator.
+    raw_upper = (raw or "").upper()
+    if "-" in raw_upper:
+        tail_part = re.sub(r"[^A-Z0-9]", "", raw_upper.rsplit("-", 1)[-1])
+        if tail_part:
+            text = tail_part
+    return text.lstrip("0") or text
+
+
+def _model_digits(make: str, model: str) -> str:
+    """
+    The numeric part of a model designation, as a cross-source type qualifier.
+
+    SDRS and `gtj.aircraft` encode aircraft type in incompatible ways:
+
+        SDRS            make="LEARJET"   model="LR-60"
+        gtj.aircraft    make_model="LR-60-60"
+        SDRS            make="CESSNA"    model="560XL"
+        gtj.aircraft    make_model="CE-560-560XL"
+
+    One uses manufacturer names, the other ICAO-style codes (`CE-`, `BHT-`,
+    `EMB-`), so neither the make string nor the full model string can be
+    compared directly. Building a manufacturer-name-to-ICAO-code mapping is a
+    data project in its own right and would be wrong in the tails.
+
+    The digits survive both encodings: `60` for a Learjet 60, `560` for a
+    Citation Excel, `407` for a Bell 407. They are a weaker discriminator than
+    a full type match, which is acceptable here because the digits only ever
+    QUALIFY a serial that already matched — the pair has to agree, not the
+    digits alone.
+    """
+    blob = f"{make or ''} {model or ''}".upper()
+    digits = re.findall(r"\d+", blob)
+    if not digits:
+        return ""
+    # Longest run, which is the model number rather than a variant suffix:
+    # "LR-60-60" -> 60, "CE-560-560XL" -> 560, "BD-100-1A10" -> 100.
+    return max(digits, key=len)
+
+
+def _serial_match_key(serial: str, make: str, model: str) -> str:
+    """
+    A serial-based match key qualified by aircraft type.
+
+    SERIAL ALONE IS NOT A KEY. Measured on `gtj.aircraft`: 11,166 aircraft
+    carry a serial but only 10,395 are distinct — serial `226` is shared by six
+    different airframes, `236` by six more. Matching on the bare number would
+    attach one operator's maintenance reports to another's aircraft, which is
+    the same mistake that fabricated 3,707 false ownership chains during the
+    FAA registry work.
+
+    Qualifying with the model digits collapses that: two aircraft sharing
+    serial `271` are rarely both -60s. See `_model_digits` for why digits
+    rather than the type string.
+
+    Returns "" when either part is missing — an unqualified serial is not
+    matchable and must not fall through to a bare-number comparison.
+    """
+    normalized_serial = normalize_serial(serial)
+    if not normalized_serial:
+        return ""
+    type_token = _model_digits(make, model)
+    if not type_token:
+        return ""
+    return f"{normalized_serial}|{type_token}"
+
+
+def _serial_index(fleet_serials: Optional[List[Dict[str, Any]]]) -> Dict[str, str]:
+    """
+    Map a qualified serial key to the tail number it belongs to.
+
+    Args:
+        fleet_serials: Dicts with `tail_number`, `serial_number` and either
+            `make_model` or separate `make`/`model`, from `gtj.aircraft`.
+
+    Returns:
+        {serial_key: tail_number}. Ambiguous keys — the same qualified serial
+        on two different tails — are DROPPED rather than guessed, because a
+        wrong attribution is worse than a missed one.
+    """
+    index: Dict[str, str] = {}
+    ambiguous = set()
+    for entry in fleet_serials or []:
+        make = entry.get("make") or ""
+        model = entry.get("model") or ""
+        if not (make or model):
+            # gtj.aircraft stores a combined "LR-60-60" style string.
+            combined = str(entry.get("make_model") or "")
+            make, model = combined, combined
+        key = _serial_match_key(str(entry.get("serial_number") or ""), make, model)
+        tail = normalize_tail_number(str(entry.get("tail_number") or ""))
+        if not key or not tail:
+            continue
+        if key in index and index[key] != tail:
+            ambiguous.add(key)
+            continue
+        index[key] = tail
+    for key in ambiguous:
+        index.pop(key, None)
+    return index
 
 # Narrative keywords mapped to the TrustScore v5.0 §6.2 maintenance severity
 # schedule. Ordered most severe first; the first match wins.
@@ -319,13 +453,23 @@ class SDRSService:
         rows: List[Dict[str, str]],
         operator_name: str,
         tail_numbers: Optional[List[str]] = None,
+        fleet_serials: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Convert SDRS rows into fleet events for the TrustScore calculator.
 
-        Rows are matched to the operator by name, or by tail number when a
-        fleet list is supplied — tail matching is the more reliable of the
-        two, since SDRS operator names are free text.
+        Rows are matched by tail number, then by qualified serial number, then
+        by operator name — in that order of reliability. SDRS operator names
+        are free text, so name matching is the last resort.
+
+        `fleet_serials` enables the serial fallback: an SDR filed with a blank
+        or mistyped N-number was previously dropped whenever `tail_numbers`
+        was supplied, even though it named our aircraft by serial. Pass dicts
+        carrying `tail_number`, `serial_number` and `make_model`.
+
+        The serial path is qualified by aircraft type and refuses ambiguous
+        keys — see `_serial_index`. A bare serial is not unique enough to
+        match on.
 
         The returned dicts follow the same contract as NTSB and FAA
         enforcement events: event_type drives severity in the calculator, and
@@ -345,6 +489,7 @@ class SDRSService:
         field_map = _build_field_map(list(rows[0].keys()))
         target_operator = normalize_operator_name(operator_name)
         target_tails = {normalize_tail_number(t) for t in (tail_numbers or []) if t}
+        serial_index = _serial_index(fleet_serials)
 
         events: List[Dict[str, Any]] = []
         for row in rows:
@@ -353,12 +498,30 @@ class SDRSService:
                 row.get(field_map.get("operator", ""), "")
             )
 
-            # Prefer tail matching; fall back to operator-name matching.
-            if target_tails:
-                if tail not in target_tails:
+            # Match by tail; fall back to serial; then to operator name.
+            #
+            # The serial fallback exists because an SDR filed with a blank,
+            # malformed or mistyped N-number was previously dropped entirely
+            # whenever tail_numbers was supplied — the report existed, named
+            # our aircraft by serial, and scored nothing.
+            matched_by = ""
+            if target_tails and tail in target_tails:
+                matched_by = "tail"
+            elif serial_index:
+                key = _serial_match_key(
+                    row.get(field_map.get("serial_number", ""), ""),
+                    row.get(field_map.get("make", ""), ""),
+                    row.get(field_map.get("model", ""), ""),
+                )
+                if key and key in serial_index:
+                    matched_by = "serial"
+                    tail = tail or serial_index[key]
+            if not matched_by:
+                if target_tails or serial_index:
                     continue
-            elif not target_operator or target_operator not in row_operator:
-                continue
+                if not target_operator or target_operator not in row_operator:
+                    continue
+                matched_by = "operator_name"
 
             discrepancy = row.get(field_map.get("discrepancy", ""), "")
             events.append({
@@ -376,6 +539,10 @@ class SDRSService:
                 "sdr_discrepancy": discrepancy,
                 "sdr_stage_of_operation": row.get(field_map.get("stage", ""), ""),
                 "sdr_severity": classify_sdr_severity(discrepancy),
+                # How this row was attributed to the operator. Recorded so a
+                # serial-matched report can be audited — serial matching is
+                # the less certain path and should be reviewable.
+                "sdr_matched_by": matched_by,
             })
 
         return events
@@ -384,6 +551,7 @@ class SDRSService:
     async def query_as_fleet_events(
         operator_name: str,
         tail_numbers: Optional[List[str]] = None,
+        fleet_serials: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Fetch SDRs for an operator as fleet events.
@@ -398,6 +566,8 @@ class SDRSService:
         Args:
             operator_name: Operator to query.
             tail_numbers: Optional fleet tail numbers for precise matching.
+            fleet_serials: Optional serial/make-model records enabling the
+                serial fallback for SDRs filed without a usable N-number.
 
         Returns:
             Fleet event dicts, possibly empty.
@@ -406,7 +576,7 @@ class SDRSService:
             rows = await SDRSService.download_extract()
             part_135 = SDRSService.filter_part_135(rows)
             events = SDRSService.rows_to_fleet_events(
-                part_135, operator_name, tail_numbers
+                part_135, operator_name, tail_numbers, fleet_serials
             )
             logger.info(
                 "SDRS: %d row(s) downloaded, %d Part 135, %d matched %s",
