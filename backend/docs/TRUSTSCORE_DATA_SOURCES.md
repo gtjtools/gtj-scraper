@@ -7,7 +7,7 @@ today, and how the scraping actually works.
 - **Source document:** `backend/TrustScore 5.0 Data Sources.docx`, plus the
   **Asset Stability & Churn / Legal & Title Clearness** addendum (assessed in §9)
   and the **Flag Resolution, Lien Severity & Narrative Elaboration** spec
-  (implemented in §10)
+  (implemented in §10), plus the **catastrophic-event** fixes (§11)
 - **Last updated:** 2026-11-16
 - **Algorithm implemented in code:** **v5.0** (`src/trustscore/calculator_v5.py`),
   live at both call sites. v3 (`calculator.py`) is retained but no longer called.
@@ -37,7 +37,7 @@ the one commercial item (source 7) is optional.
 | 1 | FAA Part 135 roster | DBA array, `V_F` | Public scrape | **Implemented** — `scripts/ingest_part135.py`; 1,914 names across 1,870 certificates. Does **not** yield `Age_cert` (no issue date in the file). |
 | 2 | OpSpecs D085 | `V_F`, `Churn_Fleet` | Public scrape — **replaces JETNET** | **Implemented, not yet usable.** `scripts/ingest_d085.py` ingests the FAA's public weekly Part 135 table — 11,188 authorized tails across 1,663 operators — so JETNET is not needed. `Churn_Fleet` is wired but **withheld**: only 31 days of history exists and `fetch_churn` refuses a window under 180 days (§9.1). |
 | 3 | FAA Aircraft Registry | `MR_T`, `OS_T`, `ELI` | Public scrape | **Mostly implemented.** `MR_T`/`OS_T` from `gtj.aircraft`. `Lientail` live and backfilled — **524 active encumbrances across 482 tails**, 2.2 years of history (§9.3, §9.7). Title-transfer velocity is **not** obtainable this way (§9.2). Reachable from the production server only. |
-| 4a | NTSB CAROL | `ORF_True`, `IH_T` | Public scrape | **Implemented** — returns real accidents; searches every DBA name. |
+| 4a | NTSB CAROL | `ORF_True`, `IH_T` | Public scrape | **Implemented** — searches every DBA name, and since 2026-11-16 **also queries by registration number** (§11.2). The cached `gtj.ntsb_incidents` table is **15 months stale** and must be re-ingested (§11.1). |
 | 4b | FAA AIDS | `ORF_True`, `IH_T` | Public, **untested** | **Not implemented.** No subscription known to be required — AIDS is a public FAA incident database. Returns 403 from the developer machine, but so does `registry.faa.gov`, which the server reaches; **probe from the server before assuming it is blocked**. |
 | 5 | ASN Wikibase | `L_Risk` | Public, **untested** | **Not implemented** — `Lrisk` is 0 for every operator. Free to read; no subscription. Returns 403 here (Cloudflare), untested from the server. Needs scraping plus LLM extraction, not a contract. |
 | 6 | FAA SDRS | `SDR_Penalty` | Public scrape | **Implemented** — severities aligned to §6.2; pooled into `ORF_True` rather than its own term (see §6.6) |
@@ -1231,3 +1231,168 @@ caught the first attempt.
 | `ownership_observed` wired into `score_tail.py` | **Not done.** `legal_title` currently anchors on the lien lookup alone, which works. Passing `gtj.aircraft.registered_owner` through would make the category robust to a lien-lookup failure. Small follow-up. |
 | Re-score of the 1,841-operator population | **Not run.** The stored scores from the 10 Nov rescore still carry the over-greyed flags. Numeric scores change only where liens are present; flags change widely. |
 | ASN latent risk (`L_Risk`) | **Still not ingested** (source 5). §10.1 explicitly stops it holding `flight_safety` at `GREY`, which was its only practical effect on a flag. |
+
+---
+
+## 11. Catastrophic events — investigated and fixed 2026-11-16
+
+Prompted by a report that an operator scored **81** weeks after a fatal crash
+of one of its aircraft (N722BD / Aurora Aviation, certificate `GLRA`, NTSB
+`ERA27MA026`).
+
+The investigation found **three independent defects**, any one of which was
+sufficient to produce the reported score. Two of the three were the hypotheses
+in the report; the third was worse than either and is the one that actually
+mattered.
+
+### 11.1 The cached NTSB table is 15 months stale — **the dominant cause**
+
+`gtj.ntsb_incidents` could not have flagged this crash under any query shape:
+
+| Measurement | Value |
+|---|---|
+| Most recent `event_date` held | **2025-08-16** |
+| Events dated 2026 at all | **0** |
+| Events with `total_fatalities > 0` | **0** |
+| Events with `aircraft_damage` indicating a hull loss | **0** |
+| Rows with `tail_number` populated | **2 of 247 (1%)** |
+| Most recent `last_verified` | 2026-01-12 |
+
+So the table holds **no fatal accident at all**, and a 1% tail-number fill rate
+means even a correct tail-keyed query against it would miss nearly everything.
+This is an ingestion freshness problem, not a scoring problem.
+
+Note the live scoring path (`src/scoring/service.py`) queries CAROL directly
+rather than reading this table, so the staleness affects anything that reports
+from the cache rather than re-scoring. **Both need attention** — see §11.5.
+
+> **ACTION REQUIRED (not code):** re-run the NTSB ingestion and put it on a
+> schedule. `scripts/download_ntsb_incidents.py` exists. Until then the cached
+> table must not be treated as an accident record.
+
+### 11.2 NTSB was queried by operator name only — **confirmed**
+
+`query_ntsb_incidents` sent only the operator name, against
+`AviationOperation.OperatorName`. Tail numbers were never sent. That fails
+three ways:
+
+- NTSB records the operator name **as filed at the time**, so a rebranded or
+  dba-trading operator reads clean — the §8 problem, in the one source where
+  entity resolution cannot fully solve it;
+- the name is free text and the query used `"Operator": "is"` (**exact
+  match**). Probed live: `"Aurora Aviation"` with `contains` returns **7**
+  cases where `"Aurora Aviation, Inc."` with `is` returns **1**;
+- an aircraft on a management agreement may be filed against another entity.
+
+**Fixed.** `query_ntsb_by_tail_numbers` queries `Aircraft.RegistrationNumber`
+for every tail on the D085 certificate. The name query is retained as a
+supplement, since it can still catch an event filed against the certificate for
+a tail we do not hold.
+
+Four CAROL facts were established by probing the live API rather than assumed,
+and they constrain what is possible:
+
+| Finding | Consequence |
+|---|---|
+| `Aircraft.RegistrationNumber` is the only valid registration column (the three plausible alternatives all return **HTTP 400**) | the query works; verified returning a real hit for `N474NA` |
+| The case-list response carries **no `AircraftDamage` field at all** | hull loss cannot come from this response; the pre-existing `aircraft_damage=None` was accurate, not lazy |
+| `HighestInjuryLevel` is frequently **empty — observed empty even on a `Final` report** | it cannot be the only route to "was this fatal"; `InjuryOnboardCount` and `MostRecentReportType` are now carried too |
+| `N#` is **multi-valued** (observed `['N474NA', 'N296EA']` on one event) | `_extract_field_value` returned only the first, so an event where our tail was second looked like another operator's |
+
+### 11.3 Open dockets scored as zero severity — **the mechanism, restated**
+
+The report asked whether open/preliminary rows were *filtered out or multiplied
+by zero*. Neither, exactly. Nothing filters them. What happens is subtler and
+worse:
+
+An NTSB investigation stays open 12–24 months, and for the first weeks carries
+no injury or damage codes. `classify_accident_severity` infers severity from
+those free-text fields, so a destroyed aircraft with an open docket graded as
+**`SUBSTANTIAL_DAMAGE` (25)** — or, with nothing populated at all, produced
+`Hsafety = 1.0000`. Measured on the reported shape: the arithmetic saw **no
+risk whatsoever** in a hull loss.
+
+Then three mechanisms diluted even that, compounding:
+
+| Mechanism | Effect on a fatal accident |
+|---|---|
+| Exposure normalization, `MAX(1, SQRT(Vf))` | a 36-aircraft operator carries it at **1/6th weight** |
+| `Dscale` operator damping | further discount for a large, mature certificate |
+| Five-year exponential decay | erodes it from the day it happens |
+
+**Fixed — §4.1a circuit breaker.** A fatal accident or hull loss within
+**36 months** bypasses the arithmetic entirely:
+
+- `Hsafety` forced to `0.0`;
+- the composite forced to the `SCORE_FLOOR` of **50**;
+- Primary Flight Safety forced **RED**;
+- the narrative gets a `catastrophic_events` block and is instructed to lead
+  with it, never to offset it against clean findings, and never to present an
+  open docket as though the crash itself were unconfirmed.
+
+Measured on the reported shape: **73.67 Benchmark → 50.0 Standard**.
+
+Two design points worth preserving:
+
+**Zeroing `Hsafety` alone is insufficient.** It carries only the 0.35 weight,
+so the 0.65 tail term would still carry a clean airframe to roughly **74** — a
+Benchmark score for an operator that has just destroyed an aircraft. The
+override therefore also applies at the composite level.
+
+**The breaker reads raw facts, never graded severity.** `RiskEvent` gains
+`fatalities`, `aircraft_damage` and `investigation_status`, carried as facts
+rather than folded into `severity`, so a hull loss stays recognisable whatever
+the arithmetic did to it. Severity is read **undecayed**, because decay must not
+be able to answer "did a catastrophe happen" in the negative; recency is handled
+by the lookback window instead.
+
+`fatalities = None` is deliberately distinct from `0`. An open docket reports no
+tally, and `HighestInjuryLevel` is empty often enough that a missing value cannot
+mean "nobody died". Only an explicit `0` means that.
+
+**36 months, not the five-year decay half-life:** long enough to cover an
+investigation from preliminary to final report, short enough that an operator is
+not defined forever by one event. Outside the window the ordinary decayed
+arithmetic resumes.
+
+### 11.4 SDRS matched on N-number only — **fixed**
+
+`rows_to_fleet_events` dropped a row outright whenever `tail_numbers` was
+supplied and the row's N-number did not match, so an SDR filed with a blank or
+mistyped registration was discarded even when it named our aircraft by serial.
+Serial is now a secondary key, tried after tail and before operator name.
+
+**Serial alone is not a key, and this is the trap.** Measured on
+`gtj.aircraft`: 11,166 aircraft carry a serial but only **10,395 are distinct** —
+serial `226` is shared by six airframes, `236` by six more. Matching on the bare
+number would attach one operator's maintenance reports to another's aircraft,
+which is the same mistake that fabricated 3,707 false ownership chains during
+the FAA registry work (§9.2). So the key is qualified by aircraft type, and
+`_serial_index` **drops** any qualified serial resolving to two different tails
+rather than guessing.
+
+Two format problems had to be solved for the qualifier to work, both found by
+testing real values rather than reading code:
+
+| Problem | Example | Resolution |
+|---|---|---|
+| Serial formats disagree | `60-271` (SDRS) vs `271` (`gtj.aircraft`) | `normalize_serial` keeps only the trailing portion; a prefix-preserving form makes these *fail* to match |
+| Make/model encodings disagree entirely | SDRS `make="LEARJET" model="LR-60"` vs `make_model="LR-60-60"`; also `CE-560-560XL`, `BHT-407-407` | `_model_digits` uses the model **number** (`60`, `560`, `407`), which survives both encodings |
+
+Building a manufacturer-name-to-ICAO-code mapping would be a data project in its
+own right and wrong in the tails. Digits are a weaker discriminator than a full
+type match, which is acceptable because they only ever *qualify* a serial that
+already matched — the pair must agree, not the digits alone. Verified that
+`LR-60/271` and `CE-560/271` still produce different keys.
+
+### 11.5 Not done, and why
+
+| Item | Status |
+|---|---|
+| **Re-ingest `gtj.ntsb_incidents`** | **NOT DONE — the most important remaining item.** The table is 15 months stale and holds zero fatal events. This is an ingestion run plus a schedule, not a code change, and it needs to happen before the cache is trusted again. |
+| Confirm the N722BD crash itself | **Could not verify.** `ERA27MA026` and `N722BD` both return **zero rows from live CAROL** as queried on 2026-11-16, and the event postdates what this analysis could independently confirm. The aircraft is real in our data (`N722BD`, serial `271`, LR-60, Aurora Aviation Inc, `GLRA`) and the serial matches the report. The circuit breaker is correct regardless of this one case. |
+| ASN latent risk (`Lrisk`) ingestion | **Still not implemented, and newly measured as blocked from here:** `asn.flightsafety.org` returns **HTTP 403** on both `/wikibase/` and `/database/`. A CAROL control request from the same machine returned 405, so this is the host refusing us, not a connectivity fault. Untested from the production server — §9.6 showed `registry.faa.gov` behaves differently there, so **probe from the server before concluding it is unavailable**. |
+| FAA AIDS (source 4b) | **Still not implemented.** `asias.faa.gov` also returns **HTTP 403** from this machine. Same caveat: probe from the server. |
+| Preliminary-incident feed separate from CAROL | **Not built.** CAROL already exposes open dockets, and the circuit breaker now acts on them, which closes the urgent part of the gap. A dedicated preliminary feed would improve latency, not correctness. |
+| Per-case CAROL detail fetch for `AircraftDamage` | **Not built.** The case-list response has no damage field, so hull loss is currently detected via fatalities, a graded fatal severity, or a damage string supplied by another source. A per-case fetch would add a request per event. |
+| Re-score of the operator population | **Not run.** Stored scores predate both §10 and §11. Any operator with a catastrophe in the last 36 months is currently scored too high in the stored data. |

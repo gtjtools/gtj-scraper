@@ -43,6 +43,12 @@ giving no credit to operators who had earned them. And liens were counted
 rather than weighed, which ranked a well-financed operator below a struggling
 one. Sections 6, 6a and 6b.
 
+MOST IMPORTANT ITEM IN THIS REPORT: we investigated an operator that scored 81
+weeks after one of its aircraft crashed with fatalities. We found three
+separate faults and have fixed two of them in code. The third is an
+OPERATIONS task and is still outstanding — our stored accident records are 15
+months out of date and contain no fatal accidents at all. Section 6c.
+
 Nothing in the system overstates an operator. Where we cannot see something,
 the report says so — and where we have looked and found nothing, it now says
 that too.
@@ -80,7 +86,8 @@ that too.
   Aircraft tracked                                       11,167
   Aircraft legally authorised for charter                11,188
   Charter certificates covered                            1,663
-  Accident records                                           247
+  Accident records                              247  (15 MONTHS STALE
+                                                     — see section 6c)
   DOT enforcement orders                                     677
   Trading names resolved to a certificate                  1,914
 
@@ -395,6 +402,95 @@ longevity, liens and regulatory record.
 
 
 ================================================================================
+6c. A FATAL CRASH THAT SCORED 81 — WHAT WE FOUND AND FIXED
+================================================================================
+
+The most serious issue found so far, raised because an operator still showed a
+score of 81 weeks after one of its aircraft crashed with fatalities.
+
+We found THREE separate faults. Any one of them alone was enough to cause it.
+
+FAULT 1 — OUR ACCIDENT RECORDS ARE 15 MONTHS OUT OF DATE.
+
+  This is the biggest one and it is not a scoring bug. The stored accident
+  table holds nothing after August 2025, no 2026 events at all, and NOT A
+  SINGLE fatal accident. It also has a tail number on only 2 of its 247
+  records. It could not have flagged this crash no matter how we queried it.
+
+  >> ACTION NEEDED: re-run the accident ingestion and put it on a schedule.
+     Until that happens the stored table must not be treated as an accident
+     record. This is an operations task, not a development one.
+
+FAULT 2 — WE SEARCHED FOR ACCIDENTS BY OPERATOR NAME, NEVER BY AIRCRAFT.
+
+  The accident search only ever used the operator's name. It never searched
+  by the aircraft's registration number. That fails whenever an operator has
+  rebranded, trades under a different name, or the accident was filed against
+  a management company — and the search demanded an EXACT name match, so
+  "Aurora Aviation, Inc." found 1 case where "Aurora Aviation" finds 7.
+
+  FIXED. We now search by every aircraft registration on the operator's
+  certificate. A registration number never changes; a company name does.
+
+FAULT 3 — A CRASH UNDER INVESTIGATION COUNTED AS HARMLESS.
+
+  An accident investigation stays open for one to two years, and for the
+  first weeks the official injury and damage fields are simply blank. Our
+  scoring read those blank fields and concluded nothing serious had happened.
+  For the case reported, the maths assessed a destroyed aircraft as carrying
+  NO RISK AT ALL.
+
+  Three further effects then diluted whatever did get through: large fleets
+  spread an accident across all their aircraft, long-established operators
+  received a damping discount, and every event fades with age from the day it
+  occurs. Those are all reasonable for routine incidents. They are indefensible
+  for a fatal crash — a broker does not care that the operator's other
+  aircraft did not crash.
+
+  FIXED — A HARD CIRCUIT BREAKER. Any fatal accident or destroyed aircraft
+  within the last 36 months now bypasses the scoring arithmetic completely:
+
+    - the operator's safety rating drops to zero
+    - the TrustScore drops to its floor of 50
+    - Primary Flight Safety is forced RED
+    - the written report must lead with the crash and may not balance it
+      against good findings elsewhere
+
+  On the reported case this moves the score from 73.67 (Benchmark) to 50.0.
+
+  Deliberately, an open investigation COUNTS. We do not wait for a final
+  report before flagging a crash — that would leave the score silent during
+  exactly the weeks a broker is most exposed. The report says the cause has
+  not yet been determined, which is honest, but it never implies the crash
+  itself is unconfirmed.
+
+  Equally deliberately, the breaker does NOT fire on a survivable incident,
+  on an open investigation with nothing yet reported, or on a crash older
+  than 36 months. An operator should not be defined forever by one event.
+
+FAULT 4 (SMALLER) — MAINTENANCE REPORTS FILED WITHOUT A TAIL NUMBER WERE LOST.
+
+  Mechanical failure reports are matched to aircraft by registration number.
+  Any report filed with that field blank or mistyped was discarded, even when
+  it identified our aircraft by serial number. Now matched on serial as well.
+
+  One caution recorded for whoever maintains this: serial numbers are NOT
+  unique. Six different aircraft in our database share serial "226". Matching
+  on serial alone would attach one operator's maintenance history to another's
+  aircraft, so the match also requires the aircraft model to agree.
+
+ONE THING WE COULD NOT CONFIRM
+
+  We could not independently verify the crash itself. The accident number
+  returns no record from the live federal database as queried, and the event
+  is more recent than the data this analysis could confirm against. The
+  aircraft is real in our records and its serial number matches the report.
+
+  The circuit breaker is correct regardless of this particular case, which is
+  why we built it rather than waiting for confirmation.
+
+
+================================================================================
 7.  WHAT WE RECOMMEND
 ================================================================================
 
@@ -437,6 +533,12 @@ active liens across 482 aircraft, against 128 and 91 before.
 The two categories still limited are blocked by access to free FAA systems,
 verified from two networks. We have not worked around those and do not believe
 development effort will.
+
+A fatal crash investigation (section 6c) found that our stored accident
+records are 15 months stale and hold no fatal accidents, that accidents were
+searched by operator name but never by aircraft registration, and that a crash
+still under investigation counted as harmless. The last two are fixed; the
+stale ingestion is an operations task and remains outstanding.
 
 Also since the last report, two corrections to how findings are PRESENTED
 rather than gathered, both of which were penalising good operators:
