@@ -194,9 +194,62 @@ def split_fleet_events(
                 event_type=str(event.get("event_type") or "accident"),
                 source="NTSB",
                 reference=ref,
+                # §4.1a. Carried as raw facts so the circuit breaker does not
+                # have to re-derive a catastrophe from a severity value that
+                # exposure normalization and decay will already have diluted.
+                fatalities=_fatality_count(event),
+                aircraft_damage=str(event.get("aircraft_damage") or ""),
+                investigation_status=str(
+                    event.get("investigation_status")
+                    or event.get("report_type")
+                    or event.get("investigation_type")
+                    or ""
+                ),
             ))
 
     return accidents, sdrs, legal
+
+
+#: Injury-level strings that mean somebody died.
+_FATAL_INJURY_MARKERS = ("fatal", "death", "deceased")
+
+
+def _fatality_count(event: Dict[str, Any]) -> Optional[int]:
+    """
+    Fatalities on an event, or None when no source reported any.
+
+    None and 0 are deliberately different. An open NTSB docket carries no
+    injury tally for weeks, and `HighestInjuryLevel` was observed empty even
+    on a *final* report — so a missing value cannot be read as "nobody died".
+    Only an explicitly reported 0 means that.
+
+    Checked in order of reliability:
+      1. an explicit numeric count (total_fatalities, fatalities, ...)
+      2. an injury-level string containing "fatal"
+      3. otherwise None — unknown, not zero
+    """
+    for key in ("total_fatalities", "fatalities", "fatality_count",
+                "injury_onboard_count"):
+        value = event.get(key)
+        if value in (None, ""):
+            continue
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            continue
+
+    level = " ".join(
+        str(event.get(key) or "")
+        for key in ("injury_level", "highest_injury", "highest_injury_level")
+    ).lower()
+    if any(marker in level for marker in _FATAL_INJURY_MARKERS):
+        # Fatal confirmed, exact count not given. 1 is the minimum consistent
+        # with the report and is enough to trip the breaker.
+        return 1
+    if level.strip() in ("none", "no injuries", "uninjured"):
+        return 0
+
+    return None
 
 
 def ucc_filings_to_legal_events(ucc_filings: List[Dict[str, Any]]) -> List[RiskEvent]:

@@ -32,11 +32,13 @@ from typing import Any, Dict, List, Optional
 
 from src.trustscore import adapter_v5
 from src.trustscore.calculator_v5 import (
+    CATASTROPHIC_LOOKBACK_MONTHS,
     ELI_TAXONOMY,
     OperatorData,
     RiskEvent,
     Severity,
     TailData,
+    catastrophic_events,
     decayed_sum,
 )
 
@@ -247,6 +249,17 @@ def _flag_flight_safety(operator: OperatorData, tail: TailData, now=None) -> str
     if not all_events:
         return GREEN
 
+    # §4.1a circuit breaker, checked FIRST and without reference to decay or
+    # severity grading. A fatal crash or hull loss inside the lookback window
+    # is RED, full stop.
+    #
+    # This must not go through the severity/decay test below: an open NTSB
+    # docket carries no injury or damage codes for weeks, so a crash from last
+    # month scores severity 0 and would read GREEN — which is exactly the
+    # failure this guards. See calculator_v5.is_catastrophic.
+    if catastrophic_events(operator, tail, now):
+        return RED
+
     # RED needs a finding that is both serious (§6) and still current (decay).
     if any(
         event.severity >= Severity.SUBSTANTIAL_DAMAGE
@@ -404,6 +417,31 @@ def build_audit_payload(
         for name, flag in raw_flags.items()
     }
 
+    # §4.1a. Surfaced as its own payload block when tripped, because a
+    # catastrophe must not arrive as one entry in a list of accident events —
+    # the narrative has to lead with it.
+    breaker = catastrophic_events(operator, tail, None)
+    catastrophic: Dict[str, Any] = {}
+    if breaker:
+        catastrophic = {
+            "catastrophic_events": {
+                "count": len(breaker),
+                "within_months": CATASTROPHIC_LOOKBACK_MONTHS,
+                "events": _describe_events(breaker),
+                "guidance": (
+                    "A fatal accident or hull loss on this certificate within "
+                    f"the last {CATASTROPHIC_LOOKBACK_MONTHS} months. This "
+                    "overrides every other consideration in the report: lead "
+                    "the Executive Summary with it, state it in the "
+                    "Operational Stance, and do not offset it against clean "
+                    "findings elsewhere. Where the NTSB investigation is "
+                    "still open, say so and say that cause has not been "
+                    "determined — but never present an open docket as though "
+                    "the event itself were unconfirmed."
+                ),
+            }
+        }
+
     return {
         "operator_name": operator.operator_name,
         "certificate_designator": operator.certificate_designator,
@@ -451,6 +489,9 @@ def build_audit_payload(
                 "flag": flags["flight_safety"],
                 "certificate_accident_events": _describe_events(operator.fleet_accident_events),
                 "tail_accident_events": _describe_events(tail.tail_accident_events),
+                # §4.1a. Present only when the breaker tripped, so its mere
+                # presence is the signal. The narrative must lead with this.
+                **catastrophic,
             },
             "maintenance_discipline": {
                 "flag": flags["maintenance_discipline"],
@@ -630,6 +671,14 @@ satisfactory, or without findings.
 carries the operator's certificate issuance date. Do not state, estimate or \
 infer a certificate age in that case — not even approximately, and not inside \
 a caveat. Say the issuance date is unavailable, or omit the subject.
+- CATASTROPHIC EVENTS OVERRIDE EVERYTHING. If the flight-safety block carries \
+a `catastrophic_events` key, a fatal accident or hull loss occurred on this \
+certificate recently. Lead the Executive Summary with it, name it in the \
+Operational Stance, and never let clean findings in other categories soften or \
+balance it. Do not describe the operator as low-risk, well-run or \
+recommendable. If the investigation is open, state that cause has not yet been \
+determined — but an open docket means the cause is unknown, NOT that the crash \
+is unconfirmed. Never imply the latter.
 - Objective Tone: Maintain a clinical, institutional tone. Attribute all \
 adverse findings directly to official public repositories (NTSB, FAA SDRS, \
 FAA Document Index, DOT OACP) or verified watchdog reporting.

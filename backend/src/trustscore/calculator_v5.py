@@ -163,6 +163,38 @@ LIEN_TIER1_CAP = 8.0
 #: twenty financed aircraft is not twenty times riskier than one with a single
 #: loan.
 LIEN_TIER1_LOG_COEFF = 1.0
+#: Catastrophic-event circuit breaker (§4.1a).
+#:
+#: A fatal crash or hull loss is not a quantity to be averaged — it is a
+#: disqualifying fact, and the ordinary arithmetic cannot express that.
+#:
+#: Three mechanisms in the formula each dilute a catastrophe, and they compound:
+#:
+#:   * exposure normalization divides by MAX(1, SQRT(Vf)), so a 36-aircraft
+#:     operator carries a fatal accident at 1/6th weight;
+#:   * Dscale damps a large, long-established operator further;
+#:   * five-year exponential decay erodes it from the day it happens.
+#:
+#: A 50-point FATAL_ACCIDENT against a mid-size fleet therefore lands as a
+#: single-digit Sro and leaves Hsafety near 0.9 — a Premier score weeks after a
+#: hull loss with fatalities. Normalizing for exposure is right for routine
+#: incident rates and wrong for a catastrophe: a broker booking a trip does not
+#: care that the operator has other aircraft that did not crash.
+#:
+#: So a qualifying event bypasses the arithmetic entirely: Hsafety is forced to
+#: 0.0, the composite falls to the SCORE_FLOOR of 50, and the flag layer forces
+#: Primary Flight Safety to RED.
+#:
+#: 36 months, not the 5-year decay half-life. Long enough to cover an NTSB
+#: investigation from preliminary to final report, short enough that an
+#: operator is not defined forever by one event.
+CATASTROPHIC_LOOKBACK_MONTHS = 36
+
+#: Aircraft-damage strings that constitute a hull loss. Matched case-insensitively
+#: as substrings, because sources spell it variously ("DESTROYED", "Destroyed",
+#: "SUBSTANTIAL/DESTROYED").
+CATASTROPHIC_DAMAGE_TERMS = ("DESTROY", "HULL LOSS", "WRITTEN OFF")
+
 #: §3 Churn is capped so catastrophic churn cannot zero out Cs entirely.
 CHURN_CAP = 0.65
 #: §3 Organic fleet growth below this ratio is unpenalized.
@@ -194,6 +226,23 @@ class RiskEvent:
     #: None elsewhere. Carried on the event so the tier assigned at ingestion
     #: survives into both the penalty arithmetic and the flag.
     severity_tier: Optional[int] = None
+
+    # ── Catastrophe facts (§4.1a circuit breaker) ────────────────────────────
+    #
+    # Carried as raw facts rather than folded into `severity`, because the
+    # breaker must not be derivable from a severity score that exposure
+    # normalization and decay have already diluted. A hull loss with fatalities
+    # has to stay recognisable as such no matter what the arithmetic did to it.
+    #
+    # None means "not reported by the source", which is NOT the same as zero —
+    # an open NTSB docket routinely has no injury tally for weeks. Only an
+    # explicit 0 means nobody died.
+    fatalities: Optional[int] = None
+    #: Source-reported damage string, e.g. "DESTROYED", "SUBSTANTIAL".
+    aircraft_damage: str = ""
+    #: NTSB investigation status, e.g. "OPEN", "PRELIMINARY", "COMPLETED".
+    #: An open docket is still a crash; see `is_catastrophic`.
+    investigation_status: str = ""
 
 
 @dataclass
@@ -432,6 +481,72 @@ def calculate_d_scale(data: OperatorData) -> float:
     return max(0.5, 1.0 - 0.035 * fleet_term * age_term)
 
 
+def is_catastrophic(event: RiskEvent, now: Optional[datetime] = None) -> bool:
+    """
+    Does this event trip the §4.1a circuit breaker?
+
+    True for a fatal accident or hull loss within CATASTROPHIC_LOOKBACK_MONTHS.
+
+    OPEN DOCKETS COUNT. An NTSB investigation stays open for 12-24 months, and
+    for the first weeks the injury and damage fields are often empty. Requiring
+    populated final codes would mean the breaker could not fire during exactly
+    the window a broker is most exposed — the month after a crash, while the
+    aircraft type is still flying. So an event is catastrophic when ANY of:
+
+        * fatalities > 0                        — explicit, from any source
+        * damage indicates a hull loss          — DESTROYED etc.
+        * severity >= FATAL_ACCIDENT            — the ingest already graded it
+
+    Severity is read UNDECAYED here. The breaker asks "did a catastrophe
+    happen", which decay must not be able to answer in the negative; recency is
+    handled by the lookback window instead.
+
+    An event with no usable date is treated as IN window. A crash we cannot
+    date is not thereby old, and the conservative reading is the safe one for a
+    safety breaker.
+    """
+    # Matches decayed_sum's convention (line ~403) so the breaker and the decay
+    # arithmetic agree on "now". _parse_date already makes naive values UTC.
+    reference = _parse_date(now) or datetime.now(timezone.utc)
+
+    event_date = _parse_date(event.event_date)
+    if event_date is not None:
+        age_days = (reference - event_date).days
+        # A future-dated event is a data error, not a reason to ignore a crash.
+        if age_days > CATASTROPHIC_LOOKBACK_MONTHS * 30.44:
+            return False
+
+    if event.fatalities is not None and event.fatalities > 0:
+        return True
+
+    damage = (event.aircraft_damage or "").upper()
+    if any(term in damage for term in CATASTROPHIC_DAMAGE_TERMS):
+        return True
+
+    # The ingesting pipeline already classified this as fatal/hull-loss under
+    # §6.1, so trust that grading even when the raw fields are absent.
+    return bool(event.severity) and event.severity >= Severity.FATAL_ACCIDENT
+
+
+def catastrophic_events(
+    data: OperatorData,
+    tail: Optional["TailData"] = None,
+    now: Optional[datetime] = None,
+) -> List[RiskEvent]:
+    """
+    Every circuit-breaker event across the certificate and, if given, the tail.
+
+    Fleet-level events are included deliberately: a fatal crash on ANY aircraft
+    on the operator's D085 certificate is an operator-level finding. The tail
+    being quoted did not crash, but the maintenance programme, crew training
+    and dispatch culture behind it are the same ones.
+    """
+    events = list(data.fleet_accident_events)
+    if tail is not None:
+        events += list(tail.tail_accident_events)
+    return [event for event in events if is_catastrophic(event, now)]
+
+
 def calculate_safety_health(
     data: OperatorData, now: Optional[datetime] = None
 ) -> Dict[str, float]:
@@ -456,14 +571,31 @@ def calculate_safety_health(
     d_scale = calculate_d_scale(data)
 
     sro = ((orf_base + sdr_fleet) * d_scale) + l_risk
-    return {
+
+    # §4.1a circuit breaker. Checked AFTER the ordinary terms so the breakdown
+    # still shows what the arithmetic produced, and the override is visible as
+    # an override rather than silently replacing the numbers.
+    breaker = catastrophic_events(data, None, now)
+    result = {
         "orf_base": orf_base,
         "sdr_fleet": sdr_fleet,
         "l_risk": l_risk,
         "d_scale": d_scale,
         "sro": sro,
         "h_safety": _health(sro),
+        "catastrophic_event_count": len(breaker),
+        "circuit_breaker_tripped": bool(breaker),
     }
+    if breaker:
+        # Exposure normalization and decay are what diluted this; neither is
+        # allowed to apply. Hsafety 0.0 drives the composite to SCORE_FLOOR.
+        result["h_safety_before_breaker"] = result["h_safety"]
+        result["h_safety"] = 0.0
+        result["catastrophic_references"] = [
+            event.reference or event.event_type or "unidentified"
+            for event in breaker
+        ]
+    return result
 
 
 # ── §4.2 Conduct Health ──────────────────────────────────────────────────────
@@ -739,6 +871,32 @@ def calculate_trust_score(
     blended = (W_SAFETY * safety["h_safety"]) + (W_TAIL * tail_health["h_ts"])
     composite = blended * conduct["h_conduct"] * confidence
     score = _clamp_score(SCORE_FLOOR + 50.0 * composite)
+
+    # §4.1a circuit breaker, at the composite level.
+    #
+    # Zeroing Hsafety alone is NOT sufficient here: Hsafety carries only the
+    # 0.35 weight, so the 0.65 tail term would still carry a healthy airframe
+    # to roughly 74 — a Benchmark score for an operator that has just destroyed
+    # an aircraft. The additive blend is the right model for ordinary risk and
+    # the wrong one for a catastrophe, which is not something the rest of the
+    # fleet can offset.
+    #
+    # Includes tail-level events, which calculate_safety_health cannot see.
+    breaker = catastrophic_events(operator, tail, now)
+    if breaker:
+        score = SCORE_FLOOR
+        safety = {**safety,
+                  "h_safety_before_breaker": safety.get(
+                      "h_safety_before_breaker", safety["h_safety"]),
+                  "h_safety": 0.0,
+                  "circuit_breaker_tripped": True,
+                  "catastrophic_event_count": len(breaker),
+                  "catastrophic_references": [
+                      event.reference or event.event_type or "unidentified"
+                      for event in breaker
+                  ]}
+        blended = W_TAIL * tail_health["h_ts"]
+        composite = 0.0
 
     fleet = calculate_fleet_score(operator, now)
 
