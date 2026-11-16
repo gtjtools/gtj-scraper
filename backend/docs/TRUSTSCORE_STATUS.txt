@@ -1,6 +1,6 @@
 ================================================================================
 TRUSTJET TRUSTSCORE — WHERE THE DATA STANDS
-Plain-language status report                               10 November 2026
+Plain-language status report                               16 November 2026
 ================================================================================
 
 WHAT THIS DOCUMENT IS
@@ -10,7 +10,7 @@ answers four questions: what the TrustScore can tell a broker today, what it
 cannot see, what any of it costs, and which gaps need a decision from the
 business rather than more engineering.
 
-Every number here was read from the live database on 10 November 2026.
+Every number here was read from the live database on 16 November 2026.
 
 
 ================================================================================
@@ -36,8 +36,16 @@ rose from 91 to 482.
 Two categories still cannot be fully assessed. In both cases the obstacle is
 access to a free-but-gated FAA system, confirmed from two independent networks.
 
+Also since the last report, two corrections that make clean operators look
+clean. "Not assessed" was being applied so readily that good outcomes — a
+stable fleet, a clean enforcement record, clear title — all read as unknowns,
+giving no credit to operators who had earned them. And liens were counted
+rather than weighed, which ranked a well-financed operator below a struggling
+one. Sections 6, 6a and 6b.
+
 Nothing in the system overstates an operator. Where we cannot see something,
-the report says so.
+the report says so — and where we have looked and found nothing, it now says
+that too.
 
 
 ================================================================================
@@ -96,8 +104,8 @@ A fair question, since the original plan assumed a commercial subscription.
 
   THE JETNET SUBSCRIPTION IS NOT NEEDED. The specification assumed it for
   fleet composition. The FAA publishes the same information weekly as a public
-  spreadsheet — the list of aircraft each operator is legally authorised to fly
-  for hire — and we now read that instead. This is arguably better data: it is
+  spreadsheet — the list of aircraft each operator may legally fly for hire —
+  and we now read that instead. This is arguably better data: it is
   the legal authorisation, not a commercial estimate of what an operator owns.
 
   TWO FAA SYSTEMS ARE FREE BUT GATED. CARES (permanent lien records) and
@@ -151,13 +159,23 @@ fuel supplier accounted for 37 of 345 filings in a single snapshot.
 
 We can now distinguish these for about a third of filings. For the remaining
 two thirds the filer's name is uninformative — holding companies and
-individual names — and the system says "unknown" rather than guessing. This
-annotates the written report; it does not change any score.
+individual names — and the system says "unknown" rather than guessing.
+
+This has since become load-bearing. As of 16 November it no longer merely
+annotates the report: knowing whether a bank or a tax authority filed is what
+grades the severity of a lien, and therefore what the aircraft scores. See
+section 6a.
 
 WHAT IT STILL DOES NOT DO. 2.2 years is a longer window, not the permanent
 record. A lien filed before September 2024 and never released is still
-invisible. So the report continues to mark aircraft title as NOT ASSESSED,
-which is honest. Only CARES access can change that.
+invisible.
+
+What changed on 16 November is how we report that limit. The report no longer
+marks every aircraft's title as NOT ASSESSED — doing so meant no operator
+could ever earn a clean title finding, which told the broker nothing. An empty
+search result is now reported as clean, with a note that the index covers
+recent filings only. Proving the absence of an older lien outright still needs
+CARES access.
 
 
 ================================================================================
@@ -167,10 +185,15 @@ which is honest. Only CARES access can change that.
 5.1  AIRCRAFT TITLE  —  needs FAA access (free, but gated)
 
   Covered in section 4. We can prove an encumbrance exists; we cannot prove
-  one does not. The category stays NOT ASSESSED.
+  one does not.
+
+  The category is now ASSESSED and graded rather than blanked out: an empty
+  search is reported as clean title, with the window limit noted alongside it.
+  What CARES would add is certainty about filings older than September 2024.
 
   >> DECISION NEEDED: obtain FAA registered access to CARES, or accept that
-     title verification stays incomplete. Procurement, not engineering.
+     title verification rests on a 2.2-year window rather than the full life
+     of the airframe. Procurement, not engineering.
 
 
 5.2  FLEET STABILITY  —  needs time, and the weekly job to keep running
@@ -186,6 +209,12 @@ which is honest. Only CARES access can change that.
   stitch together.
 
   Usable signal: around MAY 2027.  Full twelve-month measure: NOVEMBER 2027.
+
+  Since 16 November the CATEGORY is no longer blanked out on this account —
+  it is assessed on how long the operator has held its certificate, which we
+  do have. What waits for the history to accumulate is the specific claim
+  "no fleet churn in the last twelve months". We will not print a 31-day
+  comparison as a twelve-month finding.
 
   >> ACTION: the weekly automated job must run without interruption. Every
      week missed pushes those dates back, and the data cannot be recovered.
@@ -235,26 +264,134 @@ Each operator report carries six categories, colour-coded:
 
 The grey state matters more than it sounds. Without it, "we found nothing" and
 "we could not look" produce the same clean-looking report, and the second is
-misleading. Any category resting on a source we could not query is marked grey
-rather than green.
+misleading.
 
-Three deliberate consequences:
+CORRECTED SINCE THE LAST REPORT — GREY WAS FAR TOO AGGRESSIVE
 
-  - Aircraft title stays grey even when we DO find liens, because the records
-    we can read cannot prove the absence of older ones.
+We had overcorrected. Grey was applied whenever ANY input behind a category
+was missing, which in practice meant almost always. Worse, three of the
+triggers fired on the GOOD outcome:
 
-  - Fleet stability stays grey until enough history accumulates. We refuse to
-    report a 31-day comparison as a twelve-month figure.
+  - A fleet that had not changed at all for twelve months looked identical to
+    an operator we had never measured. Stability is the thing we want to
+    reward, and it was being marked "not assessed".
+
+  - Finding no enforcement action against an operator counted as a gap rather
+    than as a clean regulatory record.
+
+  - Aircraft title was marked grey for EVERY tail, always. No operator could
+    earn a clean title finding however spotless their record.
+
+The effect was that the colour carried almost no information, and the
+operators who had actually earned a clean result were given no credit for it.
+A broker reading six grey flags learns nothing.
+
+THE RULE NOW
+
+Grey means ONE thing: we could not assess this category at all — every source
+behind it was unavailable. If even one primary source answered, the category
+gets a real colour based on what that source said.
+
+And critically: a search that ran and found nothing is now treated as
+EVIDENCE OF A CLEAN RECORD, not as a gap. If we searched DOT enforcement
+records under every name an operator has traded as and found nothing, that is
+a favourable finding and the report now says so explicitly.
+
+What this looks like on three real aircraft — Triton Air, Aurora Aviation and
+Red Wing Aeroplane all moved from mostly-grey to six green flags, each one
+backed by a named search that was actually run.
+
+WHAT WE STILL WITHHOLD, DELIBERATELY
+
+  - Fleet stability is assessed on certificate longevity, but we do NOT yet
+    claim "no fleet churn in twelve months". We hold 31 days of fleet history
+    against a 180-day minimum, so that specific sentence waits until the data
+    supports it. The category is still assessed; only the churn claim waits.
+
+  - Aircraft title is reported as clean when the search comes back empty, with
+    a note that the index covers recent filings only. That is honest in both
+    directions. Proving the absence of an old lien still needs FAA CARES,
+    which remains blocked.
 
   - An estimated certificate age is withheld from the report rather than
     printed with a caveat, because a number on the page invites being quoted.
 
-We also corrected a related problem since the last report. An operator with a
-1988 accident was showing RED on flight safety — reading to a broker as a
-current hazard — while the score itself had correctly discounted a 38-year-old
-event to almost nothing. Flags now age at the same rate as the score. The
-accident is still disclosed in the written report; it is no longer presented
-as current.
+We also corrected a related problem earlier. An operator with a 1988 accident
+was showing RED on flight safety — reading to a broker as a current hazard —
+while the score itself had correctly discounted a 38-year-old event to almost
+nothing. Flags now age at the same rate as the score. The accident is still
+disclosed in the written report; it is no longer presented as current.
+
+
+================================================================================
+6a. LIENS: SIZE NOW MATTERS MORE THAN COUNT
+================================================================================
+
+A second correction, and a more consequential one for pricing a trip.
+
+THE PROBLEM. We were counting lien filings and charging the same penalty for
+each. That ranked operators backwards. A well-financed operator with twenty
+aircraft loans on file — which is simply what a financed fleet looks like —
+scored worse than a struggling one with a single unpaid tax bill, because the
+first had more pieces of paper.
+
+THE FIX. Filings are now graded by WHO filed them:
+
+  Routine     a bank, leasing company or owner trust recording a loan.
+              Expected, not a defect. Twenty of these now cost less than
+              one of the below.
+
+  Material    a maintenance shop, fuel supplier or FBO. These file only
+              when a bill has gone unpaid, so it is a working-capital
+              signal worth confirming before departure.
+
+  Crippling   a tax authority, a court judgment, or default on an engine
+              maintenance programme. ONE of these is enough to flag the
+              aircraft red, because the claimant can have the aircraft
+              detained at an FBO without notice, with passengers aboard.
+
+In numbers: twenty routine bank filings used to cost 500 penalty points and
+now cost 7.5. A single tax levy used to cost 25 and now costs 56.
+
+WHAT THIS MEANS FOR THE REPORT. An operator with several small vendor filings
+is no longer described as financially distressed — the report reassures the
+broker that their low magnitude poses little risk of the aircraft being
+seized. An operator with one catastrophic filing is no longer let off because
+the count is low.
+
+ONE LIMITATION, STATED PLAINLY. The specification for this work graded liens
+by dollar amount (under $10,000, $10,000-$75,000, above $75,000). The FAA
+index we read PUBLISHES NO DOLLAR AMOUNTS — it records who filed, what type of
+document, and when. So we grade by filer instead, which tracks severity well
+for the reason given above. The dollar logic is written and waiting; it will
+switch on automatically if we ever obtain a source carrying claim values.
+
+Measured across all 1,148 active filings we hold: 92% of aircraft carry only
+routine financing, 8% have something worth a look, and none currently trigger
+the crippling tier. That last figure is the correct answer rather than a
+failure — no tax authority or court appears in the current data, and the
+detector is tested against synthetic examples so it will fire when one does.
+
+
+================================================================================
+6b. WHAT BROKERS NOW GET IN THE WRITTEN REPORT
+================================================================================
+
+Previously the report could state a fact without saying why it mattered:
+"The operator has 2 sister ships and 0 service difficulty reports." True, and
+useless — a broker cannot act on it.
+
+Every figure cited must now carry three things: the fact, what it proves about
+how the operator runs their fleet, and what it means for the broker on
+departure day. For example, instead of "4 aircraft, 2 of the same type", the
+report now explains that an operator running a one-of-a-kind aircraft has no
+in-house recovery when it breaks on the ramp and must buy from the wholesale
+market — usually passing that cost back to the broker — whereas an identical
+sister ship on the same certificate means crews, parts and the aircraft itself
+can be swapped internally.
+
+The same standard applies to aircraft age, ownership structure, certificate
+longevity, liens and regulatory record.
 
 
 ================================================================================
@@ -301,13 +438,30 @@ The two categories still limited are blocked by access to free FAA systems,
 verified from two networks. We have not worked around those and do not believe
 development effort will.
 
+Also since the last report, two corrections to how findings are PRESENTED
+rather than gathered, both of which were penalising good operators:
+
+  - "Not assessed" was being applied far too readily, including to the good
+    outcomes — a stable fleet, a clean enforcement record, a clear title all
+    read as unknowns. Operators who had earned a clean result got no credit
+    for it. The colour now means one thing: we could not look at all.
+
+  - Liens were counted rather than weighed, which ranked a well-financed
+    operator below a struggling one. They are now graded by who filed.
+
 Where the system cannot see something it says so, rather than implying a clean
-result. That is the single most important property to preserve: a score that
-overstates an operator is worse than one that admits uncertainty.
+result. A score that overstates an operator is worse than one that admits
+uncertainty — that remains the property to preserve.
+
+The converse also matters, and is what these two corrections address: a system
+that calls everything uncertain is not being cautious, it is being useless.
+When we have searched a source and found nothing, the report now says so and
+treats it as the good news it is.
 
 --------------------------------------------------------------------------------
 Technical detail, measurements and source references:
-backend/docs/TRUSTSCORE_DATA_SOURCES.md  (see §9.7 for the lien workaround)
+backend/docs/TRUSTSCORE_DATA_SOURCES.md  (§9.7 lien workaround; §10 flag
+resolution and lien severity)
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------

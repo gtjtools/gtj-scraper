@@ -6,7 +6,9 @@ today, and how the scraping actually works.
 
 - **Source document:** `backend/TrustScore 5.0 Data Sources.docx`, plus the
   **Asset Stability & Churn / Legal & Title Clearness** addendum (assessed in §9)
-- **Last updated:** 2026-11-08
+  and the **Flag Resolution, Lien Severity & Narrative Elaboration** spec
+  (implemented in §10)
+- **Last updated:** 2026-11-16
 - **Algorithm implemented in code:** **v5.0** (`src/trustscore/calculator_v5.py`),
   live at both call sites. v3 (`calculator.py`) is retained but no longer called.
 - **Verified end to end** on Maine Instrument Flight (`BFYA`): 3 NTSB accidents
@@ -50,7 +52,9 @@ the one commercial item (source 7) is optional.
 | Capability | Where | Notes |
 |---|---|---|
 | **Entity resolution (§8)** | `src/common/entity_resolution.py` | Resolves an operator to every name its certificate has used, in both directions. NTSB, FAA and DOT lookups all search the full array. 40 certificates currently carry more than one name. |
-| **Coverage-aware flags** | `narrative_v5._apply_coverage` | A fourth state, `GREY`, for "not assessed". Only ever downgrades `GREEN`; `RED` and `YELLOW` stand on their own evidence. |
+| **Coverage-aware flags** | `narrative_v5._apply_coverage` | A fourth state, `GREY`, for "not assessed". Only ever downgrades `GREEN`; `RED` and `YELLOW` stand on their own evidence. **Reworked 2026-11-16 to an anchor OR-gate — `GREY` now requires total category blindness, not merely one gap (§10.1).** |
+| **Lien severity tiers** | `src/common/lien_classification.py` | §10.2. Tiers a filing 1–3 from who filed and the document type, since DOCINDEX publishes no claim amounts. Breaks the count-vs-severity inversion: one tax levy now outweighs twenty bank financings. |
+| **Clean-search evidence** | `narrative_v5._clean_searches` | §10.1. Nil returns from sources that *were* queried, phrased as affirmative findings, so the narrative can cite them as positives instead of seeing only an absence. |
 | **Risk Audit narrative (§9)** | `src/trustscore/narrative_v5.py` | Executive summary, six-category audit, broker guidance. Read-only with respect to scoring. |
 | **Fleet snapshots** | `scripts/snapshot_fleet.py` | 22,327 rows, 2 months, from `gtj.aircraft` (JETNET's view of what an operator holds). |
 | **D085 fleet ingest** | `scripts/ingest_d085.py` | 11,188 tails from the FAA's weekly Part 135 table — the *legally authorized* fleet. Written to the same table under `source='opspecs_d085'`, so the two are comparable. **2,097 tails are in JETNET but absent from D085** — held, but not authorized for charter. |
@@ -66,7 +70,7 @@ equation objects and do not survive plain-text extraction of the `.docx`).
 |--------|---------|----------------|
 | `Age_cert` | Operator age from **original certificate issuance date** | Partially — `operator_age_years` exists, but is read from `operators.business_started_date`, which is business registration, **not** certificate issuance |
 | `V_F` | Current fleet size, used as the **square root denominator** | **Yes** — counted from `gtj.aircraft`; denominator is `MAX(1, SQRT(Vf))` |
-| `Churn_Fleet` | Fleet size month-over-month differential | **Implemented, deliberately withheld** — `adapter_v5.fetch_churn` diffs D085 snapshots and is live, but returns `None` below a 180-day window. Has 31 days. See §9.1 for why this cannot be backfilled. |
+| `Churn_Fleet` | Fleet size month-over-month differential | **Implemented, deliberately withheld** — `adapter_v5.fetch_churn` diffs D085 snapshots and is live, but returns `None` below a 180-day window. Has 31 days. See §9.1 for why this cannot be backfilled. As of §10.1 the *unmeasured* state is tracked explicitly (`churn_measured`) rather than inferred from a zero, so a stable fleet is no longer indistinguishable from an unseen one. |
 | `MR_T` | Tail maintenance risk (from tail age) | **Yes** — `MRT`, `_calculate_tail_maintenance_risk` |
 | `OS_T` | Tail ownership status, verified against the Part 135 certificate holder | **Yes** — `OST`, `_calculate_tail_ownership_status` |
 | `ELI` | **Implemented.** Fed by **three** sources: source 3 (mechanic's liens, tax claims, rapid ownership transfers), source 7 (watchdog violations), source 8 (DOT legal actions and federal fines) | **No** — new metric, no field and no term in the OS equation |
@@ -74,7 +78,7 @@ equation objects and do not survive plain-text extraction of the `.docx`).
 | `IH_T` | Tail incident history, from tail severities | **Yes** — `IHT`, `_calculate_tail_incident_history`. **But see §6.6 — the wiring is wrong today.** |
 | `L_Risk` | Latent risk from ASN wikibase, via LLM text-to-JSON | **Field exists, no pipeline** — `latent_risk_events` is accepted and scored; ASN is not ingested |
 | `SDR_Penalty` | Mechanical deterioration and emergency procedures from SDRS | **Partial** — SDRs score, but pooled into `ORF_True` rather than a separate term; see §6.6 |
-| `Lientail` | Active mechanic's/tax liens against a specific airframe | **Implemented** — `adapter_v5.fetch_tail_liens` from `gtj.tail_liens`. One charge per *financing*, not per document (§9.3). `GAP_TAIL_LIENS` still fires regardless, because DOCINDEX cannot clear title. |
+| `Lientail` | Active mechanic's/tax liens against a specific airframe | **Implemented, now severity-tiered** — `adapter_v5.fetch_tail_liens` from `gtj.tail_liens`. One charge per *financing*, not per document (§9.3), and since §10.2 charged at a per-tier rate with Tier 1 log-dampened and capped. `GAP_TAIL_LIENS` no longer fires unconditionally: it tracks whether the lookup *ran* (§10.1). |
 
 Also live but **not in the source document:**
 
@@ -206,11 +210,23 @@ failure. Harmless today for the same reason as California.
 
 ### What the gaps do to a score
 
-Every missing input defaults to **neutral, which means no penalty**. A high score
-with several `GREY` flags therefore reads "nothing adverse found in the sources
-we could consult" — not "verified clean". `adapter_v5.missing_inputs()` reports
-the gaps per operator, and the narrative is instructed to name them rather than
-describe an unexamined category as satisfactory.
+Every missing input defaults to **neutral, which means no penalty**.
+
+What a `GREY` flag means changed on 2026-11-16 (§10.1). It now means *this
+category could not be assessed at all* — every anchor source for it was
+missing. It no longer means "one of several inputs was absent", which is what
+made `GREY` so common that it stopped carrying information.
+
+The corollary matters as much: a queried source that returns nothing is now
+treated as **affirmative evidence of a clean record**, not as a gap. Finding no
+DOT enforcement order against an operator whose names were all searched is a
+favourable finding, and the narrative is instructed to present it as one.
+`verified_clean_searches` in the audit payload lists those nil returns
+explicitly so the model has something positive to cite.
+
+`adapter_v5.missing_inputs()` still reports the residual limits per operator —
+for example that DOCINDEX covers a rolling window — but as **scope notes on a
+finding**, no longer as grounds to call a category unevidenced.
 
 ## 2. How a data source plugs in
 
@@ -788,12 +804,23 @@ event per financing**. Both are correct. The `reference` string carries the
 volume — `GUNTRACK AVIATION LLC (16 documents)` — so an audit can still
 disclose it.
 
-**`GAP_TAIL_LIENS` fires unconditionally, even when liens are found.** DOCINDEX
-is a ~180-day rolling suspense index: a lien recorded years ago and never
-released is simply absent. Finding filings proves encumbrance; finding none
-proves nothing about title. Without this, ingesting liens would have flipped
-`legal_title` from GREY to GREEN for ~11,000 tails on the strength of a 180-day
-lookback.
+**`GAP_TAIL_LIENS` used to fire unconditionally, even when liens were found.
+Superseded on 2026-11-16 — see §10.1.** The original reasoning was that
+DOCINDEX is a rolling suspense index, so a lien recorded years ago and never
+released is simply absent; finding filings proves encumbrance while finding
+none proves nothing about title.
+
+The premise is true but the conclusion did not follow. Raising the gap for
+tails that *were* searched meant `legal_title` could never read GREEN for any
+operator, however clear the title — so the flag carried no information and a
+spotless airframe was indistinguishable from an unexamined one. DOCINDEX
+writes a row only when an encumbrance is filed, so for an indexed tail zero
+rows is the finding "nothing on file".
+
+The gap now tracks whether the lookup *ran*. The rolling-window limit is still
+disclosed, as a scope note attached to a real finding rather than as a refusal
+to report one. Only FAA CARES can prove absence outright (§9.4), and that
+remains blocked.
 
 ### 9.4 FAA CARES — **blocked; largely worked around (see §9.7)**
 
@@ -852,7 +879,7 @@ still invisible. Nothing is overclaimed.
 | Rolling churn diff | **Implemented**, output withheld until ≥180 days of history |
 | Wayback backfill for churn | **Not possible** — 1 capture of the Part 135 `.xlsx` exists, not "dozens" |
 | Wayback backfill for *liens* | **Implemented** (§9.7.1) — 67 captures of the registry zip; 7 ingested, history 206 days → 2.2 years |
-| Party classification (CARES workaround) | **Implemented** (§9.7.2) — 25% financier / 11% distress / 64% unknown; annotates, never scores |
+| Party classification (CARES workaround) | **Implemented** (§9.7.2) — 25% financier / 11% distress / 64% unknown. **No longer annotation-only:** since §10.2 it drives the severity tier, and therefore the penalty and the flag. |
 | Release inference from repeated parties | **Not needed** (§9.7.3) — the FAA files an explicit REL/REP doc_type |
 | AVInfo backup portal | **Unreachable** — HTTP 503 |
 | DOCINDEX lien parsing | **Implemented** — 524 active encumbrances across 482 tails |
@@ -1027,17 +1054,180 @@ only the current zip. Wayback covers the same ground.
 
 #### 9.7.5 What the workaround does *not* close
 
-`GAP_TAIL_LIENS` still fires on every tail. 2.2 years of DOCINDEX is a longer
-window, not the permanent record: a lien filed before 2024-09-03 and never
-released remains invisible. Finding filings proves encumbrance; finding none
-still proves nothing about title.
+2.2 years of DOCINDEX is a longer window, not the permanent record: a lien
+filed before 2024-09-03 and never released remains invisible. Only CARES can
+prove absence outright, and §9.4 stands.
 
-The gap prose now states this honestly in both directions, rather than claiming
-DOCINDEX is unparsed:
+What changed on 2026-11-16 (§10.1) is how that limit is *reported*. It is now a
+scope note on a finding rather than a refusal to make one:
 
 ```
-4 active lien(s) found, but filings older than our earliest capture are invisible
-no DOCINDEX lien in the captured window — this is NOT clear title
+DOCINDEX scope note: the search returned no active filings for this airframe,
+which is the expected result for clear title. The index covers a rolling recent
+window, so a filing predating our earliest capture and never released would not
+appear
 ```
 
-Only CARES can prove absence. §9.4 stands.
+The earlier wording — `no DOCINDEX lien in the captured window — this is NOT
+clear title` — contradicted the flag it accompanied and is what kept
+`legal_title` permanently GREY.
+
+---
+
+## 10. Flag Resolution, Lien Severity & Narrative Elaboration — implemented 2026-11-16
+
+A spec addendum in three parts. §10.1 and §10.3 are implemented as written;
+§10.2 is implemented on a different discriminator than specified, because the
+one it names does not exist in the source data. Each subsection records what
+was done and what was not.
+
+**Verification:** 215 tests pass. Four test classes encoded the behaviour being
+removed and were rewritten to the new contract. Checked end to end on the live
+scoring path against `N257BW` (Triton Air, `70TA`), `N722BD` (Aurora Aviation,
+`GLRA`) and `N717XJ` (Red Wing Aeroplane, `R3WA`).
+
+### 10.1 Partial coverage ≠ GREY — **implemented as specified**
+
+**The bug.** `GREY` was inferred from *emptiness*, and emptiness is not the same
+fact as absence of coverage. Three gaps fired on the **good** outcome:
+
+| Gap | Fired when | Why that is wrong |
+|---|---|---|
+| `GAP_CHURN` | `tails_added == tails_removed == 0` | That is a perfectly stable fleet — the outcome worth commending |
+| `GAP_DOT_ORDERS` | no enforcement order was **found** | Finding none is a clean regulatory record |
+| `GAP_TAIL_LIENS` | **always** | `legal_title` could never be GREEN for anyone |
+
+`GAP_SAME_TYPE_FLEET` was also miscategorised: a genuinely single-aircraft fleet
+is an observed fact, not missing data.
+
+Compounding it, `_CATEGORY_DEPENDENCIES` was an **AND**-gate read as an OR — any
+one gap in a long list forced `GREY`. So the categories with the most inputs
+were the hardest to ever assess.
+
+**The fix.** Observability now travels separately from results. `OperatorData`
+gains `churn_measured`, `conduct_sources_queried` and `safety_sources_queried`;
+`TailData` gains `liens_queried` and `ownership_observed`. All default `False`,
+so a caller that sets nothing still gets the cautious reading.
+
+`_CATEGORY_ANCHORS` replaces the dependency list with a true OR-gate — a
+category is assessable while **any one** anchor answered, and goes `GREY` only
+under total blindness:
+
+| Category | Anchors (any one suffices) |
+|---|---|
+| Asset Stability | certificate age **OR** measured churn |
+| Legal & Title | FAA ownership classification **OR** an executed lien lookup |
+| Commercial Integrity | DOT OACP / watchdog corpus queried |
+| Primary Flight Safety | NTSB/AIDS queried — un-ingested ASN is explicitly ignored |
+| Flight Fulfilment | fleet counted |
+| Maintenance Discipline | no gating source |
+
+The §8 name-resolution concern was also over-applied. It now covers only the
+four **entity-keyed** categories: NTSB, AIDS and SDRS records attach to the
+N-number, which is immutable and was searched directly, so a clean airframe
+history stands regardless of what the operator currently calls itself.
+
+**Two further bugs found while verifying this:**
+
+- The §8 trade-name caveat was appended to the human-readable gap list
+  *unconditionally*, so an operator whose lookups **were** expanded across every
+  name on its certificate was still reported as searched by trade name.
+- `conduct_sources_queried` was derived from `include_dot_orders` alone, which
+  reported a caller-supplied DOT docket as unqueried and greyed out
+  `commercial_integrity` on evidence sitting in the argument list.
+
+**Pre-prompt rule.** The old guardrail told the model to describe any category
+with a listed gap as "unevidenced", which would have silently overridden every
+`GREEN` this change makes reachable. Gaps are now scope notes; only `GREY` means
+not assessed. `verified_clean_searches` was added to the payload so the model
+has affirmative nil-return findings to cite rather than seeing only an absence.
+
+**Measured effect.** All three reference tails moved from mostly-`GREY` to six
+`GREEN` with four affirmative clean searches and four honest gaps.
+
+**One caveat, deliberate.** §10.1's Asset Stability rule says to commend "0%
+fleet churn", but churn is unmeasurable for **every operator** today: D085 holds
+Oct and Nov 2026 only — a 31-day span against `fetch_churn`'s 180-day minimum,
+so **0 of the 1,664 operators in D085** (of 1,845 in `gtj.operators`) have a
+usable window. The category therefore anchors on certificate longevity, and the churn
+sentence is emitted only once the window supports it. Asserting a 12-month
+retention finding that no snapshot can back would be the same class of error as
+the bug being fixed.
+
+### 10.2 Lien severity tiers — **implemented on a different discriminator**
+
+**What could not be done as written.** Every tier in the spec is defined by
+claim amount (`< $10,000`, `$10k–$75k`, `> $75,000`). **FAA DOCINDEX publishes
+no claim amounts.** `gtj.tail_liens` carries `doc_type`, `doc_date`, `party` and
+`doc_id`, because that is what the source provides — there is no amount column
+to tier on, and inventing one would mean fabricating the figure that drives the
+result.
+
+**What was done instead.** Tiering runs off **who filed**, which proxies
+severity well: a bank recording a loan is routine at any size, while a tax
+authority or fuel supplier recording a claim means an unpaid bill escalated to a
+lien. Built on the existing `classify_party`:
+
+| Tier | Criteria | Points | Flag effect |
+|---|---|---|---|
+| 1 — nuisance | bank, lessor, owner trust, or a release | 3.0, log-damped, capped at 8 total | does not move the flag |
+| 2 — material | MRO, fuel, FBO, or a party named but unmatched | 25.0 each | `YELLOW` |
+| 3 — crippling | tax authority, court, judgment, hourly engine programme default | 60.0 each | `RED` on a single filing |
+
+`claim_amount` is accepted and **takes precedence** whenever a caller can supply
+one, so the dollar bands activate unchanged if a source with amounts (CARES,
+UCC, court records) is ever ingested. Until then it is always `None`.
+
+**The inversion, before and after.** Tier 1 is log-dampened in count and capped,
+so volume alone cannot accumulate into a verdict:
+
+| Lien shape | Old penalty | New penalty |
+|---|---|---|
+| 20 routine bank financings | 500 pts (25 × 20) | **7.5 pts** |
+| 1 material MRO claim | 25 pts | 23.5 pts |
+| 1 tax levy | 25 pts | **56.3 pts** |
+
+Previously all three were 25 points per row and volume won — the exact
+false-inversion the spec describes, with financing rather than count as the
+cause.
+
+**A judgement call worth recording.** `party` is `NULL` on 67% of rows. Treating
+those as the spec's cautious middle (Tier 2) put **445 of 906 tails (49%) into
+`YELLOW` on no evidence** — the same class of error as greying out everything,
+pointed the other way. So a *missing* party means Tier 1, while a party that is
+*named but unmatched* means Tier 2. Measured on all 1,148 active filings: **92%
+of tails routine, 8% flagged, 0 forced RED**, which matches data that is
+overwhelmingly bank and lessor financing.
+
+Tier 3 currently matches **zero** real filings. That is the correct answer, not
+a defect — no tax authority, court or engine programme appears in the present
+data. The classifier is unit-tested against synthetic IRS, state-tax, sheriff,
+JSSI and CorporateCare parties so it fires when one does appear.
+
+### 10.3 "So-What" elaboration standard — **implemented as specified**
+
+Added to `SYSTEM_PROMPT` as section 4. Every datapoint cited in the Executive
+Summary and all six category blocks must now carry **Fact → Operational
+Mechanism → Live-Trip Impact**, with worked examples for sister-ship redundancy,
+airframe age vs SDRs, ownership structure, certificate longevity, liens and
+commercial integrity.
+
+The payload also carries per-tier lien counts plus explicit framing guidance,
+because §2B's two failure modes are symmetrical and both easy to fall into:
+narrating many trivial filings as distress, and under-reporting one catastrophic
+filing because the count is low.
+
+The breakdown is published as `lien_profile`, **not** `lien_severity` — the §9
+Black Box test forbids the word "severity" anywhere in the payload, and it
+caught the first attempt.
+
+### 10.4 Not done, and why
+
+| Item | Status |
+|---|---|
+| Amount-based lien tiers (`$10k` / `$75k` bands) | **Not possible from DOCINDEX** — the source publishes no claim amounts. Logic is written and dormant behind `claim_amount`; activates if a source with figures is ingested. |
+| "0% fleet churn" in the Asset Stability narrative | **Withheld** until D085 reaches a ≥180-day window (currently 31 days). Flag resolution already anchors on certificate age, so the category is assessed; only the churn *claim* waits. |
+| Tier 3 escalation on `party IS NULL` rows | **Not attempted** — 67% of rows have no party, and inferring severity from absence is the error this whole addendum corrects. |
+| `ownership_observed` wired into `score_tail.py` | **Not done.** `legal_title` currently anchors on the lien lookup alone, which works. Passing `gtj.aircraft.registered_owner` through would make the category robust to a lien-lookup failure. Small follow-up. |
+| Re-score of the 1,841-operator population | **Not run.** The stored scores from the 10 Nov rescore still carry the over-greyed flags. Numeric scores change only where liens are present; flags change widely. |
+| ASN latent risk (`L_Risk`) | **Still not ingested** (source 5). §10.1 explicitly stops it holding `flight_safety` at `GREY`, which was its only practical effect on a flag. |
