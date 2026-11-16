@@ -217,10 +217,136 @@ class NTSBService:
             print(f"WARNING: Document analysis failed for {operator_name}: {e}")
             return []
 
+    #: CAROL's registration column. Verified against the live API 2026-11-16:
+    #: this spelling returns HTTP 200 and real hits, while
+    #: `AviationAircraft.RegistrationNumber`, `Aircraft.NNumber` and
+    #: `AviationOperation.RegistrationNumber` all return HTTP 400.
+    NTSB_REGISTRATION_COLUMN = "Aircraft.RegistrationNumber"
+    NTSB_OPERATOR_COLUMN = "AviationOperation.OperatorName"
+
+    @staticmethod
+    def _carol_payload(
+        values: List[str],
+        column: str,
+        field_name: str,
+        display_text: str,
+        operator: str = "is",
+        result_set_size: int = 50,
+    ) -> Dict[str, Any]:
+        """One CAROL query rule, as the API's schema wants it."""
+        return {
+            "ResultSetSize": result_set_size,
+            "ResultSetOffset": 0,
+            "QueryGroups": [
+                {
+                    "QueryRules": [
+                        {
+                            "RuleType": "Simple",
+                            "Values": values,
+                            "Columns": [column],
+                            "Operator": operator,
+                            "overrideColumn": "",
+                            "selectedOption": {
+                                "FieldName": field_name,
+                                "DisplayText": display_text,
+                                "Columns": [column],
+                                "Selectable": True,
+                                "InputType": "Text",
+                                "RuleType": 0,
+                                "Options": None,
+                                "TargetCollection": "cases",
+                                "UnderDevelopment": False,
+                            },
+                        }
+                    ],
+                    "AndOr": "and",
+                    "inLastSearch": False,
+                    "editedSinceLastSearch": False,
+                }
+            ],
+            "AndOr": "and",
+            "SortColumn": None,
+            "SortDescending": True,
+            "TargetCollection": "cases",
+            "SessionId": 1171,
+        }
+
+    @staticmethod
+    async def query_ntsb_by_tail_numbers(
+        tail_numbers: List[str],
+    ) -> List[Dict[str, Any]]:
+        """
+        Query NTSB CAROL by registration number, one call per tail.
+
+        WHY THIS EXISTS. Until 2026-11-16 the only NTSB lookup was by operator
+        name, which fails in three independent ways:
+
+          * NTSB records the operator name *as filed at the time*, so a
+            rebranded or dba-trading operator reads clean;
+          * the name is free text, with punctuation and suffix variation that
+            an exact match misses entirely;
+          * an aircraft operated under a management agreement may be filed
+            against a different entity altogether.
+
+        A registration number has none of those problems: it is immutable, it
+        is what the FAA and NTSB both key on, and it is exactly what the D085
+        certificate gives us. Querying by tail is the reliable path, and the
+        name query is now a supplement rather than the sole source.
+
+        One request per tail because CAROL's multi-value semantics for a
+        single rule could not be verified — see the note in
+        `query_ntsb_incidents`. Sequential and bounded; a Part 135 fleet is
+        tens of tails, not thousands.
+
+        Args:
+            tail_numbers: N-numbers from the operator's D085 certificate.
+
+        Returns:
+            Raw CAROL result dicts, deduplicated by NTSB number. Never raises:
+            a source being down must narrow the evidence, not fail the score.
+        """
+        found: Dict[str, Dict[str, Any]] = {}
+        for raw in tail_numbers:
+            tail = (raw or "").strip().upper()
+            if not tail:
+                continue
+            if not tail.startswith("N"):
+                tail = f"N{tail}"
+            payload = NTSBService._carol_payload(
+                [tail],
+                NTSBService.NTSB_REGISTRATION_COLUMN,
+                "RegistrationNumber",
+                "Registration number",
+            )
+            try:
+                async with httpx.AsyncClient(timeout=NTSB_TIMEOUT) as client:
+                    response = await client.post(NTSB_API_URL, json=payload)
+                    response.raise_for_status()
+                    for row in (response.json().get("Results") or []):
+                        key = str(
+                            row.get("NtsbNo")
+                            or row.get("ntsbNo")
+                            or f"{tail}:{row.get('EventDate')}"
+                        )
+                        row.setdefault("_matched_tail", tail)
+                        found[key] = row
+            except Exception as exc:
+                # Reported, not raised. A partial accident picture is still
+                # worth scoring; a crashed pipeline produces no score at all.
+                # (This module reports via print, like its siblings.)
+                print(f"WARNING: NTSB tail lookup failed for {tail}: {exc}")
+        return list(found.values())
+
     @staticmethod
     async def query_ntsb_incidents(operator_name: str) -> Dict[str, Any]:
         """
         Query NTSB database for incidents related to an operator.
+
+        SUPPLEMENTARY as of 2026-11-16. Prefer
+        `query_ntsb_by_tail_numbers` — a registration number is immutable
+        while this name is free text recorded at filing time. Kept because it
+        can catch an event filed against the certificate with no tail we know
+        about (a leased-in aircraft, or one since sold).
 
         Args:
             operator_name: The name of the operator to search for
@@ -307,6 +433,25 @@ class NTSBService:
             raise HTTPError(detail=f"Error querying NTSB API: {str(e)}")
 
     @staticmethod
+    def _extract_field_values(fields: List[Dict], field_name: str) -> List[str]:
+        """
+        ALL values for a CAROL field, not just the first.
+
+        Several fields are genuinely multi-valued: `N#` on a collision lists
+        every aircraft involved (observed: ['N474NA', 'N296EA']), as do
+        VehicleMake and VehicleModel. `_extract_field_value` returns only the
+        first, which drops the rest — and if the tail we care about is the
+        second one, the event appears to belong to another operator.
+        """
+        for field in fields:
+            if field.get("FieldName") == field_name:
+                return [
+                    value for value in (field.get("Values") or [])
+                    if value not in (None, "")
+                ]
+        return []
+
+    @staticmethod
     def _extract_field_value(fields: List[Dict], field_name: str) -> Optional[str]:
         """
         Extract a field value from NTSB Fields array.
@@ -344,7 +489,11 @@ class NTSBService:
                 fields = result.get("Fields", [])
 
                 # Extract relevant fields
-                event_id = NTSBService._extract_field_value(fields, "NtsbNo")
+                event_id = (
+                    NTSBService._extract_field_value(fields, "NtsbNo")
+                    or NTSBService._extract_field_value(fields, "ReportNo")
+                    or NTSBService._extract_field_value(fields, "Mkey")
+                )
                 event_date = NTSBService._extract_field_value(fields, "EventDate")
                 event_type = NTSBService._extract_field_value(fields, "EventType")
                 injury_level = NTSBService._extract_field_value(
@@ -353,6 +502,20 @@ class NTSBService:
                 city = NTSBService._extract_field_value(fields, "City")
                 state = NTSBService._extract_field_value(fields, "State")
                 country = NTSBService._extract_field_value(fields, "Country")
+
+                # §4.1a inputs. HighestInjuryLevel is frequently EMPTY — it was
+                # observed empty on a FINAL report — so an injury COUNT is the
+                # more reliable signal of a fatality, and neither can be
+                # assumed populated on an open docket.
+                onboard = NTSBService._extract_field_value(
+                    fields, "InjuryOnboardCount"
+                )
+                onground = NTSBService._extract_field_value(
+                    fields, "InjuryOngroundCount"
+                )
+                report_type = NTSBService._extract_field_value(
+                    fields, "MostRecentReportType"
+                )
 
                 # Build location string
                 location_parts = [p for p in [city, state, country] if p]
@@ -363,10 +526,22 @@ class NTSBService:
                     event_id=event_id,
                     event_date=event_date,
                     location=location,
-                    aircraft_damage=None,  # Not in this response format
+                    # CAROL's case-list response genuinely carries no damage
+                    # field — verified against the live API 2026-11-16, the
+                    # full field list has no AircraftDamage. Hull loss must
+                    # therefore come from the injury/severity path or from a
+                    # per-case detail fetch, not from here.
+                    aircraft_damage=None,
                     injury_level=injury_level,
-                    investigation_type=None,  # Not directly available
+                    # "Final", "Preliminary", "DirectorBrief"... An open docket
+                    # must stay distinguishable from a closed one, because an
+                    # empty injury field means different things in each.
+                    investigation_type=report_type,
                     event_type=event_type,
+                    tail_numbers=NTSBService._extract_field_values(fields, "N#"),
+                    injury_onboard_count=onboard,
+                    injury_onground_count=onground,
+                    report_type=report_type,
                 )
                 incidents.append(incident)
 
