@@ -1005,3 +1005,106 @@ class TestUnmeasuredChurnIsNotPublished:
         assert "do not say the operator added or removed zero aircraft" in \
             prompt.replace("\\\n", "").replace("\n", " ").lower() or \
             "removed zero aircraft" in prompt
+
+
+class TestLienTypeIsNotOverclaimed:
+    """
+    A filing must never be described as more than the record supports.
+
+    REPORTED: the audit for Skyway Aviation Services said the operator had
+    "tax and mechanics liens" when its filings were ordinary UCC-1 style debt
+    financing. The model was not hallucinating — every lien event was
+    hardcoded `event_type="ACTIVE_MECHANICS_OR_TAX_LIEN"`, and event_type is
+    copied verbatim into the narrative payload, so the report repeated the
+    label we handed it.
+
+    The FAA files every security interest as S/A ("Security Conveyance/Lien")
+    and does NOT distinguish a mechanic's lien from a tax lien from an
+    aircraft loan — a fact `common.faa_registry` already documented while the
+    adapter contradicted it. A state UCC-1 is a financing statement, which is
+    weaker still.
+
+    Severity is unchanged by this: an active encumbrance scores the same. Only
+    the claim about its NATURE is withdrawn.
+    """
+
+    def test_docindex_filing_is_not_called_a_tax_or_mechanics_lien(self):
+        tail = adapter_v5.build_tail_data(
+            tail_number="N1AA", lookup_liens=False,
+            tail_lien_records=[
+                {"doc_type": "S/A", "party": "FIRST FARMERS BANK & TRUST",
+                 "date": "2026-01-01", "reference": "R1"},
+            ],
+        )
+        types = {event.event_type for event in tail.tail_lien_events}
+        assert types == {"ACTIVE_SECURITY_INTEREST"}
+        assert "MECHANICS" not in " ".join(types)
+        assert "TAX" not in " ".join(types)
+
+    def test_ucc_filing_is_labelled_a_financing_statement(self):
+        events = adapter_v5.ucc_filings_to_legal_events([
+            {"status": "active", "filing_date": "2026-01-01", "file_number": "U1"},
+        ])
+        assert len(events) == 1
+        assert events[0].event_type == "ACTIVE_UCC_FINANCING_STATEMENT"
+
+    def test_doc_type_drives_the_label(self):
+        assert adapter_v5._lien_event_type({"doc_type": "S/A"}) \
+            == "ACTIVE_SECURITY_INTEREST"
+        assert adapter_v5._lien_event_type({"doc_type": "CSC"}) \
+            == "OWNERSHIP_WITH_SECURITY_INTEREST"
+        assert adapter_v5._lien_event_type({"doc_type": "CRT"}) \
+            == "COURT_DOCUMENT"
+
+    def test_absent_and_unknown_doc_types_stay_generic(self):
+        """
+        An absent key, an empty value and an unrecognised code are three
+        different facts. None of them licenses a specific claim.
+        """
+        assert adapter_v5._lien_event_type({}) == "ACTIVE_ENCUMBRANCE"
+        assert adapter_v5._lien_event_type({"doc_type": ""}) == "ACTIVE_ENCUMBRANCE"
+        assert adapter_v5._lien_event_type({"doc_type": "ZZZ"}) == "ACTIVE_ENCUMBRANCE"
+
+    def test_stored_events_under_the_old_label_still_score(self):
+        """
+        The old name is retained in the taxonomy and the encumbrance set.
+        Dropping it would silently stop scoring every already-stored lien.
+        """
+        from src.trustscore.calculator_v5 import ELI_TAXONOMY
+
+        assert "ACTIVE_MECHANICS_OR_TAX_LIEN" in ELI_TAXONOMY
+        assert "ACTIVE_ENCUMBRANCE" in ELI_TAXONOMY
+        assert ELI_TAXONOMY["ACTIVE_ENCUMBRANCE"] \
+            == ELI_TAXONOMY["ACTIVE_MECHANICS_OR_TAX_LIEN"]
+
+        old = RiskEvent(severity=0.0, event_date="2026-01-01",
+                        event_type="ACTIVE_MECHANICS_OR_TAX_LIEN")
+        new = RiskEvent(severity=0.0, event_date="2026-01-01",
+                        event_type="ACTIVE_SECURITY_INTEREST")
+        assert narrative_v5._is_encumbrance(old)
+        assert narrative_v5._is_encumbrance(new)
+
+    def test_certificate_lien_flag_recognises_the_new_labels(self):
+        """_flag_legal_title matched the old string literally; a renamed event
+        would otherwise stop forcing RED."""
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_designator="ABCD",
+            certificate_age_years=20.0, fleet_size=10,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        operator.lookups_certificate_anchored = True
+        operator.legal_events = [
+            RiskEvent(severity=20.0, event_date="2026-01-01",
+                      event_type="ACTIVE_SECURITY_INTEREST", source="DOCINDEX"),
+        ]
+        tail = adapter_v5.build_tail_data(
+            tail_number="N1", tail_lien_records=[], lookup_liens=False,
+            ownership_observed=True, same_type_fleet_count=5,
+            certificate_tenure_months=24.0,
+        )
+        assert narrative_v5._flag_legal_title(operator, tail) == narrative_v5.RED
+
+    def test_prompt_forbids_inventing_a_lien_category(self):
+        prompt = narrative_v5.SYSTEM_PROMPT
+        assert "NEVER CHARACTERISE A LIEN BEYOND ITS RECORDED TYPE" in prompt
+        assert "security interest" in prompt

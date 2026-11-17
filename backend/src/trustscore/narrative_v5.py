@@ -308,6 +308,27 @@ def _flag_asset_stability(operator: OperatorData, tail: TailData, churn: float) 
     return GREEN
 
 
+#: Event types that represent an active encumbrance on the certificate.
+#:
+#: ACTIVE_MECHANICS_OR_TAX_LIEN is retained because stored events still carry
+#: it. New events use a label the source can support — the FAA files every
+#: security interest as S/A and cannot distinguish a mechanic's lien from a tax
+#: lien from an aircraft loan, so the old name asserted a fact that was not in
+#: evidence and the narrative repeated it to clients.
+_ENCUMBRANCE_EVENT_TYPES = frozenset({
+    "ACTIVE_MECHANICS_OR_TAX_LIEN",
+    "ACTIVE_ENCUMBRANCE",
+    "ACTIVE_SECURITY_INTEREST",
+    "OWNERSHIP_WITH_SECURITY_INTEREST",
+    "ACTIVE_UCC_FINANCING_STATEMENT",
+})
+
+
+def _is_encumbrance(event) -> bool:
+    """True when an event is an active encumbrance, under any of its labels."""
+    return event.event_type in _ENCUMBRANCE_EVENT_TYPES
+
+
 def _flag_legal_title(operator: OperatorData, tail: TailData) -> str:
     """
     Active liens, ownership structure, and rapid title transfers.
@@ -335,7 +356,7 @@ def _flag_legal_title(operator: OperatorData, tail: TailData) -> str:
     # Certificate-level liens carry no tier (they arrive via ELI, not DOCINDEX)
     # and are material by construction.
     if any(
-        event.event_type == "ACTIVE_MECHANICS_OR_TAX_LIEN"
+        _is_encumbrance(event)
         for event in operator.legal_events
     ):
         return RED
@@ -604,7 +625,7 @@ def build_audit_payload(
                 "active_tail_liens_count": len(tail.tail_lien_events),
                 "active_certificate_liens_count": sum(
                     1 for event in operator.legal_events
-                    if event.event_type == "ACTIVE_MECHANICS_OR_TAX_LIEN"
+                    if _is_encumbrance(event)
                 ),
                 # §2B framing depends on severity, not count: several small
                 # vendor filings must not be narrated as financial distress,
@@ -755,6 +776,17 @@ Never assert a figure and then note it was unmeasurable in the same paragraph.
 carries the operator's certificate issuance date. Do not state, estimate or \
 infer a certificate age in that case — not even approximately, and not inside \
 a caveat. Say the issuance date is unavailable, or omit the subject.
+- NEVER CHARACTERISE A LIEN BEYOND ITS RECORDED TYPE. The FAA document index \
+files every security interest under one code and does NOT distinguish a \
+mechanic's lien from a tax lien from an ordinary aircraft loan. A state UCC-1 \
+is a financing statement, which most often records routine equipment debt. So \
+unless an event's type explicitly says otherwise, describe a filing as a \
+"recorded security interest" or "financing statement" and say who filed it if \
+the payload names them. Do NOT write "tax lien", "mechanic's lien", "unpaid \
+maintenance" or "distressed" over a filing whose type does not state it — that \
+asserts a fact the record does not contain and misrepresents normal aircraft \
+financing as financial trouble. The `lien_profile` block tells you the \
+severity tier; use that for emphasis, not invented categories.
 - TRADE NAMES ARE MANDATORY. `trade_names` lists every name this certificate \
 operates under. You MUST name all of them in the Executive Summary. A charter \
 is sold under a trade name while the safety record attaches to the \

@@ -100,7 +100,22 @@ ELI_TAXONOMY: Dict[str, float] = {
     "VENDOR_DEFAULT_OR_LABOR_STRIKE": Severity.ELI_MAJOR,
     "DOT_OACP_CONSENT_ORDER": Severity.ELI_MAJOR,
     # 20 — Asset Encumbrance & Systemic Dispatch Failure
+    # Retained: stored events and any caller written against the old name keep
+    # scoring. New events use ACTIVE_ENCUMBRANCE — see the note there.
     "ACTIVE_MECHANICS_OR_TAX_LIEN": Severity.ELI_ENCUMBRANCE,
+    #: What the sources actually support.
+    #:
+    #: The FAA document index files every security interest as `S/A`
+    #: ("Security Conveyance/Lien") and does NOT distinguish a mechanic's lien
+    #: from a tax lien from an ordinary aircraft loan. Labelling every filing
+    #: ACTIVE_MECHANICS_OR_TAX_LIEN therefore asserted a fact the data cannot
+    #: support, and because the label is passed verbatim into the narrative
+    #: payload, the generated report repeated it — describing routine bank
+    #: financing as "tax and mechanics liens".
+    #:
+    #: The severity is unchanged: an active encumbrance scores the same either
+    #: way. Only the claim about its NATURE is withdrawn.
+    "ACTIVE_ENCUMBRANCE": Severity.ELI_ENCUMBRANCE,
     "SYSTEMIC_DISPATCH_DROPS_OR_FLEET_GROUNDING": Severity.ELI_ENCUMBRANCE,
     # 15 — Deceptive Trade Practices
     "UNAUTHORIZED_DBA_OR_DECEPTIVE_MARKETING": Severity.ELI_DECEPTIVE,

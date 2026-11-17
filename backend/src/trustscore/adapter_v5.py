@@ -210,6 +210,58 @@ def split_fleet_events(
     return accidents, sdrs, legal
 
 
+#: FAA DOC-TYPE codes mapped to what they actually mean, verbatim from
+#: ardata.pdf. See `common.faa_registry` for the full table.
+#:
+#: The FAA does NOT record whether a security interest is a mechanic's lien, a
+#: tax lien or an aircraft loan — all three are filed as `S/A`. Any label more
+#: specific than "security interest" is an invention, and because event_type
+#: reaches the narrative payload verbatim, an invented label is repeated to the
+#: client as fact.
+_LIEN_DOC_TYPE_LABELS = {
+    "S/A": "ACTIVE_SECURITY_INTEREST",
+    "CSC": "OWNERSHIP_WITH_SECURITY_INTEREST",
+    "CRT": "COURT_DOCUMENT",
+}
+
+
+def _lien_event_type(record: Dict[str, Any]) -> str:
+    """
+    An event label the filing can actually support.
+
+    Three distinct cases, kept distinct. An absent `doc_type` key and a
+    recognised code are different facts, and a code we do not recognise is a
+    third — collapsing them would repeat the error this function exists to
+    fix, just one level down.
+
+        recognised code        -> its specific meaning (S/A, CSC, CRT)
+        key absent entirely    -> ACTIVE_ENCUMBRANCE, the generic claim
+        present but unknown    -> ACTIVE_ENCUMBRANCE, and LOGGED, because an
+                                  unmapped code means the FAA vocabulary moved
+                                  and the table above needs updating
+
+    `fetch_tail_liens` always supplies `doc_type` (verified against live data),
+    so the absent case means a caller constructed the record by hand.
+    """
+    if "doc_type" not in record:
+        return "ACTIVE_ENCUMBRANCE"
+
+    doc_type = str(record.get("doc_type") or "").strip().upper()
+    if not doc_type:
+        return "ACTIVE_ENCUMBRANCE"
+
+    label = _LIEN_DOC_TYPE_LABELS.get(doc_type)
+    if label is None:
+        logger.warning(
+            "Unmapped FAA lien doc_type %r — scoring it as a generic "
+            "encumbrance. Add it to _LIEN_DOC_TYPE_LABELS if it is a real "
+            "code; see common.faa_registry for the ardata.pdf table.",
+            doc_type,
+        )
+        return "ACTIVE_ENCUMBRANCE"
+    return label
+
+
 #: Injury-level strings that mean somebody died.
 _FATAL_INJURY_MARKERS = ("fatal", "death", "deceased")
 
@@ -278,7 +330,12 @@ def ucc_filings_to_legal_events(ucc_filings: List[Dict[str, Any]]) -> List[RiskE
         events.append(RiskEvent(
             severity=Severity.ELI_ENCUMBRANCE,
             event_date=filing.get("filing_date"),
-            event_type="ACTIVE_MECHANICS_OR_TAX_LIEN",
+            # A state UCC-1 is a financing statement. It records that a secured
+            # party has an interest in collateral — most often an ordinary
+            # equipment loan — and says nothing about a mechanic's or tax lien.
+            # Calling it one put an assertion in the client-facing narrative
+            # that the filing does not support.
+            event_type="ACTIVE_UCC_FINANCING_STATEMENT",
             source="UCC",
             reference=str(filing.get("file_number") or ""),
         ))
@@ -1141,7 +1198,15 @@ def build_tail_data(
         RiskEvent(
             severity=0.0,  # the calculator applies the per-tier charge
             event_date=_event_date(record),
-            event_type="ACTIVE_MECHANICS_OR_TAX_LIEN",
+            # NOT "mechanic's or tax lien". The FAA index files every security
+            # interest as S/A and cannot tell a mechanic's lien from a tax lien
+            # from an ordinary aircraft loan — a fact this module's own
+            # faa_registry docstring already records. The old label was passed
+            # verbatim into the narrative payload, so the report asserted
+            # "tax and mechanics liens" over filings that were routine UCC-1
+            # style debt financing. Observed on Skyway Aviation Services, whose
+            # only two filings are released S/A records.
+            event_type=_lien_event_type(record),
             source="DOCINDEX",
             reference=_reference(record),
             # A record carrying no party/doc_type keys at all did not come from
