@@ -1108,3 +1108,152 @@ class TestLienTypeIsNotOverclaimed:
         prompt = narrative_v5.SYSTEM_PROMPT
         assert "NEVER CHARACTERISE A LIEN BEYOND ITS RECORDED TYPE" in prompt
         assert "security interest" in prompt
+
+
+class TestLienProxySignals:
+    """
+    §2A proxy signals, standing in for the claim amounts DOCINDEX never
+    publishes.
+
+    Each proxy is bounded by what the data can actually evidence. Two were
+    narrowed during development because the obvious reading inverted the very
+    ranking the tiering exists to protect — both corrections are asserted here
+    so they cannot be undone by someone reading only the spec.
+    """
+
+    from datetime import date as _date
+    NOW = _date(2026, 11, 18)
+
+    def _tier(self, **kwargs):
+        from src.common.lien_classification import lien_tier
+        kwargs.setdefault("doc_type", "S/A")
+        kwargs.setdefault("now", self.NOW)
+        return lien_tier(**kwargs)
+
+    # ── Proxy 1: claimant keywords ───────────────────────────────────────────
+
+    @pytest.mark.parametrize("party", [
+        "INTERNAL REVENUE SERVICE", "FRANCHISE TAX BOARD",
+        "TEXAS COMPTROLLER OF PUBLIC ACCOUNTS", "COUNTY TAX COLLECTOR",
+        "ROLLS-ROYCE CORPORATION", "PRATT & WHITNEY CANADA",
+        "HONEYWELL INTERNATIONAL INC", "WILLIAMS INTERNATIONAL CO LLC",
+        "JET SUPPORT SERVICES INC",
+    ])
+    def test_tax_court_and_engine_programmes_are_crippling(self, party):
+        assert self._tier(party=party) == 3
+
+    @pytest.mark.parametrize("party", [
+        "WEST STAR AVIATION LLC", "DUNCAN AVIATION INC",
+        "SIGNATURE FLIGHT SUPPORT", "ATLANTIC AVIATION FBO INC",
+        "WORLD FUEL SERVICES INC",
+    ])
+    def test_mro_and_fuel_networks_are_material(self, party):
+        assert self._tier(party=party) == 2
+
+    def test_oem_finance_arm_is_not_a_programme_default(self):
+        """
+        Textron, Bombardier et al run captive LENDERS as well as parts and
+        programme businesses. Matching the bare marque would promote an
+        ordinary aircraft loan to the most severe tier, so a support word is
+        required and an explicit finance word disqualifies.
+        """
+        assert self._tier(party="TEXTRON AVIATION PARTS & PROGRAMS") == 3
+        assert self._tier(party="GULFSTREAM AEROSPACE SERVICE CENTER") == 3
+        assert self._tier(party="TEXTRON FINANCIAL CORPORATION") == 1
+        assert self._tier(party="BOMBARDIER CAPITAL INC") == 1
+
+    def test_a_trade_creditor_named_capital_stays_adverse(self):
+        """Loosening CAPITAL/CREDIT must not sweep in fuel and FBO vendors."""
+        assert self._tier(party="CAPITAL AVIATION FUEL LLC") == 2
+        assert self._tier(party="CAPITAL CITY JET CENTER") == 2
+
+    # ── Proxy 2: persistence ─────────────────────────────────────────────────
+
+    def test_stale_named_claim_promotes(self):
+        fresh = self._tier(party="AERIS HOLDINGS LLC", doc_date="2026-11-01")
+        stale = self._tier(party="AERIS HOLDINGS LLC", doc_date="2025-01-01")
+        assert stale >= fresh
+
+    def test_a_small_measured_claim_left_stale_promotes(self):
+        assert self._tier(claim_amount=2000, doc_date="2026-11-01") == 1
+        assert self._tier(claim_amount=2000, doc_date="2025-01-01") == 2
+
+    def test_a_bank_loan_is_exempt_from_persistence(self):
+        """
+        THE CORRECTION THAT MATTERS MOST HERE. An aircraft loan is meant to sit
+        unreleased for its term — five to ten years. Measured on live data, 401
+        of 680 active filings are older than 180 days, and the old ones include
+        PNC BANK NA and BANC OF AMERICA LEASING behaving exactly as intended.
+        Promoting on age alone moved 290 filings to Tier 2 and would have
+        marked most financed aircraft as distressed.
+        """
+        assert self._tier(party="NBH BANK", doc_date="2024-09-01") == 1
+        assert self._tier(party="PNC BANK NA", doc_date="2024-09-01") == 1
+
+    def test_an_unnamed_filing_is_exempt_from_persistence(self):
+        """
+        77% of active filings carry no party. Without knowing who filed, we
+        cannot say whether prompt release was ever expected — a lender's lien
+        should outlive the window, a vendor's should not. Age is evidence only
+        once that is known.
+        """
+        assert self._tier(party=None, doc_date="2024-09-01") == 1
+
+    def test_an_undated_filing_is_never_promoted(self):
+        assert self._tier(party="AERIS HOLDINGS LLC") == 2  # already material
+        assert self._tier(party="NBH BANK") == 1
+
+    # ── Proxy 3: multi-tail contagion ────────────────────────────────────────
+
+    def _contagion(self, filings):
+        from src.common.lien_classification import promote_for_contagion
+        return promote_for_contagion(filings, now=self.NOW)
+
+    def _filing(self, tail, party, date="2026-10-01"):
+        return {"tail_number": tail, "party": party,
+                "doc_type": "S/A", "doc_date": date}
+
+    def test_one_vendor_across_two_tails_is_systemic(self):
+        result = self._contagion([
+            self._filing("N1", "WEST STAR AVIATION LLC"),
+            self._filing("N2", "WEST STAR AVIATION LLC"),
+        ])
+        assert result == {"N1": 3, "N2": 3}
+
+    def test_two_different_vendors_across_the_fleet_is_systemic(self):
+        result = self._contagion([
+            self._filing("N1", "DUNCAN AVIATION INC"),
+            self._filing("N2", "WORLD FUEL SERVICES INC"),
+        ])
+        assert result == {"N1": 3, "N2": 3}
+
+    def test_one_vendor_on_one_tail_is_a_dispute_not_contagion(self):
+        assert self._contagion([
+            self._filing("N1", "WEST STAR AVIATION LLC"),
+        ]) == {"N1": 2}
+
+    def test_one_lender_across_a_whole_fleet_is_not_contagion(self):
+        """
+        THE OTHER CORRECTION. A single bank financing several tails is the most
+        ordinary arrangement in aviation — a fleet bought on one credit
+        facility. The first implementation escalated all three tails to Tier 3,
+        which would have flagged every well-financed operator RED.
+        """
+        assert self._contagion([
+            self._filing("N1", "NBH BANK", "2026-11-01"),
+            self._filing("N2", "NBH BANK", "2026-11-01"),
+            self._filing("N3", "NBH BANK", "2026-11-01"),
+        ]) == {"N1": 1, "N2": 1, "N3": 1}
+
+    def test_unnamed_claimants_cannot_evidence_contagion(self):
+        """Two blanks are not provably the same claimant."""
+        assert self._contagion([
+            self._filing("N1", None, "2026-11-01"),
+            self._filing("N2", None, "2026-11-01"),
+        ]) == {"N1": 1, "N2": 1}
+
+    def test_releases_are_not_encumbrances(self):
+        assert self._contagion([
+            {"tail_number": "N1", "party": "WEST STAR AVIATION LLC",
+             "doc_type": "REL", "doc_date": "2026-10-01"},
+        ]) == {}

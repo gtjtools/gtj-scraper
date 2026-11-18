@@ -1218,6 +1218,9 @@ def build_tail_data(
                     party=record.get("party"),
                     doc_type=record.get("doc_type"),
                     claim_amount=record.get("claim_amount"),
+                    # §2A Proxy 2. Only promotes a NAMED non-financier filing
+                    # left unreleased past the window; see lien_classification.
+                    doc_date=record.get("doc_date") or record.get("date"),
                 )
                 if ("party" in record or "doc_type" in record
                     or "claim_amount" in record)
