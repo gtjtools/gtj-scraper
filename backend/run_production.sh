@@ -166,10 +166,34 @@ echo -e "${GREEN}========================================${NC}"
 #
 # pkill matches on the command line, so it catches those orphans regardless of
 # which deploy started them.
+#
+# SIGTERM IS NOT ENOUGH ON ITS OWN. Observed 2026-11-20: a uvicorn started on
+# Nov 17 was listening with 12 connections queued on the socket but answering
+# none of them, and it survived this pkill — only `kill -9` freed port 8000.
+# A wedged worker pool does not necessarily act on SIGTERM, so the restart
+# appeared to succeed while the old process kept serving pre-fix code.
+#
+# The pattern is widened slightly (".*" rather than a literal space) to be
+# robust to argv spacing, but the substantive fix is the SIGKILL escalation
+# and the port check below.
 echo -e "\n${YELLOW}Stopping any existing instances...${NC}"
-pkill -f "uvicorn src.main" 2>/dev/null && echo -e "${GREEN}Stopped stale FastAPI${NC}" || true
+pkill -f "uvicorn.*src\.main" 2>/dev/null && echo -e "${GREEN}Stopped stale FastAPI${NC}" || true
 pkill -f "batch_verify_worker" 2>/dev/null && echo -e "${GREEN}Stopped stale Hatchet worker${NC}" || true
-sleep 2
+sleep 3
+
+# Escalate if anything is still holding the port, then verify it is free.
+# Starting uvicorn into an occupied port is the failure this guards.
+if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':8000 '; then
+    echo -e "${YELLOW}Port 8000 still held — escalating to SIGKILL${NC}"
+    pkill -9 -f "uvicorn.*src\.main" 2>/dev/null || true
+    sleep 3
+fi
+if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':8000 '; then
+    echo -e "${RED}ERROR: port 8000 is still in use. Not starting a second API.${NC}"
+    ss -ltnp 2>/dev/null | grep ':8000 '
+    echo -e "${YELLOW}Kill the listed PID by hand, then re-run.${NC}"
+    exit 1
+fi
 
 # Start FastAPI server
 echo -e "\n${YELLOW}Starting FastAPI server...${NC}"
@@ -178,6 +202,38 @@ FASTAPI_PID=$!
 ln -sf "$FASTAPI_LOG" "$FASTAPI_LATEST"
 echo -e "${GREEN}FastAPI server started (PID: $FASTAPI_PID)${NC}"
 echo -e "Log: $FASTAPI_LOG"
+
+# Verify it actually SERVES before reporting success.
+#
+# nohup + & reports a PID whether or not the app survives import, so a startup
+# traceback previously produced "All services running" and no API. Worse, a
+# process can be alive and listening yet never answer — observed 2026-11-20
+# with 12 connections queued on an accepting socket. Only a real response
+# proves the API is up.
+echo -e "\n${YELLOW}Waiting for the API to respond...${NC}"
+API_READY=0
+for _ in $(seq 1 30); do
+    sleep 2
+    if ! kill -0 "$FASTAPI_PID" 2>/dev/null; then
+        echo -e "${RED}ERROR: FastAPI exited during startup.${NC}"
+        echo -e "${YELLOW}Last 30 log lines:${NC}"
+        tail -30 "$FASTAPI_LOG"
+        exit 1
+    fi
+    code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' \
+           http://127.0.0.1:8000/docs 2>/dev/null || echo 000)
+    if [ "$code" = "200" ]; then
+        API_READY=1
+        echo -e "${GREEN}API responding (HTTP 200)${NC}"
+        break
+    fi
+done
+if [ "$API_READY" != "1" ]; then
+    echo -e "${RED}ERROR: API did not respond within 60s.${NC}"
+    echo -e "${YELLOW}Last 30 log lines:${NC}"
+    tail -30 "$FASTAPI_LOG"
+    exit 1
+fi
 
 # Save PIDs to file for later management
 echo "$FASTAPI_PID" > "$LOG_DIR/fastapi.pid"
