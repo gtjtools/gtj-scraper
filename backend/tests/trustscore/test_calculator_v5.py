@@ -40,12 +40,21 @@ NOW = datetime(2026, 10, 8, tzinfo=timezone.utc)
 
 
 def _clean_operator(**overrides):
-    """A mature certificate with no adverse history."""
+    """
+    A mature certificate with no adverse history, FULLY EVIDENCED.
+
+    `safety_sources_queried=True` is explicit and load-bearing. The dataclass
+    defaults it False — "we did not look" — and §3a now damps Cs by
+    SAFETY_BLIND_CONFIDENCE in that case, so without it this helper describes
+    an operator whose accident record was never read. "Clean" has to mean
+    verified clean, or the ceiling tests assert nothing.
+    """
     base = dict(
         certificate_designator="ABCD",
         operator_name="Clean Air",
         certificate_age_years=40.0,
         fleet_size=30,
+        safety_sources_queried=True,
     )
     base.update(overrides)
     return OperatorData(**base)

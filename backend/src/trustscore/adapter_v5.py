@@ -978,6 +978,7 @@ def build_operator_data(
     tails_added_12m: Optional[int] = None,
     tails_removed_12m: Optional[int] = None,
     lookup_churn: bool = True,
+    safety_sources_queried: bool = True,
 ) -> OperatorData:
     """
     Assemble `OperatorData` from whatever the pipelines produced.
@@ -1006,6 +1007,14 @@ def build_operator_data(
             to skip the lookup.
         lookup_churn: Set False to skip the churn lookup entirely — useful in
             tests, or wherever a database is not available.
+        safety_sources_queried: PASS FALSE WHEN THE NTSB QUERY FAILED.
+            Defaults True so existing callers are unaffected, but a caller
+            that swallowed an NTSB exception MUST pass False — otherwise the
+            operator reads "queried, nothing found" and earns a clean safety
+            flag on evidence that never arrived. During the 2026-11-20 CAROL
+            outage that produced Pinnacle scores for operators with fatal
+            accidents on record. `fleet_events=[]` is NOT enough to infer
+            this: an operator with genuinely no accidents looks identical.
 
     Returns:
         OperatorData ready for the v5.0 calculator.
@@ -1103,11 +1112,21 @@ def build_operator_data(
         fleet_sdr_events=sdrs,
         latent_risk_events=latent,
         legal_events=legal,
-        # NTSB/AIDS and the conduct corpora are queried unconditionally by the
-        # fetch helpers above, so by the time we get here they have been
-        # consulted and an empty result is a real finding. include_dot_orders
-        # gates whether the DOT/watchdog corpus was reachable at all.
-        safety_sources_queried=True,
+        # Whether NTSB/AIDS actually ANSWERED — not whether we tried.
+        #
+        # This was hardcoded True, on the reasoning that the fetch helpers run
+        # unconditionally so the source must have been consulted. That holds
+        # only while NTSB is up. Measured during the 2026-11-20 CAROL outage
+        # (HTTP 500 on every query, registration and operator name alike):
+        # every operator scored during it reported "safety sources queried,
+        # nothing found" and earned a clean flag on zero evidence. Triton Air
+        # rescored 99.86 Pinnacle while carrying a fatal accident with 7
+        # aboard.
+        #
+        # An unreachable source must read NOT ASSESSED. The caller knows
+        # whether its query raised, so it has to tell us — defaulting to True
+        # here is what made an outage indistinguishable from a clean record.
+        safety_sources_queried=safety_sources_queried,
         conduct_sources_queried=conduct_queried,
     )
 
@@ -1405,6 +1424,15 @@ def missing_inputs(operator: OperatorData, tail: TailData) -> List[str]:
             "D085 churn not measured — fewer than two fleet snapshots far "
             "enough apart to compute 12-month turnover, so fleet volatility is "
             "neither confirmed nor ruled out (Churneffective = 0)"
+        )
+    # The PRIMARY safety source. Listed first among the safety gaps because it
+    # is the one that changes a verdict: without NTSB there is no accident
+    # evidence at all, and an empty result must not read as a clean record.
+    if not operator.safety_sources_queried:
+        gaps.append(
+            "NTSB/AIDS accident databases could not be queried — no accident "
+            "evidence was obtained, so flight safety is NOT ASSESSED rather "
+            "than clean (Orfbase and Iht are 0 by default, not by observation)"
         )
     if not operator.latent_risk_events:
         gaps.append("ASN latent risk not ingested (Lrisk = 0)")

@@ -511,11 +511,24 @@ async def full_scoring_flow(
         except Exception as e:
             ntsb_error = str(e)
             print(f"⚠️  NTSB check failed: {ntsb_error}")
-            print("  → Continuing with default values (no incidents, score: 100)")
+            # NOT a perfect score.
+            #
+            # This block used to set ntsb_score = 100.0 and carry on, which
+            # turned an outage into a clean safety record. Measured during the
+            # 2026-11-20 CAROL outage (HTTP 500 on every query): operators
+            # scored while NTSB was unreachable came out Pinnacle, including
+            # one carrying a fatal accident with 7 aboard.
+            #
+            # 100 is now reserved for "queried, nothing found". An
+            # unreachable source yields None, and `safety_sources_queried`
+            # below makes the v5.0 flag read GREY (not assessed) rather than
+            # GREEN. The absence of evidence must not read as evidence of
+            # absence.
+            print("  → Safety cannot be assessed; flagging as NOT ASSESSED")
             ntsb_data = {"Results": []}
             incidents = []
             total_incidents = 0
-            ntsb_score = 100.0
+            ntsb_score = None
 
         # Step 2: Verify UCC filings
         print("\nStep 2: Verifying UCC filings with Browserbase...")
@@ -757,6 +770,11 @@ async def full_scoring_flow(
                 # leftover and must not be passed through.
                 fleet_events=fleet_events,
                 ucc_filings=ucc_filings,
+                # An NTSB outage must read NOT ASSESSED, never clean. Without
+                # this the flag layer is told the source answered and an empty
+                # result becomes affirmative evidence of a clean record — see
+                # the except block above.
+                safety_sources_queried=(ntsb_error is None),
             )
 
             # This endpoint scores an operator, not a specific airframe, so no

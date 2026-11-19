@@ -502,6 +502,26 @@ def calculate_churn_effective(data: OperatorData) -> float:
     return min(CHURN_CAP, contraction + EXPANSION_WEIGHT * excess_expansion)
 
 
+#: Confidence multiplier applied when the PRIMARY safety source was
+#: unreachable (§3a).
+#:
+#: Cs is the term that expresses "how much do we trust this score", so an
+#: unqueryable accident database belongs here — not in Hsafety, which must
+#: keep meaning "what the evidence says".
+#:
+#: WHY THIS IS NEEDED ON TOP OF THE GREY FLAG. During the 2026-11-20 CAROL
+#: outage, marking flight_safety GREY was not sufficient: the SCORE stayed at
+#: 99.86 Pinnacle because an empty accident list is arithmetically identical
+#: to a clean one. A broker reading "Pinnacle" is not rescued by a grey flag
+#: further down the report. The number itself has to move.
+#:
+#: 0.70 is calibrated to drop a would-be Pinnacle into Benchmark — visibly
+#: not top-tier, without implying an adverse finding that was never made.
+#: NTSB is the single most important safety input; losing it should cost
+#: roughly a tier.
+SAFETY_BLIND_CONFIDENCE = 0.70
+
+
 def calculate_confidence_score(data: OperatorData) -> float:
     """
     Cs — macro dampener in [0, 1] (§3).
@@ -511,10 +531,19 @@ def calculate_confidence_score(data: OperatorData) -> float:
     Penalizes unseasoned certificates and asymmetric fleet distress. A brand-new
     certificate approaches 0 regardless of a clean record, so no operator can
     score near 100 without tenure.
+
+    §3a: additionally damped when the accident database could not be queried.
+    An operator whose safety record we could not read must not be able to
+    score as well as one we verified — see SAFETY_BLIND_CONFIDENCE.
     """
     maturity = 1.0 - math.exp(-0.384 * max(0.0, data.certificate_age_years))
     churn = calculate_churn_effective(data)
-    return max(0.0, maturity * (1.0 - churn))
+    confidence = max(0.0, maturity * (1.0 - churn))
+
+    if not data.safety_sources_queried:
+        confidence *= SAFETY_BLIND_CONFIDENCE
+
+    return confidence
 
 
 # ── §4.1 Safety Health ───────────────────────────────────────────────────────

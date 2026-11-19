@@ -349,11 +349,15 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
             except Exception as e:
                 ntsb_error = str(e)
                 print(f"  ⚠️  NTSB failed: {ntsb_error}")
-                print("  → Continuing with default values")
+                # NOT a perfect score — see the matching block in
+                # scoring/router.py. 100 is reserved for "queried, nothing
+                # found"; an unreachable source yields None and the v5 flag
+                # reads GREY via safety_sources_queried below.
+                print("  → Safety cannot be assessed; flagging as NOT ASSESSED")
                 ntsb_data = {"Results": []}
                 incidents = []
                 total_incidents = 0
-                ntsb_score = 100.0
+                ntsb_score = None
 
             # Run UCC verification
             print(f"  → Verifying UCC filings...")
@@ -515,6 +519,8 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                     # leftover and must not be passed through.
                     fleet_events=fleet_events,
                     ucc_filings=ucc_filings,
+                    # An NTSB outage must read NOT ASSESSED, never clean.
+                    safety_sources_queried=(ntsb_error is None),
                 )
 
                 # No per-tail data in the batch flow, so this scores the

@@ -1257,3 +1257,105 @@ class TestLienProxySignals:
             {"tail_number": "N1", "party": "WEST STAR AVIATION LLC",
              "doc_type": "REL", "doc_date": "2026-10-01"},
         ]) == {}
+
+
+class TestSourceOutageIsNotACleanRecord:
+    """
+    An unreachable accident database must never read as a clean safety record.
+
+    FOUND IN PRODUCTION, 2026-11-20. NTSB CAROL returned HTTP 500 to every
+    query — registration and operator name alike. Three things combined to
+    turn that outage into perfect scores:
+
+      * the router caught the exception and set `ntsb_score = 100.0`,
+        commented "continuing with default values";
+      * `build_operator_data` hardcoded `safety_sources_queried=True`, so the
+        flag layer was told the source had answered;
+      * an empty accident list is arithmetically identical to a clean one.
+
+    Triton Air rescored at 99.86 Pinnacle while carrying NTSB WPR26MA063 — a
+    fatal accident with 7 aboard. At least 488 operators were scored during
+    the outage.
+
+    This is the inverse of the GREY-everything bug fixed earlier: that one
+    made good operators look unknown, which is merely useless. This one made
+    unknown operators look perfect, which is the direction that misleads a
+    broker into booking a trip.
+    """
+
+    def _score(self, queried, **overrides):
+        kwargs = dict(
+            operator_name="Triton Air Llc", certificate_designator="70TA",
+            certificate_age_years=15.3, fleet_size=6,
+            # An outage yields an EMPTY list — indistinguishable, on its own,
+            # from an operator with genuinely no accidents. That is the whole
+            # difficulty.
+            fleet_events=[],
+            include_dot_orders=True, lookup_fleet_size=False, lookup_churn=False,
+            safety_sources_queried=queried,
+        )
+        kwargs.update(overrides)
+        operator = adapter_v5.build_operator_data(**kwargs)
+        operator.lookups_certificate_anchored = True
+        tail = adapter_v5.build_tail_data(
+            tail_number="", lookup_liens=False, tail_lien_records=[],
+        )
+        result = calculate_trust_score(operator, tail)
+        payload = narrative_v5.build_audit_payload(
+            operator, tail, result,
+            adapter_v5.missing_inputs(operator, tail), trade_names=[],
+        )
+        return result, payload
+
+    def test_outage_flags_safety_as_not_assessed(self):
+        _, payload = self._score(False)
+        assert payload["audit_categories"]["flight_safety"]["flag"] \
+            == narrative_v5.GREY
+
+    def test_a_real_clean_record_still_reads_green(self):
+        """The fix must not resurrect the GREY-everything bug."""
+        _, payload = self._score(True)
+        assert payload["audit_categories"]["flight_safety"]["flag"] \
+            == narrative_v5.GREEN
+
+    def test_the_score_itself_moves_not_just_the_flag(self):
+        """
+        THE PART THAT MATTERS MOST. Marking the flag GREY was not sufficient:
+        the score stayed at 99.86 Pinnacle, and a broker reading "Pinnacle" is
+        not rescued by a grey flag further down the report. §3a damps Cs so
+        the number moves too.
+        """
+        verified, _ = self._score(True)
+        blind, _ = self._score(False)
+        assert blind["trust_score"] < verified["trust_score"]
+        # Visibly out of the top tier, without implying an adverse finding.
+        assert blind["tier"] != "Pinnacle"
+
+    def test_an_outage_cannot_produce_a_pinnacle_score(self):
+        """No combination of good inputs should reach the top tier blind."""
+        blind, _ = self._score(False, certificate_age_years=40.0, fleet_size=50)
+        assert blind["tier"] != "Pinnacle", blind["trust_score"]
+
+    def test_the_gap_is_reported(self):
+        _, payload = self._score(False)
+        gaps = " ".join(payload["data_coverage_gaps"])
+        assert "ntsb" in gaps.lower() or "not queried" in gaps.lower()
+
+    def test_outage_compounds_with_a_young_certificate(self):
+        """Cs already penalises tenure; the blind penalty multiplies it."""
+        young_blind, _ = self._score(False, certificate_age_years=2.0)
+        young_seen, _ = self._score(True, certificate_age_years=2.0)
+        assert young_blind["trust_score"] < young_seen["trust_score"]
+
+    def test_default_stays_true_for_existing_callers(self):
+        """
+        Defaulting to True is a deliberate compatibility choice: every call
+        site that does not know about this parameter keeps its old behaviour.
+        The docstring carries the warning, and the two real call sites now
+        pass the flag explicitly.
+        """
+        operator = adapter_v5.build_operator_data(
+            operator_name="X", certificate_age_years=10.0, fleet_size=5,
+            include_dot_orders=False, lookup_fleet_size=False, lookup_churn=False,
+        )
+        assert operator.safety_sources_queried is True
