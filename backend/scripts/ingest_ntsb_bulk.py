@@ -98,6 +98,26 @@ DAMAGE_LABELS = {
     "NONE": "NONE",
 }
 
+#: Registration placeholders that are not registrations.
+#:
+#: NTSB records an unidentified airframe as UNREG / UNKNOWN / "NOT REPORTE" /
+#: "UNREGISTERE" (its own column is narrow, so its placeholders are truncated
+#: mid-word). Storing these as tail numbers would make them matchable: a fleet
+#: lookup for "UNKNOWN" would return unrelated accidents, and 153 rows share
+#: "UNREG" alone. They are stored as NULL — the airframe is genuinely
+#: unidentified, which is different from having a tail we failed to read.
+REGISTRATION_PLACEHOLDERS = frozenset({
+    "UNREG", "UNREGISTERED", "UNREGISTERE", "UNKNOWN", "UNK", "NONE",
+    "NOT REPORTED", "NOT REPORTE", "NO REG", "NOREG",
+})
+
+#: gtj.ntsb_incidents.tail_number is varchar(10) and ntsb_number varchar(20).
+#: Two real foreign registrations exceed 10 ("HP-1539 CMP", "GBR-OP-Z4N5"), so
+#: they are truncated rather than dropped — a truncated foreign tail is still
+#: more useful than no record of the accident.
+TAIL_MAX = 10
+NTSB_NUMBER_MAX = 20
+
 #: NTSB event types -> `ntsb_event_type` enum. NOT NULL with no default, so an
 #: unrecognised value has to resolve to something; ACCIDENT is the cautious
 #: choice because it is the graver of the two.
@@ -245,7 +265,12 @@ def parse(mdb_path: Path, part_135_only: bool = False) -> List[Dict[str, Any]]:
             (_clean(event.get("ev_type")) or "").upper(), "ACCIDENT"
         )
 
-        tail = (_clean(row.get("regis_no")) or "").upper() or None
+        raw_tail = (_clean(row.get("regis_no")) or "").upper() or None
+        if raw_tail in REGISTRATION_PLACEHOLDERS:
+            # Unidentified airframe — NULL, not a matchable pseudo-tail.
+            tail = None
+        else:
+            tail = raw_tail[:TAIL_MAX] if raw_tail else None
 
         # The PUBLIC NTSB number (WPR26MA063), not the internal ev_id
         # (20251218202182). CAROL returns the former, our catastrophe
@@ -265,8 +290,8 @@ def parse(mdb_path: Path, part_135_only: bool = False) -> List[Dict[str, Any]]:
         if per_event.get(ev_id, 1) > 1:
             seen = seen_keys.get(ev_id, 0)
             seen_keys[ev_id] = seen + 1
-            suffix = tail if tail and tail != "UNREG" else f"{seen + 1}"
-            key = f"{ntsb_no}#{suffix}"
+            suffix = tail or f"{seen + 1}"
+            key = f"{ntsb_no}#{suffix}"[:NTSB_NUMBER_MAX]
 
         records.append({
             "ntsb_number": key,
@@ -296,81 +321,97 @@ def parse(mdb_path: Path, part_135_only: bool = False) -> List[Dict[str, Any]]:
     return records
 
 
-def load(records: List[Dict[str, Any]], batch: int = 500) -> int:
+def load(records: List[Dict[str, Any]], batch: int = 2000) -> int:
     """
-    Upsert into gtj.ntsb_incidents.
+    Upsert into gtj.ntsb_incidents, batched.
 
-    Keyed on ntsb_number + tail_number, because a single event can involve
-    several aircraft and each is a separate row. Re-running updates rather
-    than duplicating; nothing is ever deleted.
+    Keyed on `ntsb_number`, which `parse` makes unique per AIRCRAFT rather
+    than per event — a collision involves several airframes and each is a
+    separate row. Re-running updates rather than duplicating; nothing is ever
+    deleted.
+
+    USES execute_values, NOT ONE EXECUTE PER ROW. The first version issued
+    32,010 separate statements and ran at roughly 100 rows/minute — a 3-to-4
+    hour load, measured, for a dataset that fits in memory. Every refresh
+    would have paid that. Batched multi-row VALUES brings it to minutes.
+
+    The whole load is ONE transaction per batch, so an interruption leaves
+    completed batches committed and the rest absent — safe to re-run, since
+    the upsert is idempotent.
     """
-    session = SessionLocal()
+    import json
+
+    from psycopg2.extras import execute_values
+
+    from src.common.config import engine
+
+    columns = (
+        "ntsb_number", "public_docket", "event_date", "event_type",
+        "highest_injury", "aircraft_damage", "tail_number",
+        "aircraft_make_model", "operator_name", "total_fatalities",
+        "location_city", "location_state", "location_country", "raw_data",
+    )
+
+    # The three enum columns need an explicit cast in the VALUES template;
+    # psycopg2 sends them as text and Postgres will not coerce implicitly.
+    template = (
+        "(%(ntsb_number)s, %(public_docket)s, %(event_date)s,"
+        " CAST(%(event_type)s AS gtj.ntsb_event_type),"
+        " CAST(%(highest_injury)s AS gtj.ntsb_injury_level),"
+        " CAST(%(aircraft_damage)s AS gtj.aircraft_damage_level),"
+        " %(tail_number)s, %(aircraft_make_model)s, %(operator_name)s,"
+        " %(total_fatalities)s, %(location_city)s, %(location_state)s,"
+        " %(location_country)s, 'NTSB_BULK_AVALL', now(),"
+        " CAST(%(raw_data)s AS jsonb))"
+    )
+
+    sql = f"""
+        INSERT INTO gtj.ntsb_incidents (
+            {", ".join(columns[:-1])}, data_source, last_verified, raw_data
+        ) VALUES %s
+        ON CONFLICT (ntsb_number) DO UPDATE SET
+            event_date = EXCLUDED.event_date,
+            event_type = EXCLUDED.event_type,
+            highest_injury = EXCLUDED.highest_injury,
+            aircraft_damage = EXCLUDED.aircraft_damage,
+            public_docket = EXCLUDED.public_docket,
+            tail_number = COALESCE(EXCLUDED.tail_number,
+                                   gtj.ntsb_incidents.tail_number),
+            aircraft_make_model = EXCLUDED.aircraft_make_model,
+            operator_name = EXCLUDED.operator_name,
+            total_fatalities = EXCLUDED.total_fatalities,
+            location_city = EXCLUDED.location_city,
+            location_state = EXCLUDED.location_state,
+            location_country = EXCLUDED.location_country,
+            data_source = 'NTSB_BULK_AVALL',
+            last_verified = now(),
+            raw_data = EXCLUDED.raw_data
+    """
+
     written = 0
+    raw = engine.raw_connection()
     try:
-        # The enum columns in this table are USER-DEFINED, and the bulk codes
-        # do not match their labels, so the text columns are written and the
-        # enums left alone. raw_data carries the full record for audit.
-        statement = text("""
-            INSERT INTO gtj.ntsb_incidents (
-                ntsb_number, public_docket, event_date, event_type,
-                highest_injury, aircraft_damage, tail_number,
-                aircraft_make_model, operator_name, total_fatalities,
-                location_city, location_state, location_country,
-                data_source, last_verified, raw_data
-            ) VALUES (
-                :ntsb_number, :public_docket, :event_date,
-                CAST(:event_type AS gtj.ntsb_event_type),
-                CAST(:highest_injury AS gtj.ntsb_injury_level),
-                CAST(:aircraft_damage AS gtj.aircraft_damage_level),
-                :tail_number, :aircraft_make_model, :operator_name,
-                :total_fatalities, :location_city, :location_state,
-                :location_country, 'NTSB_BULK_AVALL', now(),
-                CAST(:raw_data AS jsonb)
-            )
-            ON CONFLICT (ntsb_number) DO UPDATE SET
-                event_date = EXCLUDED.event_date,
-                event_type = EXCLUDED.event_type,
-                highest_injury = EXCLUDED.highest_injury,
-                aircraft_damage = EXCLUDED.aircraft_damage,
-                public_docket = EXCLUDED.public_docket,
-                tail_number = COALESCE(EXCLUDED.tail_number,
-                                       gtj.ntsb_incidents.tail_number),
-                aircraft_make_model = EXCLUDED.aircraft_make_model,
-                operator_name = EXCLUDED.operator_name,
-                total_fatalities = EXCLUDED.total_fatalities,
-                location_city = EXCLUDED.location_city,
-                location_state = EXCLUDED.location_state,
-                location_country = EXCLUDED.location_country,
-                data_source = 'NTSB_BULK_AVALL',
-                last_verified = now(),
-                raw_data = EXCLUDED.raw_data
-        """)
-
-        import json
-
-        for start in range(0, len(records), batch):
-            slice_ = records[start:start + batch]
-            for record in slice_:
-                payload = dict(record)
-                session.execute(statement, {
-                    **{k: payload.get(k) for k in (
-                        "ntsb_number", "public_docket", "event_date",
-                        "event_type", "highest_injury", "aircraft_damage",
-                        "tail_number", "aircraft_make_model", "operator_name",
-                        "total_fatalities", "location_city",
-                        "location_state", "location_country")},
-                    "raw_data": json.dumps(payload, default=str),
-                })
-            session.commit()
-            written += len(slice_)
-            print(f"\r    loaded {written:,}/{len(records):,}", end="", flush=True)
+        with raw.cursor() as cursor:
+            for start in range(0, len(records), batch):
+                slice_ = records[start:start + batch]
+                rows = [
+                    {**{k: record.get(k) for k in columns[:-1]},
+                     "raw_data": json.dumps(record, default=str)}
+                    for record in slice_
+                ]
+                execute_values(cursor, sql, rows, template=template,
+                               page_size=batch)
+                raw.commit()
+                written += len(slice_)
+                print(f"\r    loaded {written:,}/{len(records):,}",
+                      end="", flush=True)
         print()
         return written
     except Exception:
-        session.rollback()
+        raw.rollback()
         raise
     finally:
-        session.close()
+        raw.close()
 
 
 def main() -> int:
