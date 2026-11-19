@@ -64,3 +64,4 @@ faker>=37.0.0
 
 # AWS SDK — S3 upload for batch tail-score results (scripts/score_all_tails.py)
 boto3>=1.34.0
+access-parser>=0.0.6

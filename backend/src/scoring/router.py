@@ -454,6 +454,8 @@ async def full_scoring_flow(
         # Step 1: Query NTSB
         print("Step 1: Querying NTSB database...")
         ntsb_error = None
+        ntsb_fallback_used = False
+        cached_accidents = []
         document_analyses = []
         try:
             ntsb_data = await NTSBService.query_ntsb_incidents(operator_name)
@@ -524,11 +526,31 @@ async def full_scoring_flow(
             # below makes the v5.0 flag read GREY (not assessed) rather than
             # GREEN. The absence of evidence must not read as evidence of
             # absence.
-            print("  → Safety cannot be assessed; flagging as NOT ASSESSED")
             ntsb_data = {"Results": []}
             incidents = []
             total_incidents = 0
             ntsb_score = None
+
+            # FALL BACK TO THE BULK EXPORT before giving up.
+            #
+            # NTSB publishes the whole dataset as an Access database at
+            # data.ntsb.gov/avdata, loaded into gtj.ntsb_incidents by
+            # scripts/ingest_ntsb_bulk.py. It stayed up throughout the
+            # 2026-11-20 CAROL outage, which is exactly when it is wanted.
+            #
+            # If the cache answers, safety IS assessed — just from a snapshot
+            # rather than live, so `safety_sources_queried` stays True below.
+            # If it does not, the GREY flag and the confidence penalty stand.
+            cached_accidents = adapter_v5.fetch_cached_accidents(
+                fleet_tail_numbers
+            ) if fleet_tail_numbers else []
+            if cached_accidents:
+                print(f"  → Falling back to the NTSB bulk snapshot: "
+                      f"{len(cached_accidents)} accident record(s)")
+                ntsb_fallback_used = True
+                total_incidents = len(cached_accidents)
+            else:
+                print("  → Safety cannot be assessed; flagging as NOT ASSESSED")
 
         # Step 2: Verify UCC filings
         print("\nStep 2: Verifying UCC filings with Browserbase...")
@@ -587,6 +609,11 @@ async def full_scoring_flow(
 
             # Convert NTSB incidents to dict format for TrustScore calculator (Algorithm v3)
             fleet_events = [incident.dict() for incident in incidents]
+
+            # The bulk-snapshot fallback, when CAROL was unreachable. Already
+            # in the shape split_fleet_events expects, so no mapping needed.
+            if cached_accidents:
+                fleet_events = fleet_events + cached_accidents
             ntsb_incidents_dict = fleet_events  # Keep reference for result output
 
             # Query FAA enforcement actions and append to fleet events
@@ -774,7 +801,7 @@ async def full_scoring_flow(
                 # this the flag layer is told the source answered and an empty
                 # result becomes affirmative evidence of a clean record — see
                 # the except block above.
-                safety_sources_queried=(ntsb_error is None),
+                safety_sources_queried=(ntsb_error is None or ntsb_fallback_used),
             )
 
             # This endpoint scores an operator, not a specific airframe, so no

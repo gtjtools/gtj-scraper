@@ -644,6 +644,92 @@ def fetch_fleet_tails(
 _MIN_CHURN_WINDOW_DAYS = 180
 
 
+def fetch_cached_accidents(
+    tail_numbers: List[str],
+    db_session_factory: Any = None,
+) -> List[Dict[str, Any]]:
+    """
+    Accident records for a fleet from `gtj.ntsb_incidents` — the CAROL fallback.
+
+    Used when the live CAROL query fails. On 2026-11-20 CAROL returned HTTP 500
+    to every request for over a day; without a fallback the scorer had no
+    accident evidence at all, and an empty result is arithmetically identical
+    to a clean record. §3a now flags that case GREY and damps confidence, but a
+    flag is not evidence — this supplies the evidence.
+
+    Reads only rows written by `scripts/ingest_ntsb_bulk.py`, which carries a
+    registration on effectively every row. The pre-existing CAROL-cached rows
+    are deliberately excluded: 245 of 247 had no tail number, so they cannot be
+    matched to a fleet and including them would imply coverage that is not
+    there.
+
+    Returns event dicts in the same shape `split_fleet_events` expects, so the
+    caller substitutes them for the live result with no further mapping.
+
+    Returns [] on any failure — a fallback that raises is worse than no
+    fallback.
+
+    Args:
+        tail_numbers: N-numbers to match, with or without the leading N.
+        db_session_factory: Callable returning a session; defaults to
+            SessionLocal.
+    """
+    normalized = sorted({
+        (t or "").strip().upper() for t in (tail_numbers or []) if (t or "").strip()
+    })
+    if not normalized:
+        return []
+
+    session = None
+    try:
+        if db_session_factory is None:
+            from src.common.config import SessionLocal
+            db_session_factory = SessionLocal
+
+        from sqlalchemy import text
+
+        session = db_session_factory()
+        rows = session.execute(
+            text("""
+                SELECT ntsb_number, public_docket, event_date, tail_number,
+                       event_type::text AS event_type,
+                       highest_injury::text AS highest_injury,
+                       aircraft_damage::text AS aircraft_damage,
+                       total_fatalities
+                FROM gtj.ntsb_incidents
+                WHERE data_source = 'NTSB_BULK_AVALL'
+                  AND UPPER(tail_number) = ANY(:tails)
+                ORDER BY event_date DESC
+            """),
+            {"tails": normalized},
+        ).mappings().all()
+
+        return [
+            {
+                "event_id": row["public_docket"] or row["ntsb_number"],
+                "event_date": row["event_date"],
+                # Title-cased so classify_accident_severity's substring match
+                # behaves identically to the live CAROL path.
+                "event_type": (row["event_type"] or "Accident").title(),
+                "injury_level": (row["highest_injury"] or "").title(),
+                "aircraft_damage": (row["aircraft_damage"] or "").title(),
+                "total_fatalities": row["total_fatalities"],
+                "tail_number": row["tail_number"],
+                "source": "NTSB_BULK",
+            }
+            for row in rows
+        ]
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Cached accident lookup failed: %s", exc)
+        return []
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
+
+
 def fetch_churn(
     operator_name: str,
     months_back: int = 12,
