@@ -891,11 +891,11 @@ still invisible. Nothing is overclaimed.
 | FAA CARES packets | **Blocked**, but largely worked around (§9.4, §9.7). Still the only way to prove absence of a lien. |
 | AVInfo for `Age_cert` (not in the addendum, but the same obstacle) | **Blocked** — HTTP 503 from the server too (§9.6) |
 
-### 9.6 FAA host reachability — the shared obstacle behind two dead ends
+### 9.6 FAA host reachability — the shared obstacle behind three dead ends
 
-Both remaining FAA gaps — permanent lien history (`GAP_TAIL_LIENS`) and
-`Age_cert` — are blocked by the same thing, and it is worth stating once rather
-than rediscovering per source.
+The remaining FAA/DOT gaps — permanent lien history (`GAP_TAIL_LIENS`),
+`Age_cert`, and a comprehensive DBA list (§9.8) — are blocked by the same
+thing, and it is worth stating once rather than rediscovering per source.
 
 Measured 2026-11-08. The dev-machine column and the IPs were tested directly;
 the server column is from runs on the production host.
@@ -906,6 +906,7 @@ the server column is from runs on the production host.
 | `registry.faa.gov` | `23.198.132.191` | 403 | **200** | `ReleasableAircraft.zip` |
 | `cares.faa.gov` | `23.198.132.191` | 403 | **403** | permanent title packets |
 | `av-info.faa.gov` | `23.198.132.191` | 503 | **503** | certificate issue dates |
+| `explore.dot.gov` | Akamai edge | 403 | **403** | Air Operator 14 CFR Search (DBAs) — added 2026-11-23 |
 
 The informative part is that the **production server reaches `registry.faa.gov`
 but not `cares` or `av-info`**. Those two refuse it while a third FAA host on
@@ -1479,3 +1480,106 @@ the certificate could not be resolved — the prompt requires that be reported a
 |---|---|
 | Backfill names that predate ingestion | **Unchanged limitation** (§1a). The DBA array is built from the current Part 135 roster plus `gtj.operators`; a rename before ingestion began is invisible unless `--backfill` is run against web.archive.org, which reaches ~March 2023. |
 | Trade names on other report surfaces | Only the narrative payload and `score_tail.py` are covered. Any other consumer of `build_audit_payload` gets the field automatically; a report built from a different path would need wiring. |
+
+---
+
+## 13. DBA coverage — what we can and cannot see (assessed 2026-11-23)
+
+§12 publishes every trade name a certificate is recorded under. This section
+records how complete that list actually is, because "no DBA shown" is a weaker
+statement than "no DBA exists" and the difference matters when a broker asks.
+
+### 13.1 The single source, and its two blind spots
+
+DBAs come from the **FAA Part 135 roster** (`scripts/ingest_part135.py`), which
+lists the certificate holder's legal name. 1,914 names across 1,870
+certificates; 44 carry more than one.
+
+Two gaps follow from that:
+
+1. **A trade name never filed with the FAA is invisible.** The roster records
+   the legal entity, so a marketing-only name does not appear.
+2. **Anything before ~March 2023 is invisible.** That is when our ingestion
+   began — it is not evidence about the operator.
+
+### 13.2 The Wayback backfill cannot close gap 2
+
+`scripts/ingest_part135.py --backfill` exists and the Internet Archive is
+reachable again (HTTP 200, checked 2026-11-23), but running it gains nothing.
+Measured:
+
+| | Count |
+|---|---|
+| Monthly CDX captures of the roster **landing page** | 26 |
+| Captures of the actual **`.xlsx`** | **1** (2026-10-18) |
+
+The backfill asks CDX for page captures and then fetches the spreadsheet at
+each timestamp. Wayback has only ever archived the spreadsheet once, so every
+historical timestamp 302-redirects to that same October 2026 file. Verified:
+`2023-03`, `2024-01` and `2025-06` all land on `/web/20261018104418` and return
+byte-identical 550,478-byte files.
+
+**Do not run `--backfill` expecting pre-2023 history.** It would download the
+current roster 26 times.
+
+### 13.3 The FAA Air Operator 14 CFR Search is blocked
+
+`www.faa.gov/av-info/air-operator-far-search` is the right tool — it covers
+parts 91/121/125/129/133 as well as 135 — and the page returns HTTP 200. But
+the page is a JavaScript shell containing no operator data. The data lives in a
+Tableau dashboard:
+
+    https://explore.dot.gov/t/FAA/views/AVInfo_AirOperators/AirOperators
+
+`explore.dot.gov` returns **403 from the development machine AND from the
+production server**, with an `errors.edgesuite.net` body — the same Akamai edge
+denial as `cares.faa.gov` and `av-info.faa.gov`. The whole host is refused, not
+just the view, so this is credentialing rather than a scraping problem (§9.6).
+
+Worth noting the contrast with `registry.faa.gov`, which 403s on the dev
+machine but works from the server. That one WAS IP-dependent; these three are
+not.
+
+### 13.4 Worked example: JEM Air Holdings (`3JMA`)
+
+Asked whether we show DBAs for JEM. We do not, and the FAA registry supports
+that rather than contradicting it:
+
+* `gtj.certificate_dbas` holds exactly one name, `JEM AIR HOLDINGS LLC`,
+  first_seen 2023-03-24 (our ingestion start, not a fact about JEM).
+* `operators.dba_name` is NULL.
+* Searching the **whole** MASTER file for owners containing "JEM" returns 18
+  aircraft, and none of JEM's other 12 tails are among them.
+
+So JEM trades under one name as far as every source we hold is concerned.
+
+**The same lookup surfaced a more consequential finding.** Of JEM's 13 tails,
+only ONE (`N560MC`) is registered to JEM itself. The other 11 are registered to
+unrelated single-purpose entities — `N118DL LLC`, `N560MC LLC`, `824 HOLDCO
+LLC`, `PLANE TO SEA LLC`, `ND AVIATION LLC` (×2), and others. Those are
+owner-trust and single-aircraft LLC patterns, i.e. **third-party managed
+aircraft**, not DBAs.
+
+That matters for `Ost` (§5.2): exclusive operator ownership scores better than
+a managed tail, because a private owner can pull the aircraft, veto a trip, or
+refuse a weekend AOG part. `gtj.aircraft.registered_owner` is **NULL for all 13
+JEM tails**, so `Ost` defaults to `"exclusive"` and every managed tail is
+scored as if the operator owned it outright.
+
+This is the same class of defect as the GREY-flag and NTSB-outage bugs: a
+missing input silently resolving to the most favourable value.
+
+**IT IS FLEET-WIDE.** Measured 2026-11-23: `gtj.aircraft` holds 11,181
+aircraft and `registered_owner` is populated on **ZERO** of them (0.0%). So
+`Ost` resolves to `"exclusive"` for every tail we score, and no managed
+aircraft anywhere in the database is currently penalised for being managed.
+JEM is not an outlier — it is the whole table.
+
+### 13.5 Open items
+
+| Item | Status |
+|---|---|
+| Fleet-wide `registered_owner` NULL rate | **Measured: 0 of 11,181 populated (0.0%).** `Ost` therefore resolves to "exclusive" for every tail, and no managed aircraft is penalised anywhere. MASTER.txt supplies the real owner and the parser already exists. |
+| Populate `registered_owner` from MASTER | Not built. `src/common/faa_registry.parse_master` already yields `owner_name` per tail; the gap is an ingest script and a join. |
+| Comprehensive DBA list (all CFR parts) | **Blocked** — `explore.dot.gov` 403s from both hosts (§13.3). Needs FAA/DOT registered access. |
+| Pre-2023 DBA history | **Not obtainable** from Wayback (§13.2). Would need an FAA historical roster, which is not published. |
