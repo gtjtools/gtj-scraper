@@ -453,7 +453,27 @@ async def verify_operators_task(workflow_input, ctx: Context) -> dict:
                         .first()
                     )
 
-                    if db_operator and db_operator.business_started_date:
+                    # Same precedence as the single-score path in
+                    # src/scoring/router.py: observed certificate issuance,
+                    # then business registration, then the 10.0 default. The
+                    # two MUST agree or a batch rescore silently contradicts
+                    # the score a broker just pulled for the same operator.
+                    #
+                    # Looked up before the business_started_date branch, not
+                    # after, because §3 wants certificate issuance and
+                    # business_started_date is only the nearest proxy.
+                    from src.common.entity_resolution import (
+                        resolve_certificate_age_years,
+                    )
+
+                    observed_age, _ = resolve_certificate_age_years(
+                        operator.company,
+                        (db_operator.faa_dsgn_code if db_operator else "") or "",
+                    )
+                    if observed_age is not None:
+                        operator_age_years = observed_age
+                        certificate_age_is_estimated = False
+                    elif db_operator and db_operator.business_started_date:
                         years_diff = (
                             datetime.now() - db_operator.business_started_date
                         ).days / 365.25

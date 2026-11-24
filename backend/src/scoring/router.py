@@ -716,8 +716,40 @@ async def full_scoring_flow(
                             )
 
                 if operator:
-                    # Calculate operator age in years from business_started_date
-                    if operator.business_started_date:
+                    # PRECEDENCE: observed certificate issuance, THEN business
+                    # registration, THEN the 10.0 default.
+                    #
+                    # §3 asks for years since the CERTIFICATE was issued.
+                    # business_started_date is when the company was founded —
+                    # the nearest thing we used to hold, but not the same
+                    # thing, and absent for 838 of 1,767 certificated
+                    # operators. Every one of those scored on the hardcoded
+                    # 10.0 below, and Agecert drives Cs, which multiplies the
+                    # entire composite.
+                    #
+                    # The FAA 14 CFR Search export supplies a real issuance
+                    # date for 1,823 certificates, so it is preferred over
+                    # both. Measured on the 804 date-less operators it covers:
+                    # 636 are older than the assumption and gain at most ~1
+                    # point (maturity saturates), while 168 are younger and
+                    # fall — up to ~27 points at 1.4 years. That fall is the
+                    # correction, not a regression: a young certificate was
+                    # being scored as a mature one.
+                    from src.common.entity_resolution import (
+                        resolve_certificate_age_years,
+                    )
+
+                    observed_age, _ = resolve_certificate_age_years(
+                        operator_name, certificate_designator or ""
+                    )
+                    if observed_age is not None:
+                        operator_age_years = observed_age
+                        certificate_age_is_estimated = False
+                        print(
+                            f"✓ Certificate age from FAA issuance date: "
+                            f"{operator_age_years} years"
+                        )
+                    elif operator.business_started_date:
                         years_diff = (
                             datetime.now() - operator.business_started_date
                         ).days / 365.25
