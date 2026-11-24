@@ -1181,7 +1181,22 @@ def build_operator_data(
     return OperatorData(
         certificate_designator=certificate_designator or operator_name,
         operator_name=operator_name,
-        certificate_age_years=certificate_age_years,
+        # Coerced at this boundary because OperatorData declares a float and
+        # §3's arithmetic cannot take None: calculate_d_scale does
+        # `max(0.0, certificate_age_years)`, which raises TypeError on None
+        # rather than degrading.
+        #
+        # resolve_certificate_age_years returns None when no issuance date is
+        # held OR when its lookup fails — a DB timeout looks exactly like an
+        # unknown certificate. Both router.py and batch_verify_workflow.py
+        # guard with `if observed_age is not None`, but nothing stops a future
+        # caller passing it straight through, and a crash mid-rescore is worse
+        # than a conservative 0.0. Zero is the honest value here: Cs collapses
+        # toward 0 and `certificate_age_years is 0` already fires a documented
+        # coverage gap, so an unknown age reads as unknown rather than mature.
+        certificate_age_years=(
+            0.0 if certificate_age_years is None else float(certificate_age_years)
+        ),
         certificate_age_is_estimated=certificate_age_is_estimated,
         lookups_certificate_anchored=lookups_anchored,
         fleet_size=fleet_size,
