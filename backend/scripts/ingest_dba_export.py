@@ -58,7 +58,7 @@ import argparse
 import csv
 import io
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -147,6 +147,34 @@ def split_dba_text(value: str) -> List[str]:
     return [text_value]
 
 
+def parse_issue_date(value: str) -> "date | None":
+    """
+    Parse Cert_Issue_Date, which Tableau writes as M/D/YYYY.
+
+    This is the FIRST observed certificate issuance date we have ever held.
+    §3 wants years since issuance for Agecert, and until now the scoring path
+    fell back to a HARDCODED 10.0 years whenever `business_started_date` was
+    missing — true for 838 of 1,767 certificated operators. A made-up age
+    drives Cs, which multiplies the whole composite, so those scores rested on
+    an invented input.
+
+    A date in the future, or absurdly old, is rejected rather than stored: a
+    bad issuance date inflates or destroys Cs silently.
+    """
+    text_value = _clean(value)
+    if not text_value:
+        return None
+    for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%m/%d/%y"):
+        try:
+            parsed = datetime.strptime(text_value, fmt).date()
+        except ValueError:
+            continue
+        if parsed > date.today() or parsed.year < 1926:
+            return None
+        return parsed
+    return None
+
+
 def parse(path: Path) -> Tuple[List[Dict[str, str]], Dict[str, int]]:
     """
     Read the export into (certificate, name) records.
@@ -171,6 +199,7 @@ def parse(path: Path) -> Tuple[List[Dict[str, str]], Dict[str, int]]:
     stats = {
         "rows": 0, "with_dba": 0, "skipped_placeholder": 0,
         "skipped_no_cert": 0, "non_135": 0, "split_compound": 0,
+        "with_issue_date": 0,
     }
     seen: set = set()
     records: List[Dict[str, str]] = []
@@ -191,6 +220,10 @@ def parse(path: Path) -> Tuple[List[Dict[str, str]], Dict[str, int]]:
             # rather than silently widening what certificate_dbas describes.
             stats["non_135"] += 1
             continue
+
+        issued = parse_issue_date(row[COL_ISSUED]) if len(row) > COL_ISSUED else None
+        if issued:
+            stats["with_issue_date"] += 1
 
         names = []
         legal = _clean(row[COL_LEGAL]) if len(row) > COL_LEGAL else ""
@@ -220,6 +253,7 @@ def parse(path: Path) -> Tuple[List[Dict[str, str]], Dict[str, int]]:
                 "designator": designator,
                 "name": name,
                 "normalized": normalized,
+                "issued": issued,
             })
 
     return records, stats
@@ -262,7 +296,7 @@ def load(records: List[Dict[str, str]], seen_on: date) -> Dict[str, int]:
                 INSERT INTO gtj.certificate_dbas
                     (certificate_designator, operator_name,
                      operator_name_normalized, is_current,
-                     first_seen, last_seen, source)
+                     first_seen, last_seen, source, certificate_issued_date)
                 VALUES %s
                 ON CONFLICT (certificate_designator, operator_name_normalized)
                 DO UPDATE SET
@@ -270,10 +304,13 @@ def load(records: List[Dict[str, str]], seen_on: date) -> Dict[str, int]:
                                           EXCLUDED.last_seen),
                     first_seen = LEAST(gtj.certificate_dbas.first_seen,
                                        EXCLUDED.first_seen),
+                    certificate_issued_date = COALESCE(
+                        EXCLUDED.certificate_issued_date,
+                        gtj.certificate_dbas.certificate_issued_date),
                     updated_at = now()
             """, [
                 (r["designator"], r["name"], r["normalized"],
-                 False, seen_on, seen_on, SOURCE)
+                 False, seen_on, seen_on, SOURCE, r["issued"])
                 for r in records
             ], page_size=1000)
             raw.commit()
@@ -322,6 +359,7 @@ def main() -> int:
     print(f"  rows carrying a DBA       {stats['with_dba']:>6,}")
     print(f"  placeholder DBAs skipped  {stats['skipped_placeholder']:>6,}")
     print(f"  compound cells split      {stats['split_compound']:>6,}")
+    print(f"  rows with an issue date   {stats['with_issue_date']:>6,}")
     print(f"  rows with no designator   {stats['skipped_no_cert']:>6,}")
     print(f"  non-135 rows skipped      {stats['non_135']:>6,}")
     print(f"  (certificate, name) pairs {len(records):>6,}")

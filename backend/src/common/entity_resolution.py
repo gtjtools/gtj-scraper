@@ -268,3 +268,95 @@ def resolve_trade_names(
                 session.close()
             except Exception:
                 pass
+
+
+def resolve_certificate_age_years(
+    operator_name: str,
+    certificate_designator: str = "",
+    db_session_factory=None,
+) -> "tuple[float, bool] | tuple[None, bool]":
+    """
+    Years since the certificate was ISSUED, from the FAA 14 CFR Search export.
+
+    Returns (years, is_estimated). `is_estimated` is always False here: this is
+    an observed issuance date, which is exactly what §3 asks for and what we
+    have never had before.
+
+    WHY THIS MATTERS MORE THAN IT LOOKS. The scoring path previously fell back
+    to a HARDCODED 10.0 years whenever `gtj.operators.business_started_date`
+    was missing — 838 of 1,767 certificated operators. Agecert drives Cs, and
+    Cs multiplies the entire composite, so every one of those scores rested on
+    an invented input. Worse, business_started_date is when the COMPANY began,
+    not when the FAA issued the certificate; §3 wants the latter.
+
+    Returns (None, False) when no date is held, so the caller can tell
+    "unknown" apart from a real zero and keep its own fallback rather than
+    silently scoring a brand-new certificate as mature.
+
+    Args:
+        operator_name: Operator name, trade name or legal.
+        certificate_designator: 4-char FAA ID, preferred when known.
+        db_session_factory: Callable returning a session; defaults to
+            SessionLocal.
+    """
+    from datetime import date
+
+    from src.trustscore.adapter_v5 import normalize_operator_name
+
+    designator = (certificate_designator or "").strip().upper()
+    normalized = normalize_operator_name(operator_name or "")
+    if not designator and not normalized:
+        return None, False
+
+    session = None
+    try:
+        if db_session_factory is None:
+            from src.common.config import SessionLocal
+
+            db_session_factory = SessionLocal
+
+        from sqlalchemy import text
+
+        session = db_session_factory()
+        if designator:
+            row = session.execute(
+                text("""
+                    SELECT certificate_issued_date
+                    FROM gtj.certificate_dbas
+                    WHERE certificate_designator = :d
+                      AND certificate_issued_date IS NOT NULL
+                    LIMIT 1
+                """),
+                {"d": designator},
+            ).first()
+        else:
+            row = session.execute(
+                text("""
+                    SELECT certificate_issued_date
+                    FROM gtj.certificate_dbas
+                    WHERE operator_name_normalized = :n
+                      AND certificate_issued_date IS NOT NULL
+                    LIMIT 1
+                """),
+                {"n": normalized},
+            ).first()
+
+        if not row or not row[0]:
+            return None, False
+
+        issued = row[0]
+        years = (date.today() - issued).days / 365.25
+        # A future date would give a negative age and a nonsensical Cs. The
+        # importer already rejects those, so this is belt-and-braces.
+        if years < 0:
+            return None, False
+        return round(years, 1), False
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Certificate age lookup failed: %s", exc)
+        return None, False
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
