@@ -6,6 +6,10 @@ Two destinations, from one download:
 
   gtj.certificate_dbas  every (designator, name) pair, so a rebrand does not
                         erase an operator's history (§8).
+  gtj.operators         a row per certificate we do not already hold, created
+                        with regulatory_status=UNKNOWN. Presence on a roster
+                        proves a certificate exists, not that its holder is
+                        compliant.
   gtj.aircraft          the roster's per-tail fleet — ADDITIVE ONLY, feeding
                         `Vf` in §4.1. See upsert_aircraft for why absence from
                         the roster is never treated as a delete signal.
@@ -28,6 +32,7 @@ USAGE
     python scripts/ingest_part135.py --dry-run      # report, write nothing
     python scripts/ingest_part135.py                # ingest today's roster
     python scripts/ingest_part135.py --no-aircraft  # names only, skip gtj.aircraft
+    python scripts/ingest_part135.py --no-operators # do not create new operators
     python scripts/ingest_part135.py --backfill     # also walk web.archive.org
     python scripts/ingest_part135.py --report       # show known rebrands
 
@@ -186,6 +191,133 @@ def parse_roster(blob: bytes) -> Dict[str, Dict[str, Any]]:
             "serial_number": cell(COL_SERIAL)[:SERIAL_MAX] or None,
         }
     return out
+
+
+def create_missing_operators(
+    roster: Dict[str, Dict[str, Any]],
+    dry_run: bool = False,
+) -> Dict[str, int]:
+    """
+    Create a gtj.operators row for each certificate the roster holds and we
+    do not, so its aircraft have an operator to hang from.
+
+    MATCHED BY NAME FIRST, AND THAT MATTERS
+    ---------------------------------------
+    Of the 106 designators missing in the 2026-11 roster, 6 already exist in
+    gtj.operators under a DIFFERENT designator, four of them one character
+    apart — 2MZA/2MZC, HXXA/HXXC, K1IA/K1IC — which is what a certificate
+    renewal looks like. Those rows already carry fleets (TIMA 67 aircraft,
+    VPEA 18, HXXC 17). Inserting a second row for the same company would
+    fragment an operator across two records and split its fleet, so a name
+    match adopts the new designator onto the existing row instead.
+
+    WHAT THESE ROWS ARE
+    -------------------
+    A roster entry is evidence a certificate exists and who holds it. It is
+    not evidence of compliance, so `regulatory_status` is UNKNOWN rather than
+    COMPLIANT — the column's type is public.regulatory_status, which carries
+    UNKNOWN, and 31 rows already use it. `is_verified` stays false. Neither
+    should be inferred from presence on a list.
+
+    `certificate_number` is left NULL: the roster does not publish it, and
+    that column is UNIQUE, so inventing one risks a collision with a real
+    certificate number arriving later.
+    """
+    stats = {"missing": 0, "adopted": 0, "created": 0, "renewal_skipped": 0}
+    renewals: List[str] = []
+
+    session = SessionLocal()
+    try:
+        known_designators = {
+            str(d).strip().upper()
+            for (d,) in session.execute(text("""
+                SELECT faa_dsgn_code FROM gtj.operators
+                WHERE faa_dsgn_code IS NOT NULL
+            """)).all()
+        }
+        # Normalized name -> operator_id, preferring a row that has no
+        # designator yet so adoption does not overwrite a different one.
+        by_name: Dict[str, Tuple[Any, Optional[str]]] = {}
+        for operator_id, name, designator in session.execute(text("""
+            SELECT operator_id, name, faa_dsgn_code FROM gtj.operators
+        """)).all():
+            key = normalize_operator_name(name or "")
+            if not key:
+                continue
+            if key not in by_name or (designator is None and by_name[key][1] is not None):
+                by_name[key] = (operator_id, designator)
+    finally:
+        session.close()
+
+    adopt: List[Tuple[str, str]] = []
+    create: List[Tuple[str, str, str]] = []
+
+    for designator, entry in roster.items():
+        if designator in known_designators:
+            continue
+        stats["missing"] += 1
+        name = entry["name"][:255]
+        match = by_name.get(normalize_operator_name(name))
+        if match and match[1] is None:
+            # Existing row for this company with no designator recorded.
+            adopt.append((str(match[0]), designator))
+        elif match:
+            # Same company under a different designator — almost certainly a
+            # renewed certificate. Left alone: silently repointing an operator
+            # that already carries a fleet is worse than a missing link, and
+            # the roster alone cannot prove the two are the same entity.
+            # Reported so the pairs can be reviewed by hand.
+            stats["renewal_skipped"] += 1
+            renewals.append(f"{designator} ~ {match[1]}  {name}")
+        else:
+            create.append((name, designator, name))
+
+    if renewals:
+        print("    possible certificate renewals — NOT created, review by hand:")
+        for line in renewals:
+            print(f"      {line}")
+
+    if dry_run:
+        stats["adopted"] = len(adopt)
+        stats["created"] = len(create)
+        return stats
+
+    from psycopg2.extras import execute_values
+
+    raw = engine.raw_connection()
+    try:
+        with raw.cursor() as cursor:
+            if adopt:
+                # No updated_at on gtj.operators — unlike gtj.aircraft, which
+                # has one. Checked against information_schema after assuming
+                # otherwise cost a failed run.
+                execute_values(cursor, """
+                    UPDATE gtj.operators AS o
+                    SET faa_dsgn_code = v.designator
+                    FROM (VALUES %s) AS v(operator_id, designator)
+                    WHERE o.operator_id = v.operator_id::uuid
+                      AND o.faa_dsgn_code IS NULL
+                """, adopt, page_size=500)
+                raw.commit()
+                stats["adopted"] = len(adopt)
+
+            for start in range(0, len(create), 500):
+                chunk = create[start:start + 500]
+                execute_values(cursor, """
+                    INSERT INTO gtj.operators
+                        (name, faa_dsgn_code, faa_operator_name,
+                         regulatory_status, is_verified)
+                    VALUES %s
+                """, chunk, template="(%s, %s, %s, 'UNKNOWN', false)")
+                raw.commit()
+                stats["created"] += len(chunk)
+    except Exception:
+        raw.rollback()
+        raise
+    finally:
+        raw.close()
+
+    return stats
 
 
 def upsert_aircraft(
@@ -363,6 +495,16 @@ def upsert_aircraft(
 
     stats["conflict_skipped"] = len(inserts) - stats["inserted"]
     return stats
+
+
+def _print_operator_stats(stats: Dict[str, int]) -> None:
+    """Report the operator pass, including the rows it declined to create."""
+    print(f"    certificates not in gtj.operators {stats['missing']:>5,}")
+    print(f"    created (regulatory_status=UNKNOWN){stats['created']:>5,}")
+    print(f"    designator adopted onto an existing row{stats['adopted']:>2,}")
+    if stats.get("renewal_skipped"):
+        print(f"    skipped — same name, different designator:"
+              f" {stats['renewal_skipped']:,}")
 
 
 def _print_aircraft_stats(stats: Dict[str, int]) -> None:
@@ -655,6 +797,9 @@ def main() -> int:
     parser.add_argument("--no-aircraft", dest="aircraft", action="store_false",
                         default=True,
                         help="skip adding the roster's aircraft to gtj.aircraft")
+    parser.add_argument("--no-operators", dest="operators", action="store_false",
+                        default=True,
+                        help="skip creating operators for unknown certificates")
     args = parser.parse_args()
 
     if args.report:
@@ -678,6 +823,9 @@ def main() -> int:
     print(f"    {len(roster):,} certificates, {tails:,} tails")
 
     if args.dry_run:
+        if args.operators:
+            print("\n  operators that WOULD be created:")
+            _print_operator_stats(create_missing_operators(roster, dry_run=True))
         if args.aircraft:
             print("\n  aircraft that WOULD be written:")
             _print_aircraft_stats(upsert_aircraft(roster, dry_run=True))
@@ -687,6 +835,12 @@ def main() -> int:
     today = datetime.now(timezone.utc).date()
     ins, upd = upsert_names(roster, today, is_current=True)
     print(f"    {ins:,} new name(s), {upd:,} existing confirmed")
+
+    # Operators first: an aircraft needs an operator row to link to, and the
+    # aircraft pass skips any designator it cannot resolve.
+    if args.operators:
+        print("\n  creating operators for unknown certificates…")
+        _print_operator_stats(create_missing_operators(roster))
 
     if args.aircraft:
         print("\n  adding roster aircraft to gtj.aircraft (additive only)…")
