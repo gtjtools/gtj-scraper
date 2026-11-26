@@ -546,6 +546,61 @@ def calculate_confidence_score(data: OperatorData) -> float:
     return confidence
 
 
+def confidence_recovery_cap(
+    data: OperatorData, now: Optional[datetime] = None
+) -> float:
+    """
+    Ceiling on Cs when safety was previously unreadable and is now readable
+    WITH adverse findings (§3a ratchet).
+
+    THE DEFECT THIS CLOSES
+    ----------------------
+    §3a damping and accident evidence were both multiplied into the same
+    composite, so they netted against each other — and the damping dominated
+    by an order of magnitude. Measured on Analar Co when operator-matched
+    accidents first became visible (b8053e5):
+
+        Hos          0.9997 -> 0.9766   (a fatal accident: -2.3%)
+        Cs           0.70   -> 1.00     (damping lifted:   +43%)
+        TrustScore   84.99  -> 98.83    (+13.84)
+
+    Surfacing a fatality RAISED the score by nearly 14 points, because
+    "we can now read your safety record" outweighed "your safety record
+    contains a death" by roughly 19x. Billings Flying Service moved
+    84.66 -> 97.99 the same way.
+
+    That is not a calibration error, it is the wrong shape: an operator should
+    never profit from the discovery of its own accident. A broker reading
+    "Pinnacle, up 14 points" on the day a fatal crash became visible is being
+    actively misinformed.
+
+    THE RATCHET
+    -----------
+    Damping is a penalty for ignorance, not a credit held in escrow. So
+    lifting it may restore confidence only up to the point where the newly
+    readable evidence is itself neutral. When the record that becomes readable
+    is adverse, Cs stays capped at the blind level: the operator keeps the
+    uncertainty discount it already had, and the accident is then priced
+    through Hsafety on top, where it belongs.
+
+    Returns 1.0 (no cap) when there is nothing adverse to price — a genuinely
+    clean record that becomes readable SHOULD recover its confidence in full,
+    which is the entire point of querying the source.
+    """
+    if not data.safety_sources_queried:
+        # Still blind. calculate_confidence_score already applied the damping.
+        return 1.0
+
+    # Adverse means accident risk the safety term actually prices right now.
+    # decayed_sum is the same primitive Hsafety uses, so a decades-old event
+    # that has decayed to nothing does not cap confidence forever — it is no
+    # longer costing the operator anything in Hsafety either.
+    if decayed_sum(data.fleet_accident_events, now) <= 0.0:
+        return 1.0
+
+    return SAFETY_BLIND_CONFIDENCE
+
+
 # ── §4.1 Safety Health ───────────────────────────────────────────────────────
 
 def calculate_d_scale(data: OperatorData) -> float:
@@ -966,7 +1021,10 @@ def calculate_fleet_score(
     """
     safety = calculate_safety_health(operator, now)
     conduct = calculate_conduct_health(operator, now)
-    confidence = calculate_confidence_score(operator)
+    # §3a ratchet: reading an adverse record must not pay more than the record
+    # costs. See confidence_recovery_cap.
+    recovery_cap = confidence_recovery_cap(operator, now)
+    confidence = calculate_confidence_score(operator) * recovery_cap
 
     h_os = safety["h_safety"] * conduct["h_conduct"]
     score = _clamp_score(SCORE_FLOOR + 50.0 * (h_os * confidence))
@@ -981,6 +1039,10 @@ def calculate_fleet_score(
             **conduct,
             "h_os": h_os,
             "cs": confidence,
+            # Reported so an audit can tell a confidence ceiling apart from
+            # a low Cs: 0.70 here means "adverse record newly readable",
+            # not "immature certificate".
+            "cs_recovery_cap": recovery_cap,
             "churn_effective": calculate_churn_effective(operator),
         },
         "formula": "50 + 50 * (Hos * Cs); Hos = Hsafety * Hconduct",
@@ -1007,7 +1069,10 @@ def calculate_trust_score(
     safety = calculate_safety_health(operator, now)
     conduct = calculate_conduct_health(operator, now)
     tail_health = calculate_tail_health(tail, now)
-    confidence = calculate_confidence_score(operator)
+    # §3a ratchet: reading an adverse record must not pay more than the record
+    # costs. See confidence_recovery_cap.
+    recovery_cap = confidence_recovery_cap(operator, now)
+    confidence = calculate_confidence_score(operator) * recovery_cap
 
     blended = (W_SAFETY * safety["h_safety"]) + (W_TAIL * tail_health["h_ts"])
     composite = blended * conduct["h_conduct"] * confidence
@@ -1083,6 +1148,10 @@ def calculate_trust_score(
             **conduct,
             **tail_health,
             "cs": confidence,
+            # Reported so an audit can tell a confidence ceiling apart from
+            # a low Cs: 0.70 here means "adverse record newly readable",
+            # not "immature certificate".
+            "cs_recovery_cap": recovery_cap,
             "churn_effective": calculate_churn_effective(operator),
             "blended_health": blended,
             "composite": composite,
