@@ -134,17 +134,57 @@ def _handle_sigint(_signum, _frame) -> None:
     print("  Press Ctrl-C again to abort immediately.")
 
 
-def fetch_operators(state: Optional[str], limit: Optional[int]) -> List[Dict[str, Any]]:
+def fetch_operators(
+    state: Optional[str],
+    limit: Optional[int],
+    designators: Optional[List[str]] = None,
+    stale_fleet: bool = False,
+) -> List[Dict[str, Any]]:
     """
     Operators to score, in a stable order so --resume walks the same sequence.
 
     Ordered by name rather than by id: a human reading the log can tell roughly
     how far through the alphabet a multi-day run has reached.
+
+    `designators` restricts the run to specific certificates, and `stale_fleet`
+    to operators whose fleet changed after their score was last computed. Both
+    exist because a correction to who operates a tail invalidates `Vf` for the
+    two operators involved and nobody else — rescoring 1,900 operators to fix
+    20 wastes a day and re-runs every source lookup.
     """
     clauses, params = [], {}
     if state:
         clauses.append("faa_state = :state")
         params["state"] = state.upper()
+    if designators:
+        clauses.append("UPPER(TRIM(faa_dsgn_code)) = ANY(:designators)")
+        params["designators"] = [d.strip().upper() for d in designators]
+    if stale_fleet:
+        # Operators holding aircraft added or repointed AFTER their score was
+        # written, plus any never scored.
+        #
+        # This is the honest version of two approaches that do not work:
+        #
+        #   - gtj.aircraft.updated_at alone selected 1,831 of 1,953 operators,
+        #     because a bulk enrichment pass stamps updated_at on rows whose
+        #     fleet membership never changed. True in the letter, useless as a
+        #     signal: Vf only moves when the COUNT changes.
+        #   - comparing against the Vf the score was computed from is not
+        #     possible — trust_scores.factors records fleet_score but never the
+        #     fleet SIZE, so the old input cannot be recovered.
+        #
+        # So this keys on created_at, which only moves when a row is genuinely
+        # new to the table. It still misses a tail REPOINTED between operators
+        # (an UPDATE, not an INSERT), which is why --designator exists and is
+        # what the repoint script's own report feeds.
+        clauses.append("""(
+            trust_score_updated_at IS NULL
+            OR EXISTS (
+                SELECT 1 FROM gtj.aircraft a
+                WHERE a.operator_id = gtj.operators.operator_id
+                  AND a.created_at > gtj.operators.trust_score_updated_at
+            )
+        )""")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -249,7 +289,11 @@ def _append(path: Path, row: Dict[str, Any]) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    operators = fetch_operators(args.state, args.limit)
+    operators = fetch_operators(
+        args.state, args.limit,
+        designators=args.designator or None,
+        stale_fleet=args.stale_fleet,
+    )
     if not operators:
         print("\n  No operators matched.\n")
         return 1
@@ -482,6 +526,11 @@ def main() -> int:
                         help="seconds between operators (default: 30)")
     parser.add_argument("--limit", type=int, default=None, help="score at most N")
     parser.add_argument("--state", default=None, help="only this faa_state, e.g. TX")
+    parser.add_argument("--designator", action="append", metavar="DSGN",
+                        help="only this certificate designator; repeatable")
+    parser.add_argument("--stale-fleet", action="store_true",
+                        help="only operators whose fleet changed after their "
+                             "score was computed (or who have no score)")
     parser.add_argument("--retry-on-source-error", default=",".join(_DEFAULT_RETRY_SOURCES),
                         metavar="ntsb,trust_score",
                         help="sources whose failure forces a retry even on HTTP 200 "
