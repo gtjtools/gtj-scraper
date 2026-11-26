@@ -162,6 +162,18 @@ def save_trust_score_to_supabase(
             "document_analyses": document_analyses or [],
         }
 
+        # `factors` is jsonb, so one non-serializable value anywhere in this
+        # tree aborts the INSERT — and because the score is printed before it
+        # is saved, the console reports success while the row never lands.
+        # That cost three rescore runs: NTSB fallback events carried datetime
+        # event_dates and every save raised
+        # "Object of type datetime is not JSON serializable".
+        #
+        # Normalized through json here rather than trusting every upstream
+        # producer: the pipelines feeding this dict are many and change often,
+        # and a dropped score is far worse than a date rendered as a string.
+        factors = json.loads(json.dumps(factors, default=str))
+
         # Create trust_scores record with enriched data
         trust_score_record = TrustScore(
             operator_id=operator.operator_id,
@@ -187,7 +199,15 @@ def save_trust_score_to_supabase(
         return True
 
     except Exception as e:
-        print(f"  ❌ Error saving to Supabase for {operator_name}: {e}")
+        # Full traceback, not just str(e). A StatementError renders as the
+        # whole INSERT, which buried the one line that mattered
+        # ("Object of type datetime is not JSON serializable") and left three
+        # rescore runs looking successful while nothing persisted.
+        import traceback
+
+        print(f"  ❌ Error saving to Supabase for {operator_name}: "
+              f"{type(e).__name__}: {str(e)[:200]}")
+        traceback.print_exc()
         db.rollback()
         return False
     finally:

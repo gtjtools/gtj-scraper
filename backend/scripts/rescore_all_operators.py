@@ -364,6 +364,11 @@ def run(args: argparse.Namespace) -> int:
     # attempts. Reported at the end so these are not silently equivalent to
     # clean scores.
     accepted_degraded: List[Dict[str, Any]] = []
+
+    # Scored but NOT WRITTEN — the API returned saved_to_supabase=False. These
+    # are worse than outright failures, because the console shows a correct
+    # score while the database keeps the old one.
+    not_saved: List[Dict[str, Any]] = []
     scored = failed = 0
     started = datetime.now(timezone.utc)
 
@@ -417,6 +422,14 @@ def run(args: argparse.Namespace) -> int:
                 if result.get("accepted_degraded"):
                     accepted_degraded.append(result)
                     suffix = f"  ⚠️  no {','.join(result['degraded_sources'])}"
+                # NOT PERSISTED is a failure, however good the number looks.
+                # The API prints and returns the score before saving it, so a
+                # save that raises leaves a correct score on screen and a stale
+                # one in the database. Three runs of these eight operators read
+                # as successful while nothing moved.
+                if result.get("saved") is False:
+                    not_saved.append(result)
+                    suffix += "  ❌ NOT SAVED"
                 print(f"{label}  {result['trust_score']} ({result['tier']})"
                       f"  {reds}R/{greys}G  {result['elapsed_s']}s{suffix}")
                 return True
@@ -482,8 +495,23 @@ def run(args: argparse.Namespace) -> int:
     if accepted_degraded:
         print(f"    of which    : {len(accepted_degraded):,} on incomplete evidence")
     print(f"  still failing : {len(retry_queue):,}")
+    if not_saved:
+        print(f"  NOT SAVED     : {len(not_saved):,}  ← scored but the database "
+              f"still holds the old value")
     print(f"  elapsed       : {elapsed_h:.1f} hours")
     print(f"  progress file : {progress_path}")
+
+    if not_saved:
+        # Loud, and last, because a run can otherwise look entirely successful
+        # while changing nothing. The reason is in the API process log, not
+        # here — save_trust_score_to_supabase prints it server-side.
+        print(f"\n  ❌ {len(not_saved):,} score(s) were NOT persisted:")
+        for row in not_saved[:12]:
+            print(f"    {row['operator_name'][:44]:<46} {row.get('trust_score')}")
+        if len(not_saved) > 12:
+            print(f"    … and {len(not_saved) - 12:,} more")
+        print("    The API log holds the exception; these operators still serve")
+        print("    their previous score. Re-run after fixing the cause.")
 
     if accepted_degraded:
         # These carry a real score but thinner evidence. Surfaced explicitly so

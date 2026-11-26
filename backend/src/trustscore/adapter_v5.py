@@ -809,7 +809,26 @@ def fetch_cached_accidents(
         return [
             {
                 "event_id": row["public_docket"] or row["ntsb_number"],
-                "event_date": row["event_date"],
+                # ISO STRING, NOT A datetime. These events are stored verbatim
+                # in gtj.trust_scores.factors, which is jsonb — a datetime
+                # raises "Object of type datetime is not JSON serializable" on
+                # INSERT, save_trust_score_to_supabase catches it and returns
+                # False, and the score is computed, returned to the caller and
+                # then silently discarded.
+                #
+                # That failure was invisible for three rescore runs: the API
+                # prints the score before saving, so the console showed correct
+                # numbers for operators whose stored score never moved. It only
+                # bites on this path — live CAROL already returns ISO strings —
+                # so it breaks exactly when CAROL is down and this fallback is
+                # the only source of safety evidence.
+                #
+                # _parse_date accepts both, so decay maths is unaffected.
+                "event_date": (
+                    row["event_date"].isoformat()
+                    if hasattr(row["event_date"], "isoformat")
+                    else row["event_date"]
+                ),
                 # Title-cased so classify_accident_severity's substring match
                 # behaves identically to the live CAROL path.
                 "event_type": (row["event_type"] or "Accident").title(),
