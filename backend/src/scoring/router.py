@@ -541,9 +541,16 @@ async def full_scoring_flow(
             # If the cache answers, safety IS assessed — just from a snapshot
             # rather than live, so `safety_sources_queried` stays True below.
             # If it does not, the GREY flag and the confidence penalty stand.
+            # Matched by tail AND by operator. Tail alone was hiding 219 of
+            # the 237 accidents already attributed to an operator in this
+            # table — those with no registration, or whose tail has since left
+            # the fleet. Westwind Helicopters scored 100.00 while holding a
+            # 2017 fatal accident for exactly this reason.
+            cached_operator_id = adapter_v5.resolve_operator_id(operator_name)
             cached_accidents = adapter_v5.fetch_cached_accidents(
-                fleet_tail_numbers
-            ) if fleet_tail_numbers else []
+                fleet_tail_numbers,
+                operator_id=cached_operator_id,
+            ) if (fleet_tail_numbers or cached_operator_id) else []
             if cached_accidents:
                 print(f"  → Falling back to the NTSB bulk snapshot: "
                       f"{len(cached_accidents)} accident record(s)")

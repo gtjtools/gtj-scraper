@@ -644,9 +644,59 @@ def fetch_fleet_tails(
 _MIN_CHURN_WINDOW_DAYS = 180
 
 
+def resolve_operator_id(
+    operator_name: str,
+    db_session_factory: Any = None,
+) -> Optional[str]:
+    """
+    `gtj.operators.operator_id` for an operator name, or None.
+
+    Exists so fetch_cached_accidents can match accidents attributed to the
+    operator rather than only to a current tail. Matched on exact name, the
+    same convention fetch_fleet_tails uses, so an operator resolvable for its
+    fleet is resolvable here too.
+
+    Returns None when the name is absent or matches more than one row — an
+    ambiguous match would attribute one company's accidents to another, which
+    is worse than the tail-only behaviour it replaces.
+    """
+    if not operator_name:
+        return None
+
+    session = None
+    try:
+        if db_session_factory is None:
+            from src.common.config import SessionLocal
+            db_session_factory = SessionLocal
+
+        from sqlalchemy import text
+
+        session = db_session_factory()
+        rows = session.execute(
+            text("""
+                SELECT operator_id FROM gtj.operators
+                WHERE name = :name LIMIT 2
+            """),
+            {"name": operator_name},
+        ).all()
+        if len(rows) != 1:
+            return None
+        return str(rows[0][0])
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Operator id lookup failed for %r: %s", operator_name, exc)
+        return None
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
+
+
 def fetch_cached_accidents(
     tail_numbers: List[str],
     db_session_factory: Any = None,
+    operator_id: Any = None,
 ) -> List[Dict[str, Any]]:
     """
     Accident records for a fleet from `gtj.ntsb_incidents` — the CAROL fallback.
@@ -657,11 +707,39 @@ def fetch_cached_accidents(
     to a clean record. §3a now flags that case GREY and damps confidence, but a
     flag is not evidence — this supplies the evidence.
 
-    Reads only rows written by `scripts/ingest_ntsb_bulk.py`, which carries a
-    registration on effectively every row. The pre-existing CAROL-cached rows
-    are deliberately excluded: 245 of 247 had no tail number, so they cannot be
-    matched to a fleet and including them would imply coverage that is not
-    there.
+    TWO MATCH PATHS, BECAUSE A TAIL ALONE MISSES MOST OF THEM
+    ---------------------------------------------------------
+    Matching on registration only was hiding 219 of the 237 accidents already
+    attributed to an operator in this table (92%), across 104 operators:
+
+      * 141 rows carry no registration at all. An accident can predate our
+        fleet records or name only the operator; NTSB_JSON_IMPORT rows are
+        entirely of this kind (141 of 149 are operator-linked, none has a
+        tail), so a tail filter can never reach them.
+      * 77 name a tail that is not in `gtj.aircraft` — sold, re-registered,
+        or destroyed in the accident being described.
+
+    Westwind Helicopters (IAVA) was the clearest case: TrustScore 100.00 while
+    holding CEN17FA112, a 2017 fatal accident on N1371. The row was ingested
+    correctly and linked to the operator correctly; N1371 simply is not among
+    the 23 tails on its certificate today, so the lookup never saw it. A
+    perfect score on an operator with a fatality on record is the same failure
+    the §3a damping was added to prevent — absent evidence reading as good
+    news.
+
+    So rows are now matched by tail OR by `operator_id`. Deduplicated on
+    `ntsb_incident_id`, because an accident on a current tail satisfies both
+    arms and must be counted once; `Orfbase` sums events, so a duplicate is a
+    double penalty.
+
+    ON data_source
+    --------------
+    The tail arm stays restricted to NTSB_BULK_AVALL, whose rows carry a
+    registration on effectively every row. The operator arm accepts any
+    source: NTSB_JSON_IMPORT exists precisely to hold older operator-attributed
+    accidents, and excluding it was the reason 141 of them were invisible. The
+    original exclusion was written when 245 of 247 cached rows had no tail —
+    correct for a tail-keyed query, wrong once operator_id is a key too.
 
     Returns event dicts in the same shape `split_fleet_events` expects, so the
     caller substitutes them for the live result with no further mapping.
@@ -673,11 +751,14 @@ def fetch_cached_accidents(
         tail_numbers: N-numbers to match, with or without the leading N.
         db_session_factory: Callable returning a session; defaults to
             SessionLocal.
+        operator_id: Operator whose attributed accidents should also be
+            returned. Optional — omitting it reproduces the old tail-only
+            behaviour exactly.
     """
     normalized = sorted({
         (t or "").strip().upper() for t in (tail_numbers or []) if (t or "").strip()
     })
-    if not normalized:
+    if not normalized and operator_id is None:
         return []
 
     session = None
@@ -691,18 +772,39 @@ def fetch_cached_accidents(
         session = db_session_factory()
         rows = session.execute(
             text("""
-                SELECT ntsb_number, public_docket, event_date, tail_number,
+                SELECT DISTINCT ON (ntsb_incident_id)
+                       ntsb_incident_id,
+                       ntsb_number, public_docket, event_date, tail_number,
                        event_type::text AS event_type,
                        highest_injury::text AS highest_injury,
                        aircraft_damage::text AS aircraft_damage,
-                       total_fatalities
+                       total_fatalities,
+                       data_source
                 FROM gtj.ntsb_incidents
-                WHERE data_source = 'NTSB_BULK_AVALL'
-                  AND UPPER(tail_number) = ANY(:tails)
-                ORDER BY event_date DESC
+                WHERE (
+                        data_source = 'NTSB_BULK_AVALL'
+                        AND :has_tails
+                        AND UPPER(tail_number) = ANY(:tails)
+                      )
+                   OR (
+                        :operator_id IS NOT NULL
+                        AND operator_id = CAST(:operator_id AS uuid)
+                      )
+                ORDER BY ntsb_incident_id, event_date DESC
             """),
-            {"tails": normalized},
+            {
+                "tails": normalized or [""],
+                "has_tails": bool(normalized),
+                "operator_id": str(operator_id) if operator_id else None,
+            },
         ).mappings().all()
+        # DISTINCT ON needs ntsb_incident_id leading its ORDER BY, so the
+        # newest-first ordering the caller expects is restored here.
+        rows = sorted(
+            rows,
+            key=lambda r: (r["event_date"] is not None, r["event_date"]),
+            reverse=True,
+        )
 
         return [
             {
@@ -715,7 +817,11 @@ def fetch_cached_accidents(
                 "aircraft_damage": (row["aircraft_damage"] or "").title(),
                 "total_fatalities": row["total_fatalities"],
                 "tail_number": row["tail_number"],
-                "source": "NTSB_BULK",
+                # Which snapshot the row came from, rather than a constant:
+                # an operator-attributed NTSB_JSON_IMPORT row with no tail is
+                # weaker evidence than a registration-matched bulk row, and a
+                # reader of the audit trail should be able to tell them apart.
+                "source": row["data_source"] or "NTSB_BULK",
             }
             for row in rows
         ]
